@@ -35,8 +35,8 @@ export function UnitTile({ unit }: { unit: UnitView }) {
       )}
       title={unit.tenant_name ?? subLabel[state]}
     >
-      <span className="text-sm leading-tight font-bold">{unit.code}</span>
-      <span className={clsx("truncate text-[11px] leading-tight", state === "available" && "text-ok")}>
+      <span className="text-sm leading-snug font-bold">{unit.code}</span>
+      <span className={clsx("truncate text-[11px] leading-snug", state === "available" && "text-ok")}>
         {state === "occupied" || state === "expiring" ? (unit.tenant_name ?? "") : subLabel[state]}
       </span>
     </Link>

@@ -17,7 +17,7 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
       <div className="relative hidden flex-col justify-between overflow-hidden bg-ink p-12 text-white lg:flex">
         <Logo dark className="text-4xl" />
         <div>
-          <p className="text-4xl leading-tight font-bold">
+          <p className="text-4xl leading-[1.45] font-bold">
             รู้สถานะธุรกิจทั้งหมด
             <br />
             <span className="text-brand">ได้ในหน้าเดียว</span>

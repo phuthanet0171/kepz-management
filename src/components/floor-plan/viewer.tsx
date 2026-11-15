@@ -85,7 +85,7 @@ export function FloorPlanViewer({
                 href={`/units/${u.id}`}
                 title={`${u.code} · ${u.tenant_name ?? TILE_LEGEND.find((l) => l.state === state)?.label ?? ""}`}
                 className={clsx(
-                  "absolute flex flex-col items-center justify-center overflow-hidden rounded-md border-2 text-center leading-tight transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
+                  "absolute flex flex-col items-center justify-center overflow-hidden rounded-md border-2 text-center leading-snug transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
                   TILE_CLASS[state],
                 )}
                 style={{ left: p.x * cell + 1, top: p.y * cell + 1, width: p.w * cell - 2, height: p.h * cell - 2 }}

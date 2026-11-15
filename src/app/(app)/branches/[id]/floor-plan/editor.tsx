@@ -486,7 +486,7 @@ export function FloorPlanEditor({
                     setDrag({ kind: "move", id, startX: e.clientX, startY: e.clientY, orig: b, moved: false });
                   }}
                   className={clsx(
-                    "absolute flex cursor-grab flex-col items-center justify-center overflow-hidden rounded-md border-2 text-center leading-tight active:cursor-grabbing",
+                    "absolute flex cursor-grab flex-col items-center justify-center overflow-hidden rounded-md border-2 text-center leading-snug active:cursor-grabbing",
                     bad ? "border-bad bg-bad-soft text-bad" : u.unit_type_code === "PARKING" ? "border-info/50 bg-info-soft text-ink" : "border-ink/30 bg-brand-soft text-ink",
                     isSel && "z-10 ring-2 ring-ink ring-offset-1",
                   )}
