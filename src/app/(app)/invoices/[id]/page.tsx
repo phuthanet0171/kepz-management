@@ -1,0 +1,192 @@
+import { Paperclip, Printer } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { InvoiceStatusBadge } from "@/components/status";
+import { Alert, Badge, Card, CardHeader, DefinitionList, PageHeader } from "@/components/ui";
+import { money, PAYMENT_METHOD_LABEL, thDate, thDateTime, todayTH } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
+import type { InvoiceItem, InvoiceView, Payment } from "@/lib/types";
+import { RecordPaymentButton, VoidInvoiceButton, VoidPaymentButton } from "./payment-actions";
+
+export const metadata: Metadata = { title: "ใบแจ้งหนี้" };
+
+export default async function InvoicePage({ params }: PageProps<"/invoices/[id]">) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const [{ data: invData }, { data: itemData }, { data: payData }] = await Promise.all([
+    supabase.from("v_invoices").select("*").eq("id", id).maybeSingle(),
+    supabase.from("invoice_items").select("*").eq("invoice_id", id).order("sort_order"),
+    supabase.from("payments").select("*").eq("invoice_id", id).order("paid_on").order("created_at"),
+  ]);
+  if (!invData) notFound();
+  const inv = invData as InvoiceView;
+  const items = (itemData ?? []) as InvoiceItem[];
+  const payments = (payData ?? []) as Payment[];
+
+  const slipPaths = payments.map((p) => p.slip_path).filter((p): p is string => Boolean(p));
+  const slipUrls = new Map<string, string>();
+  if (slipPaths.length) {
+    const { data } = await supabase.storage.from("slips").createSignedUrls(slipPaths, 60 * 60);
+    for (const s of data ?? []) if (s.path && s.signedUrl) slipUrls.set(s.path, s.signedUrl);
+  }
+
+  const canPay = inv.status === "unpaid" || inv.status === "partial";
+  const hasActivePayments = payments.some((p) => !p.is_void);
+
+  return (
+    <>
+      <PageHeader
+        back={{ href: `/contracts/${inv.contract_id}`, label: inv.contract_no }}
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            {inv.invoice_no} <InvoiceStatusBadge status={inv.status} overdue={inv.is_overdue} days={inv.days_overdue} />
+          </span>
+        }
+        subtitle={`${inv.unit_code} · ${inv.tenant_name} · ${inv.branch_name}`}
+        actions={
+          <>
+            <Link href={`/print/invoice/${inv.id}`} target="_blank" className="btn btn-outline">
+              <Printer className="size-4" /> พิมพ์ใบแจ้งหนี้
+            </Link>
+            {canPay && <RecordPaymentButton invoiceId={inv.id} outstanding={Number(inv.outstanding)} today={todayTH()} />}
+          </>
+        }
+      />
+
+      {inv.status === "void" && (
+        <Alert tone="bad" className="mb-4">
+          ใบแจ้งหนี้นี้ถูกยกเลิกเมื่อ {thDateTime(inv.voided_at)} · เหตุผล: {inv.void_reason}
+        </Alert>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <Card className="overflow-hidden">
+            <CardHeader title="รายการ" />
+            <ul className="divide-y divide-line">
+              {items.map((it) => (
+                <li key={it.id} className="flex items-start justify-between gap-3 px-4 py-3 sm:px-5">
+                  <div className="min-w-0">
+                    <div className="font-medium">{it.description}</div>
+                    <div className="tabular text-xs text-muted">
+                      {Number(it.quantity)} × {money(Math.abs(it.unit_price))}
+                    </div>
+                  </div>
+                  <span className={`tabular shrink-0 font-medium ${it.amount < 0 ? "text-bad" : ""}`}>{money(it.amount)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="space-y-1.5 border-t border-line bg-canvas/60 px-4 py-4 text-sm sm:px-5">
+              {Number(inv.vat_rate) > 0 && (
+                <>
+                  <div className="flex justify-between text-muted">
+                    <span>มูลค่าก่อนภาษี</span>
+                    <span className="tabular">{money(inv.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-muted">
+                    <span>ภาษีมูลค่าเพิ่ม {Number(inv.vat_rate)}%</span>
+                    <span className="tabular">{money(inv.vat_amount)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between text-base font-bold">
+                <span>ยอดรวมทั้งสิ้น</span>
+                <span className="tabular">{money(inv.total)}</span>
+              </div>
+              <div className="flex justify-between text-ok">
+                <span>ชำระแล้ว</span>
+                <span className="tabular">{money(inv.paid_amount)}</span>
+              </div>
+              {inv.status !== "void" && (
+                <div className={`flex justify-between font-semibold ${Number(inv.outstanding) > 0 ? "text-bad" : "text-ok"}`}>
+                  <span>คงค้าง</span>
+                  <span className="tabular">{money(inv.outstanding)}</span>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader title="การรับชำระ / ใบเสร็จ" description={`${payments.length} รายการ`} />
+            {payments.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-muted">ยังไม่มีการชำระ</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {payments.map((p) => (
+                  <li key={p.id} className="px-4 py-3 sm:px-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`font-medium ${p.is_void ? "text-muted line-through" : ""}`}>{p.receipt_no}</span>
+                          {p.is_void && <Badge tone="bad">ยกเลิก</Badge>}
+                        </div>
+                        <div className="text-xs text-muted">
+                          {thDate(p.paid_on)} · {PAYMENT_METHOD_LABEL[p.method]}
+                          {p.reference && ` · อ้างอิง ${p.reference}`}
+                        </div>
+                        {p.note && <div className="text-xs text-muted">{p.note}</div>}
+                        {p.is_void && <div className="text-xs text-bad">เหตุผล: {p.void_reason}</div>}
+                      </div>
+                      <span className={`tabular shrink-0 font-semibold ${p.is_void ? "text-muted line-through" : "text-ok"}`}>
+                        {money(p.amount)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {!p.is_void && (
+                        <Link href={`/print/receipt/${p.id}`} target="_blank" className="btn btn-outline btn-sm">
+                          <Printer className="size-3.5" /> ใบเสร็จ
+                        </Link>
+                      )}
+                      {p.slip_path && slipUrls.get(p.slip_path) && (
+                        <a href={slipUrls.get(p.slip_path)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
+                          <Paperclip className="size-3.5" /> ดูสลิป
+                        </a>
+                      )}
+                      {!p.is_void && <VoidPaymentButton paymentId={p.id} receiptNo={p.receipt_no} />}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader title="ข้อมูลใบแจ้งหนี้" />
+            <div className="p-4 sm:p-5">
+              <DefinitionList
+                items={[
+                  { label: "วันที่ออก", value: thDate(inv.issue_date) },
+                  { label: "ครบกำหนด", value: <span className={inv.is_overdue ? "text-bad" : undefined}>{thDate(inv.due_date)}</span> },
+                  {
+                    label: "รอบบิล",
+                    value: inv.period_start ? `${thDate(inv.period_start)} – ${thDate(inv.period_end)}` : "-",
+                    full: true,
+                  },
+                  {
+                    label: "ผู้เช่า",
+                    value: (
+                      <Link href={`/tenants/${inv.tenant_id}`} className="underline">
+                        {inv.tenant_name}
+                      </Link>
+                    ),
+                  },
+                  { label: "โทร", value: <a href={`tel:${inv.tenant_phone}`} className="underline">{inv.tenant_phone}</a> },
+                  ...(inv.note ? [{ label: "หมายเหตุ", value: inv.note, full: true }] : []),
+                ]}
+              />
+            </div>
+          </Card>
+          {inv.status !== "void" && !hasActivePayments && (
+            <div className="flex justify-end">
+              <VoidInvoiceButton invoiceId={inv.id} />
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kepz Management System
 
-## Getting Started
+ระบบบริหารธุรกิจห้องเก็บของ (Self Storage) และที่จอดรถของ Kepz ใช้งานได้ทั้งคอมพิวเตอร์และมือถือ และติดตั้งเป็นแอปบนหน้าจอหลักได้ (PWA)
 
-First, run the development server:
+- **Next.js 16** (App Router, Server Actions) + **Tailwind CSS 4**
+- **Supabase**: PostgreSQL, Auth และ Storage สำหรับสลิป
+- ผู้ใช้ระบบตอนนี้มีคนเดียวคือ **Owner** ซึ่งทำได้ทุกอย่าง
+
+## ความสามารถ
+
+| เมนู | สิ่งที่ทำได้ |
+| --- | --- |
+| ภาพรวม | รายรับเดือนนี้เทียบเดือนก่อน กราฟ 6 เดือน อัตราการเช่า ห้องว่าง ยอดค้าง สัญญาใกล้หมด รายการถึงรอบออกบิล |
+| สาขา | เพิ่มสาขา ระบุจำนวนห้อง XS/S/M/L และที่จอด ระบบสร้างรหัสให้ (XS-01, P-01 …) เพิ่มห้องภายหลัง ปิดใช้งานสาขา |
+| ห้องและที่จอด | ผังห้องแยกสาขา/ประเภท กรองตามสถานะ แตะห้องเพื่อดูผู้เช่า ค่าเช่า ชำระล่าสุด วันหมดสัญญา แก้รหัส ราคาเฉพาะห้อง ปิดปรับปรุง |
+| ผู้เช่า | บุคคลธรรมดา / นิติบุคคล ข้อมูลติดต่อ เลขบัตร/เลขผู้เสียภาษี ประวัติสัญญาและบิล |
+| สัญญาเช่า | ทำสัญญา (รายเดือน / 6 เดือน / รายปี) ค่าเช่าเฉพาะสัญญา เงินประกัน (รับ/คืน/หัก) ต่อสัญญา สิ้นสุด/ยกเลิก พิมพ์สัญญา |
+| ใบแจ้งหนี้ | รายการสัญญาที่ถึงรอบ ออกบิลทีละรายการหรือหลายรายการพร้อมกัน เพิ่มค่าปรับ/ค่าอื่น/ส่วนลด VAT ยกเลิกบิล พิมพ์ PDF |
+| รับชำระ | รับเต็มหรือบางส่วน (ห้ามเกินยอดค้าง) โอน/พร้อมเพย์ หรือบัตรเครดิต แนบสลิปจากกล้องมือถือ ออกใบเสร็จ ยกเลิกใบเสร็จ |
+| รายงาน | รายรับรายเดือน แยกช่องทาง/สาขา อายุหนี้ค้าง อัตราการเช่าตามประเภท ส่งออก CSV (เปิดด้วย Excel ได้) |
+| ตั้งค่า | ข้อมูลกิจการ ราคาตั้งต้น VAT (เปิด/ปิด, รวม/ไม่รวม) เลขเอกสาร ช่องทางชำระเงิน ข้อกำหนดสัญญา วันแจ้งเตือน เปลี่ยนรหัสผ่าน |
+
+### หลักการด้านข้อมูล
+
+- ข้อมูลการเงิน (ใบแจ้งหนี้ ใบเสร็จ เงินประกัน) **ลบไม่ได้** ใช้การ “ยกเลิก” พร้อมเหตุผลแทน เลขเอกสารไม่ถูกนำกลับมาใช้ซ้ำ
+- ทุกการแก้ไขถูกบันทึกในตาราง `audit_logs`
+- กฎทางธุรกิจถูกบังคับที่ฐานข้อมูล เช่น หนึ่งห้องมีสัญญาที่ใช้งานได้สัญญาเดียว, รับชำระเกินยอดไม่ได้, ออกบิลค่าเช่าซ้อนรอบไม่ได้
+- เลขเอกสารรูปแบบ `INV2569-0001` (ปี พ.ศ.) เริ่มนับใหม่ทุกปี
+- รอบบิลนับจากวันเริ่มสัญญาเสมอ เช่น เริ่ม 31 ม.ค. → รอบถัดไป 28 ก.พ., 31 มี.ค. (ไม่เลื่อนวันตามเดือนสั้น)
+
+## ติดตั้งครั้งแรก
+
+### 1. สร้างฐานข้อมูล Supabase
+
+1. เข้า [supabase.com](https://supabase.com) → **New project** เลือก Region **Southeast Asia (Singapore)**
+2. ไปที่ **SQL Editor** → New query → คัดลอกทั้งไฟล์ [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) ไปวาง → **Run** (รันครั้งเดียว)
+3. ไปที่ **Authentication → Sign In / Providers** → ปิด **Allow new users to sign up** (กันคนอื่นสมัครเอง)
+4. ไปที่ **Authentication → Users → Add user → Create new user** ใส่อีเมลและรหัสผ่านของเจ้าของ เลือก **Auto Confirm User**
+   - บัญชี **แรก** ที่สร้างจะได้สิทธิ์ Owner อัตโนมัติ บัญชีอื่นจะเข้าดูข้อมูลไม่ได้
+
+### 2. ตั้งค่าโปรเจกต์
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ใส่ `NEXT_PUBLIC_SUPABASE_URL` และ `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (หรือ anon key) จาก **Project Settings → API Keys**
+ห้ามใส่ `service_role` / secret key ลงในโปรเจกต์นี้
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. รันในเครื่อง
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+เปิด http://localhost:3000 แล้วเข้าสู่ระบบด้วยบัญชีที่สร้างในข้อ 1.4
 
-To learn more about Next.js, take a look at the following resources:
+### 4. เริ่มใช้งาน
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **ตั้งค่า** → กรอกข้อมูลกิจการ ช่องทางชำระเงิน และข้อกำหนดสัญญา (ใช้ในเอกสารที่พิมพ์)
+2. **สาขา → เพิ่มสาขา** → ระบุจำนวนห้องแต่ละไซส์และที่จอด
+3. **ห้องและที่จอด** → แตะห้องว่าง → **ทำสัญญาเช่า**
+4. หน้าสัญญา → **ออกใบแจ้งหนี้** → หน้าบิล → **รับชำระ** → พิมพ์ใบเสร็จ
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## นำขึ้นเว็บไซต์ (Vercel)
 
-## Deploy on Vercel
+1. push โปรเจกต์ขึ้น GitHub (private repository)
+2. [vercel.com](https://vercel.com) → **Add New Project** → เลือก repository
+3. ใส่ Environment Variables ทั้ง 2 ค่าเหมือน `.env.local` → **Deploy**
+4. บนมือถือ เปิดเว็บแล้วเลือก **Add to Home Screen** (iPhone: ปุ่มแชร์ใน Safari / Android: เมนู Chrome)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+ภายหลังเปลี่ยนเป็นโดเมน `admin.kepz.co.th` ได้ที่ Vercel → Settings → Domains โดยไม่ต้องแก้โค้ด
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## โครงสร้างโปรเจกต์
+
+```
+supabase/migrations/0001_init.sql   ตาราง, ฟังก์ชันธุรกิจ, views, RLS, storage
+src/proxy.ts                        ตรวจการล็อกอินทุกหน้า
+src/app/(app)/                      หน้าจอหลักของระบบ
+src/app/print/                      เอกสาร A4: ใบแจ้งหนี้ ใบเสร็จ สัญญา
+src/app/api/export/[kind]/          ส่งออก CSV
+src/lib/                            Supabase client, การจัดรูปแบบวันที่/เงิน, ประเภทข้อมูล
+src/components/                     UI ที่ใช้ร่วมกัน
+```
