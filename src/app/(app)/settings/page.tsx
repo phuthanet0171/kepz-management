@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
 import { getSettings, getUnitTypes } from "@/lib/data";
-import { createClient } from "@/lib/supabase/server";
-import { AlertsForm, BusinessForm, DocumentsForm, PasswordForm, UnitTypesForm, VatForm } from "./settings-forms";
+import { requireOwner } from "@/lib/auth";
+import { AlertsForm, BusinessForm, DocumentsForm, UnitTypesForm, VatForm } from "./settings-forms";
 
 export const metadata: Metadata = { title: "ตั้งค่า" };
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const [s, types, { data: user }] = await Promise.all([getSettings(), getUnitTypes(), supabase.auth.getUser()]);
+  await requireOwner();
+  const [s, types] = await Promise.all([getSettings(), getUnitTypes()]);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -19,7 +19,6 @@ export default async function SettingsPage() {
         <VatForm s={s} />
         <DocumentsForm s={s} />
         <AlertsForm s={s} />
-        <PasswordForm email={user.user?.email ?? ""} />
       </div>
     </div>
   );

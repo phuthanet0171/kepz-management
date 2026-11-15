@@ -1,5 +1,6 @@
 "use server";
 
+import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { thaiError } from "@/lib/errors";
@@ -48,6 +49,8 @@ export async function updateUnit(_: ActionState, fd: FormData): Promise<ActionSt
 }
 
 export async function deleteUnit(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const id = reqStr(fd, "id");
   const supabase = await createClient();
 

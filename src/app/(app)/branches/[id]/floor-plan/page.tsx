@@ -1,3 +1,4 @@
+import { requireOwner } from "@/lib/auth";
 import clsx from "clsx";
 import { Eye, Map as MapIcon, MonitorSmartphone } from "lucide-react";
 import type { Metadata } from "next";
@@ -12,6 +13,7 @@ import { AddPlanButton, DeletePlanButton, FirstPlanForm } from "./plan-actions";
 export const metadata: Metadata = { title: "จัดผังสถานที่" };
 
 export default async function FloorPlanEditPage({ params, searchParams }: PageProps<"/branches/[id]/floor-plan">) {
+  await requireOwner();
   const { id } = await params;
   const sp = await searchParams;
   const supabase = await createClient();

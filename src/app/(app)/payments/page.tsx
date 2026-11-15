@@ -1,3 +1,4 @@
+import { requireOwner } from "@/lib/auth";
 import { Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -14,6 +15,7 @@ type Row = Payment & {
 };
 
 export default async function PaymentsPage({ searchParams }: PageProps<"/payments">) {
+  await requireOwner();
   const sp = await searchParams;
   const month = typeof sp.month === "string" && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : todayTH().slice(0, 7);
   const [y, m] = month.split("-").map(Number);

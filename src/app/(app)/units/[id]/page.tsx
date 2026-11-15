@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContractStatusBadge, UnitStatusBadge } from "@/components/status";
 import { Alert, Card, CardHeader, DefinitionList, EmptyState, PageHeader } from "@/components/ui";
+import { isOwner } from "@/lib/auth";
 import { getUnitTypes } from "@/lib/data";
 import { baht, BILLING_CYCLE_LABEL, daysBetween, money, thDate, todayTH } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -22,6 +23,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
     getUnitTypes(),
   ]);
   if (!unitData) notFound();
+  const owner = await isOwner();
   const unit = unitData as UnitView;
   const contracts = (history ?? []) as ContractView[];
   const current = contracts.find((c) => c.status === "active");
@@ -185,7 +187,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
                       </>
                     ),
                   },
-                  { label: "สาขา", value: <Link href={`/branches/${unit.branch_id}`} className="underline">{unit.branch_name}</Link> },
+                  { label: "สาขา", value: <Link href={`/units?branch=${unit.branch_id}`} className="underline">{unit.branch_name}</Link> },
                   ...(unit.note ? [{ label: "หมายเหตุ", value: unit.note, full: true }] : []),
                 ]}
               />
@@ -200,7 +202,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
               </Link>
             </Alert>
           )}
-          {contracts.length === 0 && (
+          {owner && contracts.length === 0 && (
             <div className="flex justify-end">
               <DeleteUnitButton unit={unit} />
             </div>

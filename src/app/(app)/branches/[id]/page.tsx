@@ -1,3 +1,4 @@
+import { requireOwner } from "@/lib/auth";
 import { Map as MapIcon, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -12,6 +13,7 @@ import { AddUnitsButton, DeleteBranchButton, EditBranchButton } from "./branch-a
 export const metadata: Metadata = { title: "รายละเอียดสาขา" };
 
 export default async function BranchPage({ params }: PageProps<"/branches/[id]">) {
+  await requireOwner();
   const { id } = await params;
   const supabase = await createClient();
 

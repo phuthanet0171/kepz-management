@@ -1,3 +1,4 @@
+import { requireOwner } from "@/lib/auth";
 import { Building2, ChevronRight, MapPin, Phone, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -9,6 +10,7 @@ import type { UnitView } from "@/lib/types";
 export const metadata: Metadata = { title: "สาขา" };
 
 export default async function BranchesPage() {
+  await requireOwner();
   const supabase = await createClient();
   const [branches, units] = await Promise.all([
     getBranches(),

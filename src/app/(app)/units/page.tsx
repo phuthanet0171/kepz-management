@@ -8,6 +8,7 @@ import { groupByType, UnitGrid, UnitLegend, unitTileState } from "@/components/u
 import { Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
 import { fetchAll, getBranches } from "@/lib/data";
 import { getBranchPlanData } from "@/lib/floor-plans";
+import { isOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { UnitView } from "@/lib/types";
 
@@ -34,6 +35,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
             title="ยังไม่มีสาขา"
             description="เพิ่มสาขาและระบุจำนวนห้องก่อน แล้วผังห้องจะแสดงที่นี่"
             action={
+              (await isOwner()) &&
               <Link href="/branches/new" className="btn btn-primary">
                 <Plus className="size-4" /> เพิ่มสาขา
               </Link>
@@ -189,7 +191,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
 }
 
 async function PlanView({ branchId, planId }: { branchId: string; planId: string | null }) {
-  const { plans, placements, units } = await getBranchPlanData(branchId);
+  const [{ plans, placements, units }, owner] = await Promise.all([getBranchPlanData(branchId), isOwner()]);
   const plan = plans.find((p) => p.id === planId) ?? plans[0];
 
   if (!plan) {
@@ -200,9 +202,11 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
           title="ยังไม่ได้จัดผังสถานที่ของสาขานี้"
           description="สร้างผังแต่ละชั้นหรือโซน แล้วลากห้องไปวางตามตำแหน่งจริง ผังจะแสดงสถานะห้องแบบเรียลไทม์"
           action={
+            owner && (
             <Link href={`/branches/${branchId}/floor-plan`} className="btn btn-primary">
               <Pencil className="size-4" /> เริ่มจัดผัง
             </Link>
+            )
           }
         />
       </Card>
@@ -230,9 +234,11 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
         ))}
         <span className="ml-auto flex items-center gap-3">
           <RealtimeRefresh />
-          <Link href={`/branches/${branchId}/floor-plan?plan=${plan.id}`} className="btn btn-outline btn-sm hidden md:inline-flex">
-            <Pencil className="size-3.5" /> จัดผัง
-          </Link>
+          {owner && (
+            <Link href={`/branches/${branchId}/floor-plan?plan=${plan.id}`} className="btn btn-outline btn-sm hidden md:inline-flex">
+              <Pencil className="size-3.5" /> จัดผัง
+            </Link>
+          )}
         </span>
       </div>
       <div className="mb-3">
@@ -241,7 +247,7 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
       <Card className="p-2 sm:p-3">
         <FloorPlanViewer plan={plan} placements={placements.filter((p) => p.floor_plan_id === plan.id)} units={unitMap} />
       </Card>
-      {unplacedCount > 0 && (
+      {owner && unplacedCount > 0 && (
         <p className="mt-2 text-xs text-muted">
           ยังมี {unplacedCount} ห้องที่ยังไม่ได้วางบนผังใด ๆ{" "}
           <Link href={`/branches/${branchId}/floor-plan?plan=${plan.id}`} className="underline">

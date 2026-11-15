@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardHeader, EmptyState, StatCard } from "@/components/ui";
+import { isOwner } from "@/lib/auth";
 import { fetchAll, getBranches } from "@/lib/data";
 import { addMonths, baht, daysBetween, money, thDate, thMonth, todayTH } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -19,6 +20,7 @@ import type { BillingDue, ContractView, InvoiceView, UnitView } from "@/lib/type
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  const owner = await isOwner();
   const today = todayTH();
   const thisMonth = today.slice(0, 7);
   const sixMonthsAgo = addMonths(`${thisMonth}-01`, -5);
@@ -37,9 +39,11 @@ export default async function DashboardPage() {
     fetchAll<BillingDue>((from, to) =>
       supabase.from("v_billing_due").select("*").eq("is_due", true).order("period_start").order("contract_id").range(from, to),
     ),
-    fetchAll<{ paid_on: string; amount: number }>((from, to) =>
-      supabase.from("payments").select("paid_on, amount").eq("is_void", false).gte("paid_on", sixMonthsAgo).order("id").range(from, to),
-    ),
+    owner
+      ? fetchAll<{ paid_on: string; amount: number }>((from, to) =>
+          supabase.from("payments").select("paid_on, amount").eq("is_void", false).gte("paid_on", sixMonthsAgo).order("id").range(from, to),
+        )
+      : Promise.resolve([]),
   ]);
 
   if (branches.length === 0) {
@@ -50,8 +54,13 @@ export default async function DashboardPage() {
           <EmptyState
             icon={<Warehouse className="size-6" />}
             title="ยินดีต้อนรับสู่ Kepz Management"
-            description="เริ่มต้นด้วยการเพิ่มสาขาและระบุจำนวนห้องแต่ละไซส์กับที่จอดรถ จากนั้นตั้งค่าข้อมูลกิจการสำหรับออกเอกสาร"
+            description={
+              owner
+                ? "เริ่มต้นด้วยการเพิ่มสาขาและระบุจำนวนห้องแต่ละไซส์กับที่จอดรถ จากนั้นตั้งค่าข้อมูลกิจการสำหรับออกเอกสาร"
+                : "ยังไม่มีสาขาในระบบ กรุณาติดต่อเจ้าของกิจการ"
+            }
             action={
+              owner &&
               <div className="flex flex-wrap justify-center gap-2">
                 <Link href="/branches/new" className="btn btn-primary">
                   เพิ่มสาขาแรก
@@ -97,6 +106,7 @@ export default async function DashboardPage() {
     <>
       <Greeting today={today} />
 
+      {owner && (
       <Card className="mb-3 overflow-hidden border-ink bg-ink text-white">
         <div className="grid gap-5 p-5 sm:grid-cols-[1fr_1.2fr] sm:p-6">
           <div>
@@ -134,6 +144,7 @@ export default async function DashboardPage() {
           </div>
         </div>
       </Card>
+      )}
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard

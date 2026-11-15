@@ -1,3 +1,4 @@
+import { requireOwner } from "@/lib/auth";
 import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import type { UnitView } from "@/lib/types";
 export const metadata: Metadata = { title: "รายงาน" };
 
 export default async function ReportsPage({ searchParams }: PageProps<"/reports">) {
+  await requireOwner();
   const sp = await searchParams;
   const supabase = await createClient();
   const currentYear = Number(todayTH().slice(0, 4));

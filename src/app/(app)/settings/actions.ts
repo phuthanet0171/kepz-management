@@ -1,5 +1,6 @@
 "use server";
 
+import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { thaiError } from "@/lib/errors";
 import { bool, isMoney, num, reqStr, str } from "@/lib/form";
@@ -15,6 +16,8 @@ async function saveSettings(patch: Record<string, unknown>): Promise<ActionState
 }
 
 export async function saveBusiness(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const name = reqStr(fd, "business_name");
   if (!name) return { error: "กรุณากรอกชื่อกิจการ" };
   const taxId = str(fd, "tax_id")?.replace(/[\s-]/g, "") ?? null;
@@ -29,6 +32,8 @@ export async function saveBusiness(_: ActionState, fd: FormData): Promise<Action
 }
 
 export async function saveVat(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const enabled = bool(fd, "vat_enabled");
   const rate = num(fd, "vat_rate") ?? 7;
   if (!Number.isFinite(rate) || rate < 0 || rate > 30) return { error: "อัตราภาษีต้องอยู่ระหว่าง 0–30%" };
@@ -45,6 +50,8 @@ export async function saveVat(_: ActionState, fd: FormData): Promise<ActionState
 }
 
 export async function saveDocuments(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const prefixes = ["invoice_prefix", "receipt_prefix", "contract_prefix"].map((k) => reqStr(fd, k).toUpperCase());
   if (prefixes.some((p) => !/^[A-Z0-9-]{1,10}$/.test(p))) {
     return { error: "คำนำหน้าเลขเอกสารใช้ได้เฉพาะ A–Z, 0–9 และ - ไม่เกิน 10 ตัว" };
@@ -60,6 +67,8 @@ export async function saveDocuments(_: ActionState, fd: FormData): Promise<Actio
 }
 
 export async function saveAlerts(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const due = num(fd, "due_soon_days");
   const exp = num(fd, "expiring_soon_days");
   if (due === null || !Number.isInteger(due) || due < 0 || due > 90) return { error: "จำนวนวันแจ้งออกบิลล่วงหน้าต้องอยู่ระหว่าง 0–90" };
@@ -68,6 +77,8 @@ export async function saveAlerts(_: ActionState, fd: FormData): Promise<ActionSt
 }
 
 export async function saveUnitTypes(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const codes = fd.getAll("code").map(String);
   const supabase = await createClient();
   for (const code of codes) {
@@ -83,18 +94,4 @@ export async function saveUnitTypes(_: ActionState, fd: FormData): Promise<Actio
   }
   revalidatePath("/", "layout");
   return { ok: true, message: "บันทึกราคาแล้ว ใช้กับสัญญาใหม่เท่านั้น สัญญาเดิมยังใช้ราคาเดิม" };
-}
-
-export async function changePassword(_: ActionState, fd: FormData): Promise<ActionState> {
-  const pw = String(fd.get("password") ?? "");
-  const confirm = String(fd.get("confirm") ?? "");
-  if (pw.length < 8) return { error: "รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร" };
-  if (pw !== confirm) return { error: "ยืนยันรหัสผ่านไม่ตรงกัน" };
-  const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ password: pw });
-  if (error) {
-    if (error.message.includes("different from the old")) return { error: "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม" };
-    return { error: thaiError(error, "เปลี่ยนรหัสผ่านไม่สำเร็จ") };
-  }
-  return { ok: true, message: "เปลี่ยนรหัสผ่านแล้ว" };
 }

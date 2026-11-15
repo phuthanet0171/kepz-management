@@ -1,5 +1,6 @@
 "use server";
 
+import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { thaiError } from "@/lib/errors";
@@ -8,6 +9,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
 export async function createBranch(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const name = reqStr(fd, "name");
   if (!name) return { error: "กรุณากรอกชื่อสาขา" };
 
@@ -40,6 +43,8 @@ export async function createBranch(_: ActionState, fd: FormData): Promise<Action
 }
 
 export async function updateBranch(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const id = reqStr(fd, "id");
   const name = reqStr(fd, "name");
   if (!name) return { error: "กรุณากรอกชื่อสาขา" };
@@ -62,6 +67,8 @@ export async function updateBranch(_: ActionState, fd: FormData): Promise<Action
 }
 
 export async function addUnits(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const branchId = reqStr(fd, "branch_id");
   const typeCode = reqStr(fd, "unit_type_code");
   const count = num(fd, "count");
@@ -83,6 +90,8 @@ export async function addUnits(_: ActionState, fd: FormData): Promise<ActionStat
 }
 
 export async function deleteBranch(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const id = reqStr(fd, "id");
   const confirmName = reqStr(fd, "confirm_name");
 

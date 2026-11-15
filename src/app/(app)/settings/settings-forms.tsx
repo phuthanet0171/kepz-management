@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardHeader, Field } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import type { Settings, UnitType } from "@/lib/types";
-import { changePassword, saveAlerts, saveBusiness, saveDocuments, saveUnitTypes, saveVat } from "./actions";
+import { saveAlerts, saveBusiness, saveDocuments, saveUnitTypes, saveVat } from "./actions";
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -155,24 +155,6 @@ export function AlertsForm({ s }: { s: Settings }) {
           </Field>
         </div>
         <SubmitButton>บันทึก</SubmitButton>
-      </ActionForm>
-    </Section>
-  );
-}
-
-export function PasswordForm({ email }: { email: string }) {
-  return (
-    <Section title="บัญชีผู้ใช้" description={email}>
-      <ActionForm action={changePassword}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="รหัสผ่านใหม่" hint="อย่างน้อย 8 ตัวอักษร">
-            <input name="password" type="password" autoComplete="new-password" minLength={8} required className="input" />
-          </Field>
-          <Field label="ยืนยันรหัสผ่านใหม่">
-            <input name="confirm" type="password" autoComplete="new-password" minLength={8} required className="input" />
-          </Field>
-        </div>
-        <SubmitButton>เปลี่ยนรหัสผ่าน</SubmitButton>
       </ActionForm>
     </Section>
   );

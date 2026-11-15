@@ -1,5 +1,6 @@
 "use server";
 
+import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { thaiError } from "@/lib/errors";
@@ -8,6 +9,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
 export async function createFloorPlan(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const branchId = reqStr(fd, "branch_id");
   const name = reqStr(fd, "name");
   const cols = num(fd, "cols") ?? 48;
@@ -35,6 +38,8 @@ export async function createFloorPlan(_: ActionState, fd: FormData): Promise<Act
 }
 
 export async function deleteFloorPlan(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const id = reqStr(fd, "id");
   const branchId = reqStr(fd, "branch_id");
   const supabase = await createClient();
@@ -53,6 +58,8 @@ export type SavePlanInput = {
 };
 
 export async function saveFloorPlan(input: SavePlanInput): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
   const name = input.name.trim();
   if (!name) return { error: "กรุณาตั้งชื่อชั้น / โซน" };
   const ints = [input.cols, input.rows, ...input.placements.flatMap((p) => [p.x, p.y, p.w, p.h])];

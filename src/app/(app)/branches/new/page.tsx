@@ -1,3 +1,4 @@
+import { requireOwner } from "@/lib/auth";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
 import { getUnitTypes } from "@/lib/data";
@@ -6,6 +7,7 @@ import { NewBranchForm } from "./branch-form";
 export const metadata: Metadata = { title: "เพิ่มสาขา" };
 
 export default async function NewBranchPage() {
+  await requireOwner();
   const unitTypes = await getUnitTypes();
   return (
     <div className="mx-auto max-w-2xl">

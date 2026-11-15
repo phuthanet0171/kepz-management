@@ -9,6 +9,7 @@ import {
   Menu,
   ReceiptText,
   Settings,
+  UserCog,
   Users,
   Wallet,
   Warehouse,
@@ -17,7 +18,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type NavItem = { href: string; label: string; icon: LucideIcon };
+type NavItem = { href: string; label: string; icon: LucideIcon; ownerOnly?: boolean };
+type Role = "owner" | "staff";
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "ภาพรวม", icon: LayoutDashboard },
@@ -25,10 +27,11 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/tenants", label: "ผู้เช่า", icon: Users },
   { href: "/contracts", label: "สัญญาเช่า", icon: FileSignature },
   { href: "/invoices", label: "ใบแจ้งหนี้", icon: ReceiptText },
-  { href: "/payments", label: "รับชำระ", icon: Wallet },
-  { href: "/reports", label: "รายงาน", icon: BarChart3 },
-  { href: "/branches", label: "สาขา", icon: Building2 },
-  { href: "/settings", label: "ตั้งค่า", icon: Settings },
+  { href: "/payments", label: "รับชำระ", icon: Wallet, ownerOnly: true },
+  { href: "/reports", label: "รายงาน", icon: BarChart3, ownerOnly: true },
+  { href: "/branches", label: "สาขา", icon: Building2, ownerOnly: true },
+  { href: "/users", label: "ผู้ใช้งาน", icon: UserCog, ownerOnly: true },
+  { href: "/settings", label: "ตั้งค่า", icon: Settings, ownerOnly: true },
 ];
 
 const MOBILE_ITEMS: NavItem[] = [
@@ -39,7 +42,7 @@ const MOBILE_ITEMS: NavItem[] = [
   { href: "/menu", label: "เมนู", icon: Menu },
 ];
 
-const MENU_SECTIONS = ["/contracts", "/payments", "/reports", "/branches", "/settings", "/menu"];
+const MENU_SECTIONS = ["/contracts", "/payments", "/reports", "/branches", "/users", "/settings", "/account", "/menu"];
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -47,15 +50,15 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SidebarNav() {
-  return <SidebarNavView pathname={usePathname()} />;
+export function SidebarNav({ role }: { role: Role }) {
+  return <SidebarNavView pathname={usePathname()} role={role} />;
 }
 
 /** แสดงเมนูโดยไม่ต้องรู้ path (ใช้เป็น fallback ระหว่างรอ Suspense) */
-export function SidebarNavView({ pathname }: { pathname: string }) {
+export function SidebarNavView({ pathname, role }: { pathname: string; role: Role }) {
   return (
     <nav className="space-y-0.5">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+      {NAV_ITEMS.filter((i) => role === "owner" || !i.ownerOnly).map(({ href, label, icon: Icon }) => {
         const active = isActive(pathname, href);
         return (
           <Link

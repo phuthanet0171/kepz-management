@@ -25,6 +25,7 @@ export function thaiError(err: PgError, fallback = "เกิดข้อผิ�
   }
   if (msg.includes("Invalid login credentials")) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
   if (msg.includes("Email not confirmed")) return "บัญชีนี้ยังไม่ได้ยืนยันอีเมล";
+  if (msg.includes("User is banned")) return "บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อเจ้าของกิจการ";
 
   return fallback;
 }

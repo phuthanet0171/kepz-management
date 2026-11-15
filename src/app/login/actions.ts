@@ -13,13 +13,14 @@ export async function signIn(_: ActionState, formData: FormData): Promise<Action
   if (!email || !password) return { error: "กรุณากรอกอีเมลและรหัสผ่าน" };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: auth, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: thaiError(error, "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่") };
 
-  const { data: owner } = await supabase.from("app_users").select("role").maybeSingle();
-  if (!owner) {
+  // Owner มองเห็นบัญชีทุกคน จึงต้องระบุ user_id ของตัวเอง
+  const { data: user } = await supabase.from("app_users").select("is_active").eq("user_id", auth.user.id).maybeSingle();
+  if (!user || !user.is_active) {
     await supabase.auth.signOut();
-    return { error: "บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานระบบ Kepz" };
+    return { error: user ? "บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อเจ้าของกิจการ" : "บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานระบบ Kepz" };
   }
 
   // อนุญาตให้กลับไปเฉพาะหน้าภายในระบบ

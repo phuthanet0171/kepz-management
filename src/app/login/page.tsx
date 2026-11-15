@@ -35,7 +35,7 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
             <p className="text-sm text-muted">Storage Management</p>
           </div>
           <h1 className="text-2xl font-bold">เข้าสู่ระบบ</h1>
-          <p className="mt-1 mb-6 text-sm text-muted">สำหรับเจ้าของกิจการ</p>
+          <p className="mt-1 mb-6 text-sm text-muted">ใช้บัญชีที่เจ้าของกิจการสร้างให้</p>
           <Suspense>
             <Form searchParams={searchParams} />
           </Suspense>

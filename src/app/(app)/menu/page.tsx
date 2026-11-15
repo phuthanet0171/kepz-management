@@ -1,26 +1,34 @@
-import { BarChart3, Building2, ChevronRight, FileSignature, LogOut, Settings, Wallet } from "lucide-react";
+import { BarChart3, Building2, ChevronRight, CircleUser, FileSignature, LogOut, Settings, UserCog, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { signOut } from "@/app/actions";
 import { Card, PageHeader } from "@/components/ui";
+import { getCurrentUser, ROLE_LABEL } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "เมนู" };
 
 const ITEMS = [
   { href: "/contracts", label: "สัญญาเช่า", desc: "สัญญาที่ใช้งาน ใกล้หมด และสิ้นสุด", icon: FileSignature },
-  { href: "/payments", label: "รับชำระ", desc: "ใบเสร็จรับเงินรายเดือน", icon: Wallet },
-  { href: "/reports", label: "รายงาน", desc: "รายได้ ยอดค้าง อัตราการเช่า ส่งออก CSV", icon: BarChart3 },
-  { href: "/branches", label: "สาขา", desc: "เพิ่มสาขา จัดการห้องและที่จอด", icon: Building2 },
-  { href: "/settings", label: "ตั้งค่า", desc: "ข้อมูลกิจการ ราคา ภาษี เอกสาร", icon: Settings },
+  { href: "/payments", label: "รับชำระ", desc: "ใบเสร็จรับเงินรายเดือน", icon: Wallet, ownerOnly: true },
+  { href: "/reports", label: "รายงาน", desc: "รายได้ ยอดค้าง อัตราการเช่า ส่งออก CSV", icon: BarChart3, ownerOnly: true },
+  { href: "/branches", label: "สาขา", desc: "เพิ่มสาขา จัดการห้องและผังสถานที่", icon: Building2, ownerOnly: true },
+  { href: "/users", label: "ผู้ใช้งาน", desc: "เพิ่มบัญชี กำหนดสิทธิ์ ปิดการใช้งาน", icon: UserCog, ownerOnly: true },
+  { href: "/settings", label: "ตั้งค่า", desc: "ข้อมูลกิจการ ราคา ภาษี เอกสาร", icon: Settings, ownerOnly: true },
+  { href: "/account", label: "บัญชีของฉัน", desc: "ชื่อที่แสดงและเปลี่ยนรหัสผ่าน", icon: CircleUser },
 ];
 
-export default function MenuPage() {
+export default async function MenuPage() {
+  const user = await getCurrentUser();
+  const owner = user?.role === "owner";
   return (
     <>
-      <PageHeader title="เมนู" />
+      <PageHeader
+        title="เมนู"
+        subtitle={user ? `${user.display_name || user.email} · ${ROLE_LABEL[user.role]}` : undefined}
+      />
       <Card>
         <ul className="divide-y divide-line">
-          {ITEMS.map(({ href, label, desc, icon: Icon }) => (
+          {ITEMS.filter((i) => owner || !i.ownerOnly).map(({ href, label, desc, icon: Icon }) => (
             <li key={href}>
               <Link href={href} className="flex items-center gap-3 px-4 py-3.5 active:bg-canvas">
                 <span className="grid size-10 place-items-center rounded-xl bg-brand-soft">

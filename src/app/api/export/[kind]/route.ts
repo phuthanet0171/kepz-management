@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import { fetchAll } from "@/lib/data";
 import {
   BILLING_CYCLE_LABEL,
@@ -35,8 +36,9 @@ function yearRange(req: NextRequest) {
 export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind]">) {
   const { kind } = await ctx.params;
   const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
+  if (user.role !== "owner") return NextResponse.json({ error: "ส่งออกข้อมูลได้เฉพาะ Owner" }, { status: 403 });
 
   let filename: string;
   let rows: Cell[][];

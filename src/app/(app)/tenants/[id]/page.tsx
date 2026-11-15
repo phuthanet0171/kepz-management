@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContractStatusBadge, InvoiceStatusBadge } from "@/components/status";
 import { Badge, Card, CardHeader, DefinitionList, PageHeader } from "@/components/ui";
+import { isOwner } from "@/lib/auth";
 import { baht, money, thDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { ContractView, InvoiceView, Tenant } from "@/lib/types";
@@ -27,6 +28,7 @@ export default async function TenantPage({ params }: PageProps<"/tenants/[id]">)
       .limit(20),
   ]);
   if (!tenantData) notFound();
+  const owner = await isOwner();
   const t = tenantData as Tenant;
   const contracts = (contractData ?? []) as ContractView[];
   const invoices = (invoiceData ?? []) as InvoiceView[];
@@ -89,7 +91,7 @@ export default async function TenantPage({ params }: PageProps<"/tenants/[id]">)
               </div>
             </div>
           </Card>
-          {contracts.length === 0 && (
+          {owner && contracts.length === 0 && (
             <div className="flex justify-end">
               <DeleteTenantButton tenant={t} />
             </div>
