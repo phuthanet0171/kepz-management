@@ -1,6 +1,7 @@
 import { BarChart3, Building2, ChevronRight, CircleUser, FileSignature, LogOut, Settings, UserCog, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signOut } from "@/app/actions";
 import { Card, PageHeader } from "@/components/ui";
 import { getCurrentUser, ROLE_LABEL } from "@/lib/auth";
@@ -19,7 +20,8 @@ const ITEMS = [
 
 export default async function MenuPage() {
   const user = await getCurrentUser();
-  const owner = user?.role === "owner";
+  if (!user) redirect("/login?next=/menu");
+  const owner = user.role === "owner";
   return (
     <>
       <PageHeader

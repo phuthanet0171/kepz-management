@@ -15,15 +15,24 @@ export type CurrentUser = {
 /** ผู้ใช้ที่ล็อกอินอยู่และยังเปิดใช้งาน (คืน null ถ้าไม่มีสิทธิ์) — cache ต่อหนึ่ง request */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return null;
-  const { data: row } = await supabase
-    .from("app_users")
-    .select("role, display_name, is_active")
-    .eq("user_id", data.user.id)
-    .maybeSingle();
-  if (!row || !row.is_active) return null;
-  return { id: data.user.id, email: data.user.email ?? "", role: row.role as Role, display_name: row.display_name };
+  // getClaims ตรวจ token ในเครื่องได้ ไม่ต้องเรียกเซิร์ฟเวอร์ Auth ทุกครั้งเหมือน getUser
+  // จึงไม่ล้มเหลวเมื่อสัญญาณมือถือสะดุดชั่วขณะ
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+
+  // ลองซ้ำ 1 ครั้งถ้าเครือข่ายสะดุด เพื่อไม่ให้เมนูของ Owner หายไปชั่วคราว
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data: row, error } = await supabase
+      .from("app_users")
+      .select("role, display_name, is_active")
+      .eq("user_id", claims.sub)
+      .maybeSingle();
+    if (error) continue;
+    if (!row || !row.is_active) return null;
+    return { id: claims.sub, email: claims.email ?? "", role: row.role as Role, display_name: row.display_name };
+  }
+  throw new Error("โหลดข้อมูลผู้ใช้ไม่สำเร็จ กรุณาลองใหม่");
 });
 
 export async function isOwner() {
