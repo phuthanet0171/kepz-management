@@ -20,7 +20,12 @@ function authError(msg: string, fallback: string) {
   if (/already been registered|already registered|email_exists/i.test(msg)) return "อีเมลนี้มีบัญชีอยู่แล้ว";
   if (/password/i.test(msg) && /(weak|short|least)/i.test(msg)) return "รหัสผ่านไม่ปลอดภัยพอ กรุณาตั้งให้ยาวขึ้น";
   if (/invalid.*email|email.*invalid/i.test(msg)) return "รูปแบบอีเมลไม่ถูกต้อง";
-  return fallback;
+  if (/invalid api key|not allowed|bearer|jwt|unauthori[sz]ed|forbidden|no api key/i.test(msg)) {
+    return "SUPABASE_SECRET_KEY ใน Vercel ไม่ถูกต้อง ต้องเป็น Secret key (ขึ้นต้นด้วย sb_secret_) ไม่ใช่ Publishable key แก้แล้วกด Redeploy";
+  }
+  // แสดงข้อความจริงจาก Supabase ไว้ท้ายเพื่อช่วยหาสาเหตุ
+  console.error("[users] Supabase admin error:", msg);
+  return msg ? `${fallback} (รายละเอียด: ${msg})` : fallback;
 }
 
 export async function createUser(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -52,7 +57,7 @@ export async function createUser(_: ActionState, fd: FormData): Promise<ActionSt
   if (rowError) {
     // ย้อนกลับ ไม่ให้เหลือบัญชีที่ไม่มีสิทธิ์ค้างอยู่
     await admin.auth.admin.deleteUser(data.user.id);
-    return { error: thaiError(rowError, "สร้างบัญชีไม่สำเร็จ") };
+    return { error: authError(rowError.message, "สร้างบัญชีแล้วแต่บันทึกสิทธิ์ไม่สำเร็จ") };
   }
 
   revalidatePath("/users");
@@ -77,7 +82,8 @@ export async function updateUser(_: ActionState, fd: FormData): Promise<ActionSt
   }
 
   const admin = createAdminClient();
-  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  const { data: authUser, error: lookupError } = await admin.auth.admin.getUserById(userId);
+  if (lookupError) return { error: authError(lookupError.message, "ตรวจสอบบัญชีไม่สำเร็จ") };
   if (!authUser.user) return { error: "ไม่พบบัญชีนี้" };
   // upsert: รองรับบัญชีที่ถูกสร้างตรงใน Supabase และยังไม่เคยได้รับสิทธิ์
   const { error } = await admin
@@ -104,7 +110,8 @@ export async function deleteUser(_: ActionState, fd: FormData): Promise<ActionSt
   if (userId === guard.ownerId) return { error: "ไม่สามารถลบบัญชีของตัวเองได้ ให้ Owner คนอื่นเป็นผู้ลบ" };
 
   const admin = createAdminClient();
-  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  const { data: authUser, error: lookupError } = await admin.auth.admin.getUserById(userId);
+  if (lookupError) return { error: authError(lookupError.message, "ตรวจสอบบัญชีไม่สำเร็จ") };
   if (!authUser.user) return { error: "ไม่พบบัญชีนี้" };
   if (confirm !== (authUser.user.email ?? "").toLowerCase()) return { error: "อีเมลที่พิมพ์ยืนยันไม่ตรงกัน" };
 

@@ -16,8 +16,10 @@ export default async function UsersPage() {
   const users = (data ?? []) as UserRow[];
 
   const lastSignIn = new Map<string, string | null>();
+  let keyError: string | null = null;
   if (isAdminConfigured) {
-    const { data: list } = await createAdminClient().auth.admin.listUsers({ perPage: 1000 });
+    const { data: list, error: listError } = await createAdminClient().auth.admin.listUsers({ perPage: 1000 });
+    if (listError) keyError = listError.message;
     const known = new Set(users.map((u) => u.user_id));
     for (const u of list?.users ?? []) {
       lastSignIn.set(u.id, u.last_sign_in_at ?? null);
@@ -42,6 +44,19 @@ export default async function UsersPage() {
               <b>ยังเพิ่มหรือลบผู้ใช้ไม่ได้</b> ต้องตั้งค่า <code>SUPABASE_SECRET_KEY</code> ฝั่งเซิร์ฟเวอร์ก่อน
               (Supabase → Project Settings → API Keys → Secret keys) แล้วใส่ใน Vercel → Settings → Environment Variables
               แบบ <b>Secret</b> และ<b>ห้าม</b>ขึ้นต้นด้วย NEXT_PUBLIC_ จากนั้น Redeploy
+            </div>
+          </div>
+        </Alert>
+      )}
+
+      {keyError && (
+        <Alert tone="bad" className="mb-4">
+          <div className="flex gap-2">
+            <KeyRound className="mt-0.5 size-4 shrink-0" />
+            <div>
+              <b>เชื่อมต่อระบบจัดการบัญชีไม่ได้</b> ตรวจว่า <code>SUPABASE_SECRET_KEY</code> ใน Vercel เป็น <b>Secret key</b>{" "}
+              (ขึ้นต้นด้วย <code>sb_secret_</code>) ของโปรเจกต์ Supabase เดียวกัน ไม่ใช่ Publishable key แล้วกด Redeploy
+              <div className="mt-1 text-xs opacity-80">รายละเอียด: {keyError}</div>
             </div>
           </div>
         </Alert>
