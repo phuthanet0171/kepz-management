@@ -61,7 +61,8 @@ export async function createUser(_: ActionState, fd: FormData): Promise<ActionSt
   }
 
   revalidatePath("/users");
-  return { ok: true, message: `สร้างบัญชี ${email} แล้ว แจ้งอีเมลและรหัสผ่านให้ผู้ใช้เพื่อเข้าสู่ระบบ` };
+  // แสดงข้อมูลเข้าสู่ระบบที่บันทึกจริงให้ Owner คัดลอกไปแจ้งผู้ใช้
+  return { ok: true, message: `สร้างบัญชีแล้ว · อีเมล: ${email} · รหัสผ่าน: ${password} (ตัวพิมพ์เล็ก-ใหญ่ต้องตรงทุกตัว)` };
 }
 
 export async function updateUser(_: ActionState, fd: FormData): Promise<ActionState> {

@@ -30,7 +30,7 @@ export function BusinessForm({ s }: { s: Settings }) {
             <input name="business_phone" type="tel" defaultValue={s.business_phone ?? ""} className="input" />
           </Field>
           <Field label="อีเมล">
-            <input name="business_email" type="email" defaultValue={s.business_email ?? ""} className="input" />
+            <input name="business_email" type="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} defaultValue={s.business_email ?? ""} className="input" />
           </Field>
           <Field label="เลขประจำตัวผู้เสียภาษี" hint="13 หลัก จำเป็นเมื่อเปิดใช้ VAT">
             <input name="tax_id" inputMode="numeric" defaultValue={s.tax_id ?? ""} className="input tabular" />

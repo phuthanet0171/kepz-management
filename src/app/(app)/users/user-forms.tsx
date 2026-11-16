@@ -54,6 +54,10 @@ function PasswordInput({ name, required, placeholder }: { name: string; required
         name={name}
         type="text"
         autoComplete="new-password"
+        // ช่องนี้แสดงเป็นตัวอักษร: ปิดการพิมพ์ใหญ่/แก้คำอัตโนมัติของมือถือ ไม่ให้รหัสผ่านถูกเปลี่ยนโดยไม่รู้ตัว
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         minLength={8}
         required={required}
         value={value}
@@ -86,7 +90,7 @@ export function AddUserButton() {
             <input name="display_name" required maxLength={60} className="input" />
           </Field>
           <Field label="อีเมล (ใช้เข้าสู่ระบบ)" required>
-            <input name="email" type="email" inputMode="email" autoComplete="off" required className="input" />
+            <input name="email" type="email" inputMode="email" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} required className="input" />
           </Field>
           <Field label="รหัสผ่านเริ่มต้น" required hint="อย่างน้อย 8 ตัวอักษร กด “สุ่ม” เพื่อสร้างรหัสที่ปลอดภัย">
             <PasswordInput name="password" required />
@@ -155,7 +159,7 @@ export function DeleteUserButton({ user }: { user: UserRow }) {
           </p>
           <p className="text-xs text-muted">ถ้าแค่ต้องการระงับชั่วคราว ให้ใช้ “แก้ไข” แล้วปิดการใช้งานแทน</p>
           <Field label={<>พิมพ์อีเมล “{user.email}” เพื่อยืนยัน</>} required>
-            <input name="confirm_email" type="email" required autoComplete="off" className="input" />
+            <input name="confirm_email" type="email" required autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="input" />
           </Field>
           <SubmitButton className="btn w-full bg-bad text-white hover:bg-bad/90" pendingText="กำลังลบ…">
             ลบผู้ใช้ถาวร

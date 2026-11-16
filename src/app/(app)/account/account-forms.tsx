@@ -28,10 +28,10 @@ export function PasswordForm() {
         <ActionForm action={changePassword}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="รหัสผ่านใหม่" hint="อย่างน้อย 8 ตัวอักษร">
-              <input name="password" type="password" autoComplete="new-password" minLength={8} required className="input" />
+              <input name="password" type="password" autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} minLength={8} required className="input" />
             </Field>
             <Field label="ยืนยันรหัสผ่านใหม่">
-              <input name="confirm" type="password" autoComplete="new-password" minLength={8} required className="input" />
+              <input name="confirm" type="password" autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} minLength={8} required className="input" />
             </Field>
           </div>
           <SubmitButton>เปลี่ยนรหัสผ่าน</SubmitButton>

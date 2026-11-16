@@ -45,7 +45,7 @@ export function TenantFields({ tenant }: { tenant?: Tenant }) {
           <input name="line_id" defaultValue={tenant?.line_id ?? ""} className="input" />
         </Field>
         <Field label="อีเมล">
-          <input name="email" type="email" inputMode="email" defaultValue={tenant?.email ?? ""} className="input" />
+          <input name="email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} defaultValue={tenant?.email ?? ""} className="input" />
         </Field>
         <Field
           label={company ? "เลขประจำตัวผู้เสียภาษี" : "เลขบัตรประชาชน"}
