@@ -77,10 +77,12 @@ export async function updateUser(_: ActionState, fd: FormData): Promise<ActionSt
   }
 
   const admin = createAdminClient();
+  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  if (!authUser.user) return { error: "ไม่พบบัญชีนี้" };
+  // upsert: รองรับบัญชีที่ถูกสร้างตรงใน Supabase และยังไม่เคยได้รับสิทธิ์
   const { error } = await admin
     .from("app_users")
-    .update({ display_name: name, role, is_active: active })
-    .eq("user_id", userId);
+    .upsert({ user_id: userId, display_name: name, role, is_active: active, email: authUser.user.email ?? null });
   if (error) return { error: thaiError(error, "บันทึกไม่สำเร็จ") };
 
   const { error: authErr } = await admin.auth.admin.updateUserById(userId, {
@@ -88,6 +90,33 @@ export async function updateUser(_: ActionState, fd: FormData): Promise<ActionSt
     ...(newPassword ? { password: newPassword } : {}),
   });
   if (authErr) return { error: authError(authErr.message, "บันทึกสิทธิ์แล้ว แต่ปรับสถานะการเข้าสู่ระบบไม่สำเร็จ กรุณาลองอีกครั้ง") };
+
+  revalidatePath("/users");
+  return { ok: true };
+}
+
+export async function deleteUser(_: ActionState, fd: FormData): Promise<ActionState> {
+  const guard = await ownerGuard();
+  if ("error" in guard) return guard;
+
+  const userId = reqStr(fd, "user_id");
+  const confirm = reqStr(fd, "confirm_email").toLowerCase();
+  if (userId === guard.ownerId) return { error: "ไม่สามารถลบบัญชีของตัวเองได้ ให้ Owner คนอื่นเป็นผู้ลบ" };
+
+  const admin = createAdminClient();
+  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  if (!authUser.user) return { error: "ไม่พบบัญชีนี้" };
+  if (confirm !== (authUser.user.email ?? "").toLowerCase()) return { error: "อีเมลที่พิมพ์ยืนยันไม่ตรงกัน" };
+
+  // ต้องเหลือ Owner ที่ใช้งานได้อย่างน้อย 1 คน (ฐานข้อมูลก็กันไว้อีกชั้น)
+  const { data: owners } = await admin.from("app_users").select("user_id").eq("role", "owner").eq("is_active", true);
+  if ((owners ?? []).every((o) => o.user_id === userId)) {
+    return { error: "ลบไม่ได้ ต้องมี Owner ที่ใช้งานได้อย่างน้อย 1 คน" };
+  }
+
+  // ลบบัญชีใน Supabase Auth แล้วสิทธิ์ใน app_users จะถูกลบตาม (cascade)
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) return { error: authError(error.message, "ลบบัญชีไม่สำเร็จ กรุณาลองใหม่") };
 
   revalidatePath("/users");
   return { ok: true };

@@ -1,16 +1,17 @@
 "use client";
 
-import { Pencil, UserPlus } from "lucide-react";
+import { Pencil, Trash2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Field } from "@/components/ui";
 import { ActionForm, Sheet, SubmitButton } from "@/components/ui/client";
-import { createUser, updateUser } from "./actions";
+import { createUser, deleteUser, updateUser } from "./actions";
 
 export type UserRow = {
   user_id: string;
   email: string | null;
   display_name: string | null;
-  role: "owner" | "staff";
+  /** null = บัญชีที่มีใน Supabase แต่ยังไม่ได้รับสิทธิ์เข้าใช้ระบบ */
+  role: "owner" | "staff" | null;
   is_active: boolean;
 };
 
@@ -118,9 +119,9 @@ export function EditUserButton({ user, isSelf }: { user: UserRow; isSelf: boolea
           <Field label="ชื่อ" required>
             <input name="display_name" required maxLength={60} defaultValue={user.display_name ?? ""} className="input" />
           </Field>
-          <RolePicker defaultRole={user.role} disabled={isSelf} />
+          <RolePicker defaultRole={user.role ?? "staff"} disabled={isSelf} />
           <label className="flex items-center gap-3 rounded-xl border border-line p-3">
-            <input type="checkbox" name="is_active" defaultChecked={user.is_active} disabled={isSelf} className="size-5 accent-ink" />
+            <input type="checkbox" name="is_active" defaultChecked={user.role === null || user.is_active} disabled={isSelf} className="size-5 accent-ink" />
             <span>
               <span className="block text-sm font-medium">เปิดใช้งานบัญชี</span>
               <span className="block text-xs text-muted">ปิดเพื่อระงับการเข้าสู่ระบบทันที ประวัติการทำงานยังอยู่ครบ</span>
@@ -132,6 +133,33 @@ export function EditUserButton({ user, isSelf }: { user: UserRow; isSelf: boolea
           </Field>
           {isSelf && <p className="text-xs text-muted">บัญชีของคุณเอง: เปลี่ยนสิทธิ์หรือปิดบัญชีไม่ได้</p>}
           <SubmitButton className="btn btn-primary w-full">บันทึก</SubmitButton>
+        </ActionForm>
+      )}
+    </Sheet>
+  );
+}
+
+export function DeleteUserButton({ user }: { user: UserRow }) {
+  return (
+    <Sheet
+      title="ลบผู้ใช้"
+      description={user.email ?? undefined}
+      triggerClassName="btn btn-ghost btn-sm size-9 p-0 text-bad"
+      trigger={<Trash2 className="size-4" aria-label="ลบผู้ใช้" />}
+    >
+      {() => (
+        <ActionForm action={deleteUser}>
+          <input type="hidden" name="user_id" value={user.user_id} />
+          <p className="text-sm text-ink-2">
+            บัญชีนี้จะถูกลบถาวรและเข้าสู่ระบบไม่ได้อีก <b>กู้คืนไม่ได้</b> ข้อมูลที่ผู้ใช้เคยบันทึก (สัญญา บิล ใบเสร็จ) ยังอยู่ครบ
+          </p>
+          <p className="text-xs text-muted">ถ้าแค่ต้องการระงับชั่วคราว ให้ใช้ “แก้ไข” แล้วปิดการใช้งานแทน</p>
+          <Field label={<>พิมพ์อีเมล “{user.email}” เพื่อยืนยัน</>} required>
+            <input name="confirm_email" type="email" required autoComplete="off" className="input" />
+          </Field>
+          <SubmitButton className="btn w-full bg-bad text-white hover:bg-bad/90" pendingText="กำลังลบ…">
+            ลบผู้ใช้ถาวร
+          </SubmitButton>
         </ActionForm>
       )}
     </Sheet>
