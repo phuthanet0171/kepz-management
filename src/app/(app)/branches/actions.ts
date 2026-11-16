@@ -88,35 +88,3 @@ export async function addUnits(_: ActionState, fd: FormData): Promise<ActionStat
   revalidatePath("/", "layout");
   return { ok: true };
 }
-
-export async function deleteBranch(_: ActionState, fd: FormData): Promise<ActionState> {
-  const denied = await ownerOnlyError();
-  if (denied) return { error: denied };
-  const id = reqStr(fd, "id");
-  const confirmName = reqStr(fd, "confirm_name");
-
-  const supabase = await createClient();
-  const { data: branch } = await supabase.from("branches").select("name").eq("id", id).single();
-  if (!branch) return { error: "ไม่พบสาขา" };
-  if (confirmName !== branch.name) return { error: "ชื่อสาขาที่พิมพ์ยืนยันไม่ตรงกัน" };
-
-  const { data: units } = await supabase.from("units").select("id").eq("branch_id", id);
-  const unitIds = (units ?? []).map((u) => u.id);
-  if (unitIds.length > 0) {
-    const { count } = await supabase
-      .from("contracts")
-      .select("id", { count: "exact", head: true })
-      .in("unit_id", unitIds);
-    if (count && count > 0) {
-      return { error: "ลบไม่ได้ เพราะสาขานี้มีประวัติสัญญาเช่า ให้ปิดใช้งานสาขาแทน" };
-    }
-    const { error: delUnitsErr } = await supabase.from("units").delete().eq("branch_id", id);
-    if (delUnitsErr) return { error: thaiError(delUnitsErr, "ลบห้องในสาขาไม่สำเร็จ") };
-  }
-
-  const { error } = await supabase.from("branches").delete().eq("id", id);
-  if (error) return { error: thaiError(error, "ลบสาขาไม่สำเร็จ") };
-
-  revalidatePath("/", "layout");
-  redirect("/branches");
-}

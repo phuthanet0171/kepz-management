@@ -8,7 +8,8 @@ import { Badge, Card, CardHeader, PageHeader } from "@/components/ui";
 import { fetchAll, getUnitTypes } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import type { Branch, UnitView } from "@/lib/types";
-import { AddUnitsButton, DeleteBranchButton, EditBranchButton } from "./branch-actions";
+import { PurgeButton, type PurgePreview } from "@/components/purge-button";
+import { AddUnitsButton, EditBranchButton } from "./branch-actions";
 
 export const metadata: Metadata = { title: "รายละเอียดสาขา" };
 
@@ -17,16 +18,16 @@ export default async function BranchPage({ params }: PageProps<"/branches/[id]">
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: branch }, units, unitTypes] = await Promise.all([
+  const [{ data: branch }, units, unitTypes, { data: preview }] = await Promise.all([
     supabase.from("branches").select("*").eq("id", id).maybeSingle(),
     fetchAll<UnitView>((from, to) => supabase.from("v_units").select("*").eq("branch_id", id).order("id").range(from, to)),
     getUnitTypes(),
+    supabase.rpc("purge_preview", { p_kind: "branch", p_id: id }).single<PurgePreview>(),
   ]);
   if (!branch) notFound();
   const b = branch as Branch;
 
   const groups = groupByType(units);
-  const hasContracts = units.some((u) => u.contract_id);
 
   return (
     <>
@@ -114,9 +115,9 @@ export default async function BranchPage({ params }: PageProps<"/branches/[id]">
         ))}
       </div>
 
-      {!hasContracts && (
+      {preview && (
         <div className="mt-8 flex justify-end">
-          <DeleteBranchButton branch={b} />
+          <PurgeButton kind="branch" id={b.id} name={b.name} preview={preview} />
         </div>
       )}
     </>

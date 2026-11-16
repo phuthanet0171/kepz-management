@@ -1,6 +1,5 @@
 "use server";
 
-import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { thaiError } from "@/lib/errors";
@@ -65,18 +64,4 @@ export async function updateTenant(_: ActionState, fd: FormData): Promise<Action
 
   revalidatePath("/", "layout");
   return { ok: true };
-}
-
-export async function deleteTenant(_: ActionState, fd: FormData): Promise<ActionState> {
-  const denied = await ownerOnlyError();
-  if (denied) return { error: denied };
-  const id = reqStr(fd, "id");
-  const supabase = await createClient();
-  const { error } = await supabase.from("tenants").delete().eq("id", id);
-  if (error) {
-    if (error.code === "23503") return { error: "ลบไม่ได้ เพราะผู้เช่ารายนี้มีประวัติสัญญาเช่า" };
-    return { error: thaiError(error, "ลบผู้เช่าไม่สำเร็จ") };
-  }
-  revalidatePath("/", "layout");
-  redirect("/tenants");
 }

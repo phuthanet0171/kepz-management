@@ -1,10 +1,10 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Field } from "@/components/ui";
 import { ActionForm, Sheet, SubmitButton } from "@/components/ui/client";
 import type { Branch, UnitType } from "@/lib/types";
-import { addUnits, deleteBranch, updateBranch } from "../actions";
+import { addUnits, updateBranch } from "../actions";
 
 export function EditBranchButton({ branch }: { branch: Branch }) {
   return (
@@ -76,36 +76,6 @@ export function AddUnitsButton({ branchId, unitTypes }: { branchId: string; unit
             <input name="count" type="number" inputMode="numeric" min={1} max={500} required className="input" />
           </Field>
           <SubmitButton className="btn btn-primary w-full">เพิ่ม</SubmitButton>
-        </ActionForm>
-      )}
-    </Sheet>
-  );
-}
-
-export function DeleteBranchButton({ branch }: { branch: Branch }) {
-  return (
-    <Sheet
-      title="ลบสาขา"
-      triggerClassName="btn btn-danger"
-      trigger={
-        <>
-          <Trash2 className="size-4" /> ลบสาขา
-        </>
-      }
-    >
-      {() => (
-        <ActionForm action={deleteBranch}>
-          <input type="hidden" name="id" value={branch.id} />
-          <p className="text-sm text-ink-2">
-            การลบจะลบห้องทั้งหมดในสาขานี้ด้วย และ<b>กู้คืนไม่ได้</b> ลบได้เฉพาะสาขาที่ยังไม่เคยมีสัญญาเช่า
-            ถ้าเคยมีสัญญาแล้ว ให้ใช้ “ปิดใช้งานสาขา” แทน
-          </p>
-          <Field label={<>พิมพ์ชื่อสาขา “{branch.name}” เพื่อยืนยัน</>}>
-            <input name="confirm_name" required autoComplete="off" className="input" />
-          </Field>
-          <SubmitButton className="btn w-full bg-bad text-white hover:bg-bad/90" pendingText="กำลังลบ…">
-            ลบสาขาถาวร
-          </SubmitButton>
         </ActionForm>
       )}
     </Sheet>

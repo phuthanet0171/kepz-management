@@ -8,7 +8,8 @@ import { isOwner } from "@/lib/auth";
 import { baht, money, thDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { ContractView, InvoiceView, Tenant } from "@/lib/types";
-import { DeleteTenantButton, EditTenantButton } from "./tenant-actions";
+import { PurgeButton, type PurgePreview } from "@/components/purge-button";
+import { EditTenantButton } from "./tenant-actions";
 
 export const metadata: Metadata = { title: "ข้อมูลผู้เช่า" };
 
@@ -29,6 +30,9 @@ export default async function TenantPage({ params }: PageProps<"/tenants/[id]">)
   ]);
   if (!tenantData) notFound();
   const owner = await isOwner();
+  const { data: preview } = owner
+    ? await supabase.rpc("purge_preview", { p_kind: "tenant", p_id: id }).single<PurgePreview>()
+    : { data: null };
   const t = tenantData as Tenant;
   const contracts = (contractData ?? []) as ContractView[];
   const invoices = (invoiceData ?? []) as InvoiceView[];
@@ -91,9 +95,9 @@ export default async function TenantPage({ params }: PageProps<"/tenants/[id]">)
               </div>
             </div>
           </Card>
-          {owner && contracts.length === 0 && (
+          {preview && (
             <div className="flex justify-end">
-              <DeleteTenantButton tenant={t} />
+              <PurgeButton kind="tenant" id={t.id} name={t.full_name} preview={preview} />
             </div>
           )}
         </div>
