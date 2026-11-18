@@ -79,7 +79,7 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
           {payTo && (
             <div>
               <SectionLabel>ช่องทางการชำระเงิน</SectionLabel>
-              <div className="whitespace-pre-line">{payTo}</div>
+              <div className="text-[17px] leading-relaxed font-bold whitespace-pre-line">{payTo}</div>
             </div>
           )}
           {inv.note && (

@@ -5,15 +5,25 @@
 import clsx from "clsx";
 import type { CSSProperties, ReactNode } from "react";
 
-/** สีประจำเอกสาร ธีมดำ-ขาวเหมือนกัน ต่างกันที่สีเน้น (ป้ายหัว แถบสี ยอดรวม) */
+/**
+ * สีประจำเอกสาร ใช้แค่ เหลือง-ดำ-เทา แต่จัดน้ำหนักต่างกันให้แยกออกทันที
+ *  สัญญา   = ดำเด่น ตัวเหลือง (แบบเดิม)
+ *  ใบวางบิล = เหลืองเด่น ตัวดำ
+ *  ใบเสร็จ  = เทาเด่น ตัวดำ/ขาว
+ */
 export type DocTone = "contract" | "bill" | "receipt";
-export const DOC_ACCENT: Record<DocTone, string> = {
-  contract: "#ffd21f", // เหลือง
-  bill: "#f97316", // ส้ม
-  receipt: "#22c55e", // เขียว
+const Y = "#ffd21f";
+const K = "#111111";
+const G = "#6b6b6b";
+const GL = "#e9e8e4";
+const TONES: Record<DocTone, Record<string, string>> = {
+  contract: { badgeBg: K, badgeFg: Y, barA: K, barB: Y, totalBg: K, totalFg: "#ffffff", totalNum: Y, line: Y },
+  bill: { badgeBg: Y, badgeFg: K, barA: Y, barB: K, totalBg: Y, totalFg: K, totalNum: K, line: Y },
+  receipt: { badgeBg: G, badgeFg: "#ffffff", barA: K, barB: G, totalBg: GL, totalFg: K, totalNum: K, line: G },
 };
 export function toneStyle(tone: DocTone): CSSProperties {
-  return { "--doc-accent": DOC_ACCENT[tone] } as CSSProperties;
+  const t = TONES[tone];
+  return Object.fromEntries(Object.entries(t).map(([k, v]) => [`--doc-${k}`, v])) as CSSProperties;
 }
 
 export type DocBusiness = {
@@ -59,7 +69,7 @@ export function BrandHeader({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="inline-block rounded-md bg-ink px-3 py-1 text-[11.5px] font-semibold tracking-[0.18em] text-[var(--doc-accent,#ffd21f)]">
+          <div className="inline-block rounded-md bg-[var(--doc-badgeBg,#111111)] px-3 py-1 text-[11.5px] font-semibold tracking-[0.18em] text-[var(--doc-badgeFg,#ffd21f)]">
             {badge}
           </div>
           <h1 className="mt-2 text-[26px] leading-tight font-bold">{title}</h1>
@@ -83,8 +93,8 @@ export function BrandHeader({
 export function BrandBar({ className }: { className?: string }) {
   return (
     <div className={clsx("flex h-1.5 overflow-hidden rounded-full", className)}>
-      <div className="w-1/4 bg-ink" />
-      <div className="flex-1 bg-[var(--doc-accent,#ffd21f)]" />
+      <div className="w-1/4 bg-[var(--doc-barA,#111111)]" />
+      <div className="flex-1 bg-[var(--doc-barB,#ffd21f)]" />
     </div>
   );
 }
@@ -166,7 +176,7 @@ export function SignatureBoxes({ items }: { items: { role: string; name: string 
 /** หัวข้อส่วนเล็ก ขีดสีประจำเอกสารด้านล่าง ใช้แทนกล่องเพื่อลดเส้นกรอบ */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-2 inline-block border-b-[3px] border-[var(--doc-accent,#ffd21f)] pb-0.5 text-[13px] font-semibold tracking-wide text-muted">
+    <div className="mb-2 inline-block border-b-[3px] border-[var(--doc-line,#ffd21f)] pb-0.5 text-[13px] font-semibold tracking-wide text-muted">
       {children}
     </div>
   );

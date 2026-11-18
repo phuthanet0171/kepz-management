@@ -82,7 +82,7 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
               ชำระโดย <b>{PAYMENT_METHOD_LABEL[p.method]}</b>
               {p.reference && <span className="text-muted"> · อ้างอิง {p.reference}</span>}
             </div>
-            <div className={isFull ? "font-semibold text-ok" : "text-muted"}>
+            <div className={isFull ? "font-bold text-ink" : "text-muted"}>
               {isFull ? "✓ ชำระครบตามใบวางบิลแล้ว" : `ชำระบางส่วนของใบวางบิล ${inv.invoice_no}`}
             </div>
           </div>
