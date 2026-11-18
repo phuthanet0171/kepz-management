@@ -35,6 +35,15 @@ export interface Settings {
   contract_template_parking: string | null;
 }
 
+export interface DocWatermark {
+  image: string | null;
+  enabled: boolean;
+  /** ความเข้ม % */
+  opacity: number;
+  /** ความกว้าง % ของหน้ากระดาษ */
+  size: number;
+}
+
 export interface UnitType {
   code: string;
   name: string;

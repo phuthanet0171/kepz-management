@@ -102,3 +102,37 @@ export async function saveContractTemplate(_: ActionState, fd: FormData): Promis
   if (r?.ok) r.message = reset ? "คืนค่าแม่แบบเดิมแล้ว" : "บันทึกแม่แบบแล้ว สัญญาที่พิมพ์ต่อจากนี้ใช้เนื้อหาใหม่ทันที";
   return r;
 }
+
+const WATERMARK_RE = /^data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
+
+/** ลายน้ำบนเอกสาร: ส่งรูปมาเฉพาะตอนเปลี่ยน/ลบ เพื่อไม่ต้องอัปโหลดรูปเดิมซ้ำทุกครั้ง */
+export async function saveWatermark(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
+
+  const patch: Record<string, unknown> = { enabled: fd.get("enabled") === "1", updated_at: new Date().toISOString() };
+  if (fd.get("image_changed") === "1") {
+    const image = String(fd.get("image") ?? "");
+    if (image && (image.length > 2_400_000 || !WATERMARK_RE.test(image))) {
+      return { error: "ไฟล์รูปไม่ถูกต้องหรือใหญ่เกินไป กรุณาเลือกรูปใหม่" };
+    }
+    patch.image = image || null;
+  }
+  // slider ที่ถูกปิดไว้จะไม่ถูกส่งมา = คงค่าเดิม
+  const opacity = num(fd, "opacity");
+  const size = num(fd, "size");
+  if (opacity !== null) {
+    if (!Number.isInteger(opacity) || opacity < 2 || opacity > 30) return { error: "ความเข้มต้องอยู่ระหว่าง 2–30%" };
+    patch.opacity = opacity;
+  }
+  if (size !== null) {
+    if (!Number.isInteger(size) || size < 20 || size > 90) return { error: "ขนาดต้องอยู่ระหว่าง 20–90%" };
+    patch.size = size;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("doc_watermark").update(patch).eq("id", 1);
+  if (error) return { error: thaiError(error, "บันทึกลายน้ำไม่สำเร็จ") };
+  revalidatePath("/", "layout");
+  return { ok: true, message: patch.image === null ? "ลบลายน้ำแล้ว" : "บันทึกลายน้ำแล้ว เอกสารที่พิมพ์ต่อจากนี้จะมีลายน้ำ" };
+}
