@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ItemsTable, PartyBoxes, TotalsBox } from "@/components/bill-parts";
+import { ItemsTable, PaidStamp, PartyBoxes, ReceiptPaidPanel, TotalsBox } from "@/components/bill-parts";
 import { BrandHeader, businessOf, DocFooter, SectionLabel, SignatureBoxes, VoidBanner } from "@/components/print-kit";
 import { resolveContractTerms } from "@/lib/contract-template";
 import { getSettings } from "@/lib/data";
@@ -71,6 +71,10 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
         ]}
       />
 
+      {!p.is_void && (
+        <ReceiptPaidPanel amount={amount} paidOn={p.paid_on} method={PAYMENT_METHOD_LABEL[p.method]} full={isFull} />
+      )}
+
       <PartyBoxes partyTitle="ได้รับเงินจาก" tenant={tenant} inv={inv} />
       <ItemsTable items={items} title={`รายการตามใบวางบิล ${inv.invoice_no}`} detailed={false} />
 
@@ -82,10 +86,11 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
               ชำระโดย <b>{PAYMENT_METHOD_LABEL[p.method]}</b>
               {p.reference && <span className="text-muted"> · อ้างอิง {p.reference}</span>}
             </div>
-            <div className={isFull ? "font-bold text-ink" : "text-muted"}>
+            <div className={isFull ? "font-bold text-ok" : "text-muted"}>
               {isFull ? "✓ ชำระครบตามใบวางบิลแล้ว" : `ชำระบางส่วนของใบวางบิล ${inv.invoice_no}`}
             </div>
           </div>
+          {!p.is_void && <PaidStamp className="ml-2" />}
           {p.note && (
             <div>
               <SectionLabel>หมายเหตุ</SectionLabel>

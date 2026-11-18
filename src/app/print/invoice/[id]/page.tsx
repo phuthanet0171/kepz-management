@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ItemsTable, PartyBoxes, TotalsBox } from "@/components/bill-parts";
+import { BillDuePanel, ItemsTable, PartyBoxes, PayToBox, TotalsBox } from "@/components/bill-parts";
 import { BrandHeader, businessOf, DocFooter, SectionLabel, SignatureBoxes, VoidBanner } from "@/components/print-kit";
 import { resolveContractTerms } from "@/lib/contract-template";
 import { getSettings } from "@/lib/data";
@@ -63,25 +63,14 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
         ]}
       />
 
+      {inv.status !== "void" && <BillDuePanel amount={due} dueDate={inv.due_date} settled={Number(due) <= 0} />}
+
       <PartyBoxes partyTitle="ลูกค้า" tenant={tenant} inv={inv} />
       <ItemsTable items={items} />
 
       <div className="mt-5 flex items-start justify-between gap-10 break-inside-avoid">
         <div className="min-w-0 flex-1 space-y-4 pt-1 text-[14.5px]">
-          {inv.status !== "void" && Number(due) > 0 && (
-            <div>
-              <SectionLabel>กำหนดชำระ</SectionLabel>
-              <div>
-                กรุณาชำระภายใน <b className="text-[16.5px]">{thDateLong(inv.due_date)}</b>
-              </div>
-            </div>
-          )}
-          {payTo && (
-            <div>
-              <SectionLabel>ช่องทางการชำระเงิน</SectionLabel>
-              <div className="text-[17px] leading-relaxed font-bold whitespace-pre-line">{payTo}</div>
-            </div>
-          )}
+          {payTo && <PayToBox text={payTo} />}
           {inv.note && (
             <div>
               <SectionLabel>หมายเหตุ</SectionLabel>

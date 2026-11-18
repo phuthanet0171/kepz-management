@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { bahtText } from "@/lib/baht-text";
 import { money, thDateLong } from "@/lib/format";
+import clsx from "clsx";
 import type { InvoiceItem, InvoiceView, Tenant } from "@/lib/types";
 import { SectionLabel } from "./print-kit";
 
@@ -111,6 +112,96 @@ export function TotalsBox({
           style={{ borderColor: "color-mix(in srgb, currentColor 25%, transparent)" }}
         >({bahtText(Number(total))})</div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * ใบวางบิล: แถบ "ยอดที่ต้องชำระ" ใต้หัวกระดาษ (เหลือง) + กำหนดชำระ (ดำ)
+ * ให้ลูกค้าเห็นทันทีว่าต้องจ่ายเท่าไหร่ ภายในวันไหน
+ */
+export function BillDuePanel({ amount, dueDate, settled }: { amount: number | string; dueDate: string; settled: boolean }) {
+  if (settled) {
+    return (
+      <div className="mt-6 flex items-center gap-3 rounded-lg border-2 border-ok bg-ok-soft px-5 py-3 text-ok break-inside-avoid">
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-ok text-lg font-bold text-white">✓</span>
+        <span className="text-[17px] font-bold">ใบวางบิลนี้ชำระครบแล้ว</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-6 flex overflow-hidden rounded-lg break-inside-avoid">
+      <div className="flex-1 bg-[#ffd21f] px-5 py-3.5 text-ink">
+        <div className="text-[13.5px] font-semibold">ยอดที่ต้องชำระ</div>
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <span className="tabular text-[34px] leading-tight font-bold">{money(amount)}</span>
+          <span className="text-[15px] font-semibold">บาท</span>
+          <span className="text-[13.5px]">({bahtText(Number(amount))})</span>
+        </div>
+      </div>
+      <div className="flex w-[15rem] shrink-0 flex-col justify-center bg-ink px-5 py-3.5 text-white">
+        <div className="text-[13.5px] font-semibold text-[#ffd21f]">กรุณาชำระภายใน</div>
+        <div className="text-[20px] leading-snug font-bold">{thDateLong(dueDate)}</div>
+      </div>
+    </div>
+  );
+}
+
+/** ใบวางบิล: กล่องช่องทางชำระเงิน ขอบเหลืองหนา ตัวใหญ่ เลขบัญชีอ่านง่าย */
+export function PayToBox({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border-2 border-dashed border-[#e0b400] bg-[#fffbe6] px-4 py-3">
+      <div className="text-[13px] font-semibold text-muted">ช่องทางการชำระเงิน · โอนแล้วกรุณาส่งสลิปแจ้ง</div>
+      <div className="mt-1 text-[18px] leading-relaxed font-bold whitespace-pre-line">{text}</div>
+    </div>
+  );
+}
+
+/**
+ * ใบเสร็จ: แถบยืนยัน "ได้รับเงินแล้ว" สีเขียว ใต้หัวกระดาษ
+ * เขียว = จ่ายแล้ว อ่านเข้าใจทันทีโดยไม่ต้องอ่านตัวหนังสือ
+ */
+export function ReceiptPaidPanel({
+  amount,
+  paidOn,
+  method,
+  full,
+}: {
+  amount: number;
+  paidOn: string;
+  method: string;
+  full: boolean;
+}) {
+  return (
+    <div className="mt-6 flex items-center gap-4 rounded-lg border-2 border-ok bg-ok-soft px-5 py-3.5 break-inside-avoid">
+      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-ok text-2xl font-bold text-white">✓</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[19px] leading-tight font-bold text-ok">
+          {full ? "ได้รับเงินเรียบร้อยแล้ว" : "ได้รับเงินแล้ว (ชำระบางส่วน)"}
+        </div>
+        <div className="text-[13.5px] text-ink-2">
+          วันที่ {thDateLong(paidOn)} · {method}
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="text-[13px] text-ink-2">จำนวนเงิน</div>
+        <div className="tabular text-[26px] leading-tight font-bold text-ink">{money(amount)}</div>
+      </div>
+    </div>
+  );
+}
+
+/** ตราประทับ "ชำระแล้ว PAID" เอียง สีเขียว ใช้บนใบเสร็จ */
+export function PaidStamp({ className }: { className?: string }) {
+  return (
+    <div
+      className={clsx(
+        "inline-flex -rotate-[8deg] flex-col items-center rounded-lg border-[3px] border-double border-ok px-5 py-1.5 text-ok opacity-85",
+        className,
+      )}
+    >
+      <span className="text-[22px] leading-tight font-bold">ชำระแล้ว</span>
+      <span className="text-[12px] font-bold tracking-[0.35em]">PAID</span>
     </div>
   );
 }
