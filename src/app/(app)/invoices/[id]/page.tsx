@@ -57,11 +57,6 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
           </span>
         }
         subtitle={`${inv.unit_code} · ${inv.tenant_name} · ${inv.branch_name}`}
-        actions={
-          <>
-            {canPay && <RecordPaymentButton invoiceId={inv.id} outstanding={Number(inv.outstanding)} today={todayTH()} />}
-          </>
-        }
       />
 
       {inv.status === "void" && (
@@ -182,6 +177,17 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
             initial={{ vat: hasVat, inclusive: inv.vat_inclusive, wht: hasWht }}
             lockedReason={taxLocked}
             hasTaxId={Boolean(settings.tax_id)}
+            payButton={
+              canPay && (
+                <RecordPaymentButton
+                  invoiceId={inv.id}
+                  outstanding={Number(inv.outstanding)}
+                  today={todayTH()}
+                  label="ชำระเรียบร้อย พิมพ์ใบเสร็จ"
+                  triggerClassName="btn btn-brand w-full"
+                />
+              )
+            }
           />
           <Card>
             <CardHeader title="ข้อมูลใบวางบิล" />

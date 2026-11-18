@@ -92,15 +92,28 @@ function SlipUpload({ invoiceId }: { invoiceId: string }) {
   );
 }
 
-export function RecordPaymentButton({ invoiceId, outstanding, today }: { invoiceId: string; outstanding: number; today: string }) {
+/** บันทึกรับชำระ แล้วเปิดหน้าใบเสร็จให้พิมพ์ต่อทันที */
+export function RecordPaymentButton({
+  invoiceId,
+  outstanding,
+  today,
+  label = "รับชำระ",
+  triggerClassName = "btn btn-brand",
+}: {
+  invoiceId: string;
+  outstanding: number;
+  today: string;
+  label?: string;
+  triggerClassName?: string;
+}) {
   return (
     <Sheet
       title="บันทึกรับชำระ"
-      description={`ยอดค้าง ${money(outstanding)} บาท`}
-      triggerClassName="btn btn-brand"
+      description={`ยอดค้าง ${money(outstanding)} บาท · บันทึกแล้วจะเปิดใบเสร็จให้พิมพ์ทันที`}
+      triggerClassName={triggerClassName}
       trigger={
         <>
-          <Wallet className="size-4" /> รับชำระ
+          <Wallet className="size-4" /> {label}
         </>
       }
     >
@@ -149,7 +162,7 @@ export function RecordPaymentButton({ invoiceId, outstanding, today }: { invoice
           <Field label="หมายเหตุ">
             <input name="note" className="input" />
           </Field>
-          <SubmitButton className="btn btn-primary w-full">บันทึกและออกใบเสร็จ</SubmitButton>
+          <SubmitButton className="btn btn-primary w-full">บันทึกและพิมพ์ใบเสร็จ</SubmitButton>
         </ActionForm>
       )}
     </Sheet>

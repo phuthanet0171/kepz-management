@@ -58,10 +58,13 @@ export function TaxPicker({
   value,
   onChange,
   disabled,
+  stacked,
 }: {
   value: TaxChoice;
   onChange: (v: TaxChoice) => void;
   disabled?: boolean;
+  /** เรียงสวิตช์เป็นแถวเดียว (ใช้ในคอลัมน์แคบ) */
+  stacked?: boolean;
 }) {
   return (
     <div className="space-y-2.5">
@@ -69,7 +72,7 @@ export function TaxPicker({
       <input type="hidden" name="vat_inclusive" value={value.inclusive ? "1" : "0"} />
       <input type="hidden" name="wht" value={value.wht ? "1" : "0"} />
 
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className={clsx("grid gap-2.5", !stacked && "sm:grid-cols-2")}>
         <Toggle
           on={value.vat}
           onClick={() => onChange({ ...value, vat: !value.vat })}

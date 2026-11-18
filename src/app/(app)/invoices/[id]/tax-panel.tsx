@@ -2,7 +2,7 @@
 
 import { Lock, Printer } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { TaxPicker, TaxSummary } from "@/components/tax-picker";
 import { Alert, Card, CardHeader } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
@@ -16,12 +16,15 @@ export function InvoiceTaxPanel({
   initial,
   lockedReason,
   hasTaxId,
+  payButton,
 }: {
   invoiceId: string;
   itemsSum: number;
   initial: TaxChoice;
   lockedReason: string | null;
   hasTaxId: boolean;
+  /** ปุ่มรับชำระ แสดงใต้ปุ่มพิมพ์ใบวางบิล (ซ่อนระหว่างแก้ภาษีที่ยังไม่บันทึก) */
+  payButton?: ReactNode;
 }) {
   const [tax, setTax] = useState<TaxChoice>(initial);
   const [saved, setSaved] = useState<TaxChoice>(initial);
@@ -31,7 +34,7 @@ export function InvoiceTaxPanel({
   return (
     <Card>
       <CardHeader
-        title="ภาษีและพิมพ์ใบวางบิล"
+        title={payButton ? "พิมพ์ใบวางบิลและรับชำระ" : "ภาษีและพิมพ์ใบวางบิล"}
         description={lockedReason ? undefined : "เลือกภาษีให้ตรงกับลูกค้า แล้วกดพิมพ์"}
       />
       <ActionForm
@@ -41,7 +44,7 @@ export function InvoiceTaxPanel({
         className="space-y-4 p-4 sm:p-5"
       >
         <input type="hidden" name="id" value={invoiceId} />
-        <TaxPicker value={tax} onChange={setTax} disabled={Boolean(lockedReason)} />
+        <TaxPicker value={tax} onChange={setTax} disabled={Boolean(lockedReason)} stacked />
         {lockedReason && (
           <p className="flex items-start gap-2 text-xs text-muted">
             <Lock className="mt-0.5 size-3.5 shrink-0" /> {lockedReason}
@@ -63,9 +66,12 @@ export function InvoiceTaxPanel({
             </button>
           </div>
         ) : (
-          <Link href={`/print/invoice/${invoiceId}`} target="_blank" className="btn btn-primary w-full">
-            <Printer className="size-4" /> พิมพ์ใบวางบิล
-          </Link>
+          <div className="space-y-2">
+            <Link href={`/print/invoice/${invoiceId}`} target="_blank" className="btn btn-primary w-full">
+              <Printer className="size-4" /> พิมพ์ใบวางบิล
+            </Link>
+            {payButton}
+          </div>
         )}
         {dirty && <p className="text-center text-xs text-muted">บันทึกก่อน แล้วจึงพิมพ์ใบวางบิลได้</p>}
       </ActionForm>

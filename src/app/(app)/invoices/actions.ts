@@ -182,7 +182,7 @@ export async function recordPayment(_: ActionState, fd: FormData): Promise<Actio
   if (slipPath && !slipPath.startsWith(`${invoiceId}/`)) return { error: "ไฟล์สลิปไม่ถูกต้อง" };
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("record_payment", {
+  const { data: paymentId, error } = await supabase.rpc("record_payment", {
     p_invoice_id: invoiceId,
     p_amount: amount,
     p_paid_on: paidOn,
@@ -194,7 +194,8 @@ export async function recordPayment(_: ActionState, fd: FormData): Promise<Actio
   if (error) return { error: thaiError(error, "บันทึกการชำระไม่สำเร็จ") };
 
   revalidatePath("/", "layout");
-  return { ok: true };
+  // เปิดใบเสร็จให้พิมพ์ทันที (ใช้ redirect ฝั่งเซิร์ฟเวอร์ เพราะปุ่มรับชำระจะหายไปเมื่อบิลชำระครบ)
+  redirect(`/print/receipt/${paymentId}`);
 }
 
 export async function voidPayment(_: ActionState, fd: FormData): Promise<ActionState> {
