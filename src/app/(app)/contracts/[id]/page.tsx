@@ -16,7 +16,7 @@ import {
 } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { BillingDue, ContractRenewal, ContractView, DepositTxn, InvoiceView } from "@/lib/types";
-import { DepositButton, EndContractButton, RenewContractButton } from "./contract-actions";
+import { DepositButton, EditContractInfoButton, EndContractButton, RenewContractButton } from "./contract-actions";
 
 export const metadata: Metadata = { title: "สัญญาเช่า" };
 
@@ -25,12 +25,13 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: cData }, { data: invData }, { data: depData }, { data: renData }, { data: dueData }] = await Promise.all([
+  const [{ data: cData }, { data: invData }, { data: depData }, { data: renData }, { data: dueData }, { data: extra }] = await Promise.all([
     supabase.from("v_contracts").select("*").eq("id", id).maybeSingle(),
     supabase.from("v_invoices").select("*").eq("contract_id", id).order("issue_date", { ascending: false }).order("created_at", { ascending: false }),
     supabase.from("deposit_transactions").select("*").eq("contract_id", id).order("txn_date").order("created_at"),
     supabase.from("contract_renewals").select("*").eq("contract_id", id).order("created_at", { ascending: false }),
     supabase.from("v_billing_due").select("*").eq("contract_id", id).maybeSingle(),
+    supabase.from("contracts").select("purpose, unit:units(unit_type:unit_types(kind))").eq("id", id).maybeSingle(),
   ]);
   if (!cData) notFound();
   const c = cData as ContractView;
@@ -41,6 +42,9 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
   const today = todayTH();
   const daysLeft = daysBetween(today, c.end_date);
   const active = c.status === "active";
+  const purpose = (extra?.purpose as string | null) ?? null;
+  const unitRel = extra?.unit as unknown as { unit_type: { kind: string } | null } | null;
+  const isParking = unitRel?.unit_type?.kind === "parking";
 
   return (
     <>
@@ -65,8 +69,14 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
       />
 
       {sp.created === "1" && (
-        <Alert tone="ok" className="mb-4">
-          สร้างสัญญาเรียบร้อยแล้ว ขั้นต่อไปคือออกใบแจ้งหนี้รอบแรก
+        <Alert tone={sp.invoice === "partial" || sp.invoice === "fail" ? "warn" : "ok"} className="mb-4">
+          {sp.invoice === "ok"
+            ? "สร้างสัญญาและใบแจ้งหนี้ค่าเช่างวดแรกเรียบร้อยแล้ว พิมพ์สัญญาได้จากปุ่มด้านบน"
+            : sp.invoice === "partial"
+              ? "สร้างสัญญาแล้ว แต่สัญญาสั้นกว่า 1 รอบชำระ ระบบจึงไม่ออกบิลอัตโนมัติ กรุณากด “ออกใบแจ้งหนี้” เพื่อตรวจยอดเอง"
+              : sp.invoice === "fail"
+                ? "สร้างสัญญาแล้ว แต่ออกใบแจ้งหนี้งวดแรกไม่สำเร็จ กรุณากด “ออกใบแจ้งหนี้” เพื่อออกเอง"
+                : "สร้างสัญญาเรียบร้อยแล้ว ขั้นต่อไปคือออกใบแจ้งหนี้รอบแรก"}
         </Alert>
       )}
 
@@ -101,6 +111,7 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
                       </Link>
                     ),
                   },
+                  { label: isParking ? "ทะเบียนรถ" : "เพื่อใช้เก็บ", value: purpose ?? "-" },
                   { label: "ค่าเช่าต่อเดือน", value: `${money(c.monthly_rent)} บาท` },
                   { label: "วันเริ่มสัญญา", value: thDate(c.start_date) },
                   {
@@ -132,6 +143,7 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
               />
               {active && (
                 <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
+                  <EditContractInfoButton id={c.id} purpose={purpose} note={c.note} isParking={isParking} />
                   <RenewContractButton contract={c} />
                   <EndContractButton contract={c} today={today} />
                 </div>

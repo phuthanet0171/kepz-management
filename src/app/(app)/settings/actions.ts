@@ -6,6 +6,7 @@ import { thaiError } from "@/lib/errors";
 import { bool, isMoney, num, reqStr, str } from "@/lib/form";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
+import { readContractTerms } from "@/lib/contract-terms-form";
 
 async function saveSettings(patch: Record<string, unknown>): Promise<ActionState> {
   const supabase = await createClient();
@@ -62,7 +63,6 @@ export async function saveDocuments(_: ActionState, fd: FormData): Promise<Actio
     receipt_prefix: prefixes[1],
     contract_prefix: prefixes[2],
     payment_instructions: str(fd, "payment_instructions"),
-    contract_terms: str(fd, "contract_terms"),
   });
 }
 
@@ -94,4 +94,29 @@ export async function saveUnitTypes(_: ActionState, fd: FormData): Promise<Actio
   }
   revalidatePath("/", "layout");
   return { ok: true, message: "บันทึกราคาแล้ว ใช้กับสัญญาใหม่เท่านั้น สัญญาเดิมยังใช้ราคาเดิม" };
+}
+
+export async function saveContractSettings(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
+  const r = readContractTerms(fd, false);
+  if ("error" in r) return { error: r.error };
+  return saveSettings(r.patch);
+}
+
+const TEMPLATE_MAX = 30_000;
+
+export async function saveContractTemplate(_: ActionState, fd: FormData): Promise<ActionState> {
+  const denied = await ownerOnlyError();
+  if (denied) return { error: denied };
+  const kind = reqStr(fd, "kind");
+  if (kind !== "storage" && kind !== "parking") return { error: "ประเภทแม่แบบไม่ถูกต้อง" };
+  const reset = fd.get("reset") === "1";
+  const text = String(fd.get("template") ?? "").replace(/\r\n?/g, "\n").trim();
+  if (!reset && !text) return { error: "แม่แบบว่างเปล่า ถ้าต้องการใช้ฉบับตั้งต้นให้กด “คืนค่าแม่แบบเดิม”" };
+  if (text.length > TEMPLATE_MAX) return { error: `แม่แบบยาวเกิน ${TEMPLATE_MAX.toLocaleString()} ตัวอักษร` };
+  const col = kind === "parking" ? "contract_template_parking" : "contract_template_storage";
+  const r = await saveSettings({ [col]: reset ? null : text });
+  if (r?.ok) r.message = reset ? "คืนค่าแม่แบบเดิมแล้ว" : "บันทึกแม่แบบแล้ว สัญญาที่พิมพ์ต่อจากนี้ใช้ถ้อยคำใหม่ทันที";
+  return r;
 }

@@ -1,10 +1,12 @@
 "use client";
 
+import { FileText } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Card, CardHeader, Field } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import type { Settings, UnitType } from "@/lib/types";
-import { saveAlerts, saveBusiness, saveDocuments, saveUnitTypes, saveVat } from "./actions";
+import { saveAlerts, saveBusiness, saveContractSettings, saveDocuments, saveUnitTypes, saveVat } from "./actions";
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -133,9 +135,6 @@ export function DocumentsForm({ s }: { s: Settings }) {
         <Field label="ช่องทางการชำระเงิน (พิมพ์ในใบแจ้งหนี้)" hint="เช่น ชื่อธนาคาร เลขบัญชี ชื่อบัญชี หรือเลขพร้อมเพย์">
           <textarea name="payment_instructions" rows={3} defaultValue={s.payment_instructions ?? ""} className="input" />
         </Field>
-        <Field label="ข้อกำหนดและเงื่อนไขในสัญญาเช่า" hint="พิมพ์ทีละข้อ ขึ้นบรรทัดใหม่ต่อข้อ จะแสดงในหน้าพิมพ์สัญญา">
-          <textarea name="contract_terms" rows={8} defaultValue={s.contract_terms ?? ""} className="input" />
-        </Field>
         <SubmitButton>บันทึก</SubmitButton>
       </ActionForm>
     </Section>
@@ -155,6 +154,64 @@ export function AlertsForm({ s }: { s: Settings }) {
           </Field>
         </div>
         <SubmitButton>บันทึก</SubmitButton>
+      </ActionForm>
+    </Section>
+  );
+}
+
+/** ช่องข้อมูลที่ใช้ในสัญญา ใช้ร่วมกับหน้าแก้ไขสาขา (ค่าเฉพาะสาขา) */
+export function ContractTermsFields({
+  values,
+  placeholders,
+  required,
+}: {
+  values: {
+    lessor_name: string | null;
+    bank_account: string | null;
+    rent_due_day: number | null;
+    late_fee_per_day: number | null;
+    reclaim_day: number | null;
+    overstay_fee_per_day: number | null;
+  };
+  placeholders?: Record<string, string>;
+  required?: boolean;
+}) {
+  const ph = (k: string) => placeholders?.[k];
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="ชื่อผู้ให้เช่า (ลงนามในสัญญา)" className="sm:col-span-2">
+        <input name="lessor_name" defaultValue={values.lessor_name ?? ""} placeholder={ph("lessor_name") ?? "เช่น นายสมชาย ใจดี"} className="input" />
+      </Field>
+      <Field label="บัญชีธนาคารสำหรับรับชำระ" className="sm:col-span-2">
+        <input name="bank_account" defaultValue={values.bank_account ?? ""} placeholder={ph("bank_account") ?? "เช่น กสิกรไทย เลขที่ 123-4-56789-0 ชื่อบัญชี ..."} className="input" />
+      </Field>
+      <Field label="ชำระค่าเช่าภายในวันที่" hint="ของเดือนที่ถึงกำหนด">
+        <input name="rent_due_day" type="number" inputMode="numeric" min={1} max={31} required={required} defaultValue={values.rent_due_day ?? ""} placeholder={ph("rent_due_day")} className="input tabular" />
+      </Field>
+      <Field label="ค่าปรับชำระล่าช้า (บาท/วัน)">
+        <input name="late_fee_per_day" type="number" inputMode="decimal" min={0} step="0.01" required={required} defaultValue={values.late_fee_per_day ?? ""} placeholder={ph("late_fee_per_day")} className="input tabular" />
+      </Field>
+      <Field label="ไม่ชำระภายในวันที่ … มีสิทธิ์ให้ผู้อื่นเช่า">
+        <input name="reclaim_day" type="number" inputMode="numeric" min={1} max={31} required={required} defaultValue={values.reclaim_day ?? ""} placeholder={ph("reclaim_day")} className="input tabular" />
+      </Field>
+      <Field label="ค่าปรับไม่ย้ายออกหลังหมดสัญญา (บาท/วัน)">
+        <input name="overstay_fee_per_day" type="number" inputMode="decimal" min={0} step="0.01" required={required} defaultValue={values.overstay_fee_per_day ?? ""} placeholder={ph("overstay_fee_per_day")} className="input tabular" />
+      </Field>
+    </div>
+  );
+}
+
+export function ContractSettingsForm({ s }: { s: Settings }) {
+  return (
+    <Section title="สัญญาเช่า" description="ค่ากลางที่เติมลงในสัญญาทุกสาขา สาขาไหนต่างจากนี้ ตั้งเฉพาะสาขาได้ที่หน้าสาขา → แก้ไข">
+      <ActionForm action={saveContractSettings} resetOnSuccess={false}>
+        <ContractTermsFields values={s} required />
+        <div className="flex flex-wrap items-center gap-2">
+          <SubmitButton>บันทึก</SubmitButton>
+          <Link href="/settings/contract-template" className="btn btn-outline">
+            <FileText className="size-4" /> แก้ไขถ้อยคำสัญญา
+          </Link>
+        </div>
       </ActionForm>
     </Section>
   );

@@ -5,6 +5,13 @@ import { Field } from "@/components/ui";
 import { ActionForm, Sheet, SubmitButton } from "@/components/ui/client";
 import type { Branch, UnitType } from "@/lib/types";
 import { addUnits, updateBranch } from "../actions";
+import { ContractTermsFields } from "../../settings/settings-forms";
+
+function hasOverrides(b: Branch) {
+  return [b.lessor_name, b.bank_account, b.rent_due_day, b.late_fee_per_day, b.reclaim_day, b.overstay_fee_per_day].some(
+    (v) => v !== null && v !== undefined && v !== "",
+  );
+}
 
 export function EditBranchButton({ branch }: { branch: Branch }) {
   return (
@@ -31,6 +38,21 @@ export function EditBranchButton({ branch }: { branch: Branch }) {
           <Field label="หมายเหตุ">
             <input name="note" defaultValue={branch.note ?? ""} className="input" />
           </Field>
+          <details className="group rounded-xl border border-line p-3" open={hasOverrides(branch)}>
+            <summary className="cursor-pointer text-sm font-medium">ข้อมูลในสัญญาเฉพาะสาขานี้</summary>
+            <p className="mt-1 mb-3 text-xs text-muted">เว้นว่างช่องไหน = ใช้ค่ากลางจาก ตั้งค่า → สัญญาเช่า</p>
+            <ContractTermsFields
+              values={branch}
+              placeholders={{
+                lessor_name: "ใช้ค่ากลาง",
+                bank_account: "ใช้ค่ากลาง",
+                rent_due_day: "ค่ากลาง",
+                late_fee_per_day: "ค่ากลาง",
+                reclaim_day: "ค่ากลาง",
+                overstay_fee_per_day: "ค่ากลาง",
+              }}
+            />
+          </details>
           <label className="flex items-center gap-3 rounded-xl border border-line p-3">
             <input type="checkbox" name="is_active" defaultChecked={branch.is_active} className="size-5 accent-ink" />
             <span>

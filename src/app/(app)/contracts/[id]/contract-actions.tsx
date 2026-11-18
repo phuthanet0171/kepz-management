@@ -1,12 +1,12 @@
 "use client";
 
-import { CalendarPlus, LogOut, PiggyBank } from "lucide-react";
+import { CalendarPlus, LogOut, Pencil, PiggyBank } from "lucide-react";
 import { useState } from "react";
 import { Alert, Field } from "@/components/ui";
 import { ActionForm, Sheet, SubmitButton } from "@/components/ui/client";
 import { addDays, addMonths, money, thDate } from "@/lib/format";
 import type { ContractView, DepositTxnType } from "@/lib/types";
-import { endContract, recordDeposit, renewContract } from "../actions";
+import { endContract, recordDeposit, renewContract, updateContractInfo } from "../actions";
 
 export function RenewContractButton({ contract }: { contract: ContractView }) {
   return (
@@ -205,5 +205,43 @@ function DepositForm({
       </Field>
       <SubmitButton className="btn btn-primary w-full">บันทึก</SubmitButton>
     </ActionForm>
+  );
+}
+
+export function EditContractInfoButton({
+  id,
+  purpose,
+  note,
+  isParking,
+}: {
+  id: string;
+  purpose: string | null;
+  note: string | null;
+  isParking: boolean;
+}) {
+  return (
+    <Sheet
+      title="แก้ไขรายละเอียดสัญญา"
+      description="ข้อความที่พิมพ์ลงในสัญญา"
+      triggerClassName="btn btn-outline"
+      trigger={
+        <>
+          <Pencil className="size-4" /> แก้ไขรายละเอียด
+        </>
+      }
+    >
+      {(close) => (
+        <ActionForm action={updateContractInfo} onSuccess={close} resetOnSuccess={false}>
+          <input type="hidden" name="id" value={id} />
+          <Field label={isParking ? "ทะเบียนรถ" : "เพื่อใช้เก็บ"}>
+            <input name="purpose" maxLength={200} defaultValue={purpose ?? ""} className="input" />
+          </Field>
+          <Field label="หมายเหตุ / เงื่อนไขเพิ่มเติม">
+            <textarea name="note" rows={3} defaultValue={note ?? ""} className="input min-h-0" />
+          </Field>
+          <SubmitButton className="btn btn-primary w-full">บันทึก</SubmitButton>
+        </ActionForm>
+      )}
+    </Sheet>
   );
 }

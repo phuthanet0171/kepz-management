@@ -25,6 +25,14 @@ export interface Settings {
   contract_terms: string | null;
   due_soon_days: number;
   expiring_soon_days: number;
+  lessor_name: string | null;
+  bank_account: string | null;
+  rent_due_day: number;
+  late_fee_per_day: number;
+  reclaim_day: number;
+  overstay_fee_per_day: number;
+  contract_template_storage: string | null;
+  contract_template_parking: string | null;
 }
 
 export interface UnitType {
@@ -45,6 +53,12 @@ export interface Branch {
   note: string | null;
   is_active: boolean;
   created_at: string;
+  lessor_name: string | null;
+  bank_account: string | null;
+  rent_due_day: number | null;
+  late_fee_per_day: number | null;
+  reclaim_day: number | null;
+  overstay_fee_per_day: number | null;
 }
 
 export interface UnitView {

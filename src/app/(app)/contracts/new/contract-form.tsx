@@ -16,6 +16,7 @@ export type UnitOption = {
   branch_id: string;
   branch_name: string;
   unit_type_name: string;
+  kind: "storage" | "parking";
   effective_price: number;
 };
 export type TenantOption = { id: string; full_name: string; phone: string };
@@ -49,6 +50,7 @@ export function ContractForm({
   const [rent, setRent] = useState(defaultUnit ? String(defaultUnit.effective_price) : "");
   const [deposit, setDeposit] = useState("");
   const [depositReceived, setDepositReceived] = useState(false);
+  const [firstInvoice, setFirstInvoice] = useState(true);
 
   const branchUnits = units.filter((u) => u.branch_id === branchId);
   const unit = units.find((u) => u.id === unitId);
@@ -109,6 +111,18 @@ export function ContractForm({
                 </option>
               ))}
             </select>
+          </Field>
+          <Field
+            label={unit?.kind === "parking" ? "ทะเบียนรถ" : "เพื่อใช้เก็บ"}
+            className="sm:col-span-2"
+            hint="พิมพ์ลงในสัญญา เว้นว่างได้ (จะเว้นจุดไว้ให้เขียนด้วยมือ)"
+          >
+            <input
+              name="purpose"
+              maxLength={200}
+              placeholder={unit?.kind === "parking" ? "เช่น กข 1234 กรุงเทพมหานคร" : "เช่น เฟอร์นิเจอร์ เอกสาร สินค้า"}
+              className="input"
+            />
           </Field>
         </div>
       </Card>
@@ -303,6 +317,24 @@ export function ContractForm({
               )}
             </div>
           )}
+
+          <label className="flex items-start gap-3 rounded-xl border border-line p-3">
+            <input
+              type="checkbox"
+              name="first_invoice"
+              checked={firstInvoice}
+              onChange={(e) => setFirstInvoice(e.target.checked)}
+              className="mt-0.5 size-5 shrink-0 accent-ink"
+            />
+            <span>
+              <span className="block text-sm font-medium">ออกใบแจ้งหนี้ค่าเช่างวดแรกทันที</span>
+              <span className="block text-xs text-muted">
+                {rentNum > 0 && start && firstBillEnd
+                  ? `ค่าเช่า ${thDate(start)} – ${thDate(firstBillEnd)} · ${money(rentNum * BILLING_CYCLE_MONTHS[cycle])} บาท (= ค่าเช่าล่วงหน้าในสัญญา) เงินประกันบันทึกแยกด้านบน`
+                  : "ค่าเช่าล่วงหน้างวดแรกตามรอบชำระ เงินประกันบันทึกแยกด้านบน"}
+              </span>
+            </span>
+          </label>
 
           <Field label="หมายเหตุ / เงื่อนไขเพิ่มเติม">
             <textarea name="note" rows={2} className="input min-h-0" />

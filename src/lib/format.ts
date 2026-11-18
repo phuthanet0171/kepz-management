@@ -76,6 +76,11 @@ export function todayTH() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
 
+/** วันที่ (YYYY-MM-DD) ตามเวลาประเทศไทยของ timestamp */
+export function dateOfTH(ts: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date(ts));
+}
+
 export function addDays(d: string, days: number) {
   const dt = parseDate(d);
   dt.setUTCDate(dt.getUTCDate() + days);

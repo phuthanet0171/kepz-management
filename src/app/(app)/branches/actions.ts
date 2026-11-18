@@ -3,6 +3,7 @@
 import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { readContractTerms } from "@/lib/contract-terms-form";
 import { thaiError } from "@/lib/errors";
 import { num, reqStr, str } from "@/lib/form";
 import { createClient } from "@/lib/supabase/server";
@@ -49,6 +50,9 @@ export async function updateBranch(_: ActionState, fd: FormData): Promise<Action
   const name = reqStr(fd, "name");
   if (!name) return { error: "กรุณากรอกชื่อสาขา" };
 
+  const terms = readContractTerms(fd, true);
+  if ("error" in terms) return { error: terms.error };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("branches")
@@ -58,6 +62,7 @@ export async function updateBranch(_: ActionState, fd: FormData): Promise<Action
       phone: str(fd, "phone"),
       note: str(fd, "note"),
       is_active: fd.get("is_active") === "on",
+      ...terms.patch,
     })
     .eq("id", id);
   if (error) return { error: thaiError(error, "บันทึกข้อมูลสาขาไม่สำเร็จ") };

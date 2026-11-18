@@ -18,7 +18,7 @@ export default async function NewContractPage({ searchParams }: PageProps<"/cont
     fetchAll<UnitOption & { type_sort: number }>((from, to) =>
       supabase
         .from("v_units")
-        .select("id, code, branch_id, branch_name, unit_type_name, effective_price, type_sort")
+        .select("id, code, branch_id, branch_name, unit_type_name, kind, effective_price, type_sort")
         .eq("status", "available")
         .order("type_sort")
         .order("code")

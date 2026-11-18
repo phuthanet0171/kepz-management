@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { thaiError } from "@/lib/errors";
 import { bool, isDate, isMoney, num, reqStr, str } from "@/lib/form";
 import { createClient } from "@/lib/supabase/server";
+import { thDate, todayTH } from "@/lib/format";
 import type { ActionState } from "@/lib/types";
 
 const CYCLES = ["monthly", "semiannual", "annual"];
@@ -50,8 +51,63 @@ export async function createContract(_: ActionState, fd: FormData): Promise<Acti
   });
   if (error) return { error: thaiError(error, "สร้างสัญญาไม่สำเร็จ") };
 
+  // สัญญาสร้างแล้ว ขั้นต่อไปถ้าไม่สำเร็จจะไม่ยกเลิกสัญญา แต่แจ้งให้ทำต่อเองในหน้าสัญญา
+  const purpose = str(fd, "purpose");
+  if (purpose) await supabase.from("contracts").update({ purpose: purpose.slice(0, 200) }).eq("id", id);
+
+  let invoice = "";
+  if (bool(fd, "first_invoice")) invoice = await createFirstInvoice(supabase, id as string, unitId);
+
   revalidatePath("/", "layout");
-  redirect(`/contracts/${id}?created=1`);
+  redirect(`/contracts/${id}?created=1${invoice ? `&invoice=${invoice}` : ""}`);
+}
+
+/** ออกใบแจ้งหนี้ค่าเช่างวดแรก (ค่าเช่าล่วงหน้า) คืนผลเป็น ok | partial | fail */
+async function createFirstInvoice(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  contractId: string,
+  unitId: string,
+): Promise<string> {
+  const [{ data: periods, error: pErr }, { data: c }, { data: u }] = await Promise.all([
+    supabase.rpc("next_billing_period", { p_contract_id: contractId }),
+    supabase.from("contracts").select("monthly_rent").eq("id", contractId).single(),
+    supabase.from("units").select("code").eq("id", unitId).single(),
+  ]);
+  const p = (periods as { period_start: string; period_end: string; months: number; is_partial: boolean }[] | null)?.[0];
+  if (pErr || !p || !c) return "fail";
+  if (p.is_partial) return "partial";
+
+  const today = todayTH();
+  const { error } = await supabase.rpc("create_invoice", {
+    p_contract_id: contractId,
+    p_period_start: p.period_start,
+    p_period_end: p.period_end,
+    p_issue_date: today,
+    p_due_date: p.period_start > today ? p.period_start : today,
+    p_items: [
+      {
+        item_type: "rent",
+        description: `ค่าเช่า ${u?.code ?? "งวดแรก"} (${thDate(p.period_start)} – ${thDate(p.period_end)})`,
+        quantity: p.months,
+        unit_price: Number(c.monthly_rent),
+      },
+    ],
+    p_note: "ค่าเช่าล่วงหน้างวดแรก",
+  });
+  return error ? "fail" : "ok";
+}
+
+export async function updateContractInfo(_: ActionState, fd: FormData): Promise<ActionState> {
+  const id = reqStr(fd, "id");
+  const purpose = str(fd, "purpose");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("contracts")
+    .update({ purpose: purpose ? purpose.slice(0, 200) : null, note: str(fd, "note") })
+    .eq("id", id);
+  if (error) return { error: thaiError(error, "บันทึกไม่สำเร็จ") };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 export async function renewContract(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -119,15 +175,6 @@ export async function recordDeposit(_: ActionState, fd: FormData): Promise<Actio
   });
   if (error) return { error: thaiError(error, "บันทึกเงินประกันไม่สำเร็จ") };
 
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-export async function updateContractNote(_: ActionState, fd: FormData): Promise<ActionState> {
-  const id = reqStr(fd, "id");
-  const supabase = await createClient();
-  const { error } = await supabase.from("contracts").update({ note: str(fd, "note") }).eq("id", id);
-  if (error) return { error: thaiError(error, "บันทึกหมายเหตุไม่สำเร็จ") };
   revalidatePath("/", "layout");
   return { ok: true };
 }
