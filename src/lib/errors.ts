@@ -20,6 +20,16 @@ export function thaiError(err: PgError, fallback = "เกิดข้อผิ�
   if (err.code === "23514") return "ข้อมูลไม่ถูกต้องตามเงื่อนไขของระบบ กรุณาตรวจสอบอีกครั้ง";
   if (err.code === "42501" || msg.includes("row-level security")) return "ไม่มีสิทธิ์ดำเนินการ กรุณาเข้าสู่ระบบใหม่";
   if (err.code === "PGRST116") return "ไม่พบข้อมูล";
+  // คอลัมน์/ฟังก์ชันใหม่ยังไม่มีในฐานข้อมูล = ยังไม่ได้รันไฟล์ SQL ล่าสุดใน Supabase
+  if (
+    err.code === "PGRST204" ||
+    err.code === "PGRST202" ||
+    err.code === "42703" ||
+    err.code === "42883" ||
+    msg.includes("schema cache")
+  ) {
+    return "ฐานข้อมูลยังไม่ได้อัปเดต กรุณารันไฟล์ SQL ล่าสุด (supabase/migrations) ใน Supabase > SQL Editor แล้วลองใหม่";
+  }
   if (msg.includes("Failed to fetch") || msg.includes("fetch failed")) {
     return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ต";
   }

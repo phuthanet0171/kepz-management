@@ -31,3 +31,6 @@ alter table public.branches
 -- สิ่งของที่เก็บ (ห้องเก็บของ) หรือทะเบียนรถ (ที่จอดรถ)
 alter table public.contracts
   add column if not exists purpose text;
+
+-- ให้ Supabase API เห็นคอลัมน์ใหม่ทันที
+notify pgrst, 'reload schema';
