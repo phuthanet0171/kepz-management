@@ -11,10 +11,11 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { useFormStatus } from "react-dom";
+import { createPortal, useFormStatus } from "react-dom";
 import type { ActionState } from "@/lib/types";
 
 const PendingContext = createContext(false);
@@ -106,6 +107,8 @@ export function ActionForm({
       encType={encType}
       // ส่งผ่าน onSubmit แทน action={...} เพื่อไม่ให้ React ล้างค่าที่กรอกไว้เมื่อบันทึกไม่สำเร็จ
       onSubmit={(e) => {
+        // ไม่รับ submit ของฟอร์มอื่นที่ส่งต่อขึ้นมา (เช่น ฟอร์มในหน้าต่าง Sheet ที่อยู่ในฟอร์มนี้)
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         if (pending) return;
         const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
@@ -126,6 +129,8 @@ export function ActionForm({
   );
 }
 
+const noopSubscribe = () => () => {};
+
 /** หน้าต่างแบบ bottom sheet บนมือถือ และ modal กลางจอบนคอมพิวเตอร์ */
 export function Sheet({
   trigger,
@@ -143,6 +148,12 @@ export function Sheet({
   const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
   const [open, setOpen] = useState(false);
   const close = useCallback(() => dialog?.close(), [dialog]);
+  // วางหน้าต่างไว้ที่ <body> เสมอ ไม่ให้ฟอร์มในหน้าต่างไปซ้อนในฟอร์มของหน้า (ฟอร์มซ้อนกันจะส่งข้อมูลไม่ได้)
+  const mounted = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
 
   return (
     <>
@@ -156,25 +167,29 @@ export function Sheet({
       >
         {trigger}
       </button>
-      <dialog
-        ref={setDialog}
-        onClose={() => setOpen(false)}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) close();
-        }}
-        className="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto rounded-t-3xl bg-surface p-0 text-ink shadow-2xl sm:m-auto sm:max-w-lg sm:rounded-3xl"
-      >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-line bg-surface px-5 pt-4 pb-3">
-          <div>
-            <h2 className="text-lg font-semibold">{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
-          </div>
-          <button type="button" onClick={close} className="btn btn-ghost -mr-2 size-10 min-h-0 rounded-full p-0" aria-label="ปิด">
-            <X className="size-5" />
-          </button>
-        </div>
-        <div className="safe-bottom px-5 pt-4 pb-6">{open && children(close)}</div>
-      </dialog>
+      {mounted &&
+        createPortal(
+          <dialog
+            ref={setDialog}
+            onClose={() => setOpen(false)}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) close();
+            }}
+            className="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto rounded-t-3xl bg-surface p-0 text-ink shadow-2xl sm:m-auto sm:max-w-lg sm:rounded-3xl"
+          >
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-line bg-surface px-5 pt-4 pb-3">
+              <div>
+                <h2 className="text-lg font-semibold">{title}</h2>
+                {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
+              </div>
+              <button type="button" onClick={close} className="btn btn-ghost -mr-2 size-10 min-h-0 rounded-full p-0" aria-label="ปิด">
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="safe-bottom px-5 pt-4 pb-6">{open && children(close)}</div>
+          </dialog>,
+          document.body,
+        )}
     </>
   );
 }
@@ -186,6 +201,7 @@ export function RowLink({ href, children, className }: { href: string; children:
     <tr
       className={clsx("cursor-pointer", className)}
       onClick={(e) => {
+        if (!e.currentTarget.contains(e.target as Node)) return; // คลิกในหน้าต่าง Sheet (อยู่นอกแถวจริง)
         if ((e.target as HTMLElement).closest("a, button, input, select, textarea, label")) return;
         if (window.getSelection()?.toString()) return; // กำลังลากเลือกข้อความ
         if (e.metaKey || e.ctrlKey) window.open(href, "_blank");

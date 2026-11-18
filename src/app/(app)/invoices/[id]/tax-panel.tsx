@@ -44,7 +44,7 @@ export function InvoiceTaxPanel({
         action={setInvoiceTax}
         resetOnSuccess={false}
         onSuccess={() => setSaved(tax)}
-        className="space-y-4 p-4 sm:p-5"
+        className="space-y-4 px-4 pt-4 pb-4 sm:px-5 sm:pt-5 sm:pb-5"
       >
         <input type="hidden" name="id" value={invoiceId} />
         <TaxPicker value={tax} onChange={setTax} disabled={Boolean(lockedReason)} stacked />
@@ -68,17 +68,19 @@ export function InvoiceTaxPanel({
               ยกเลิก
             </button>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <Link href={`/print/invoice/${invoiceId}`} target="_blank" className="btn btn-primary w-full">
-              <Printer className="size-4" /> พิมพ์ใบวางบิล
-            </Link>
-            {payButton}
-          </div>
-        )}
+        ) : null}
         {dirty && <p className="text-center text-xs text-muted">บันทึกก่อน แล้วจึงพิมพ์ใบวางบิลได้</p>}
-        {voidButton && !dirty && <div className="border-t border-line pt-3">{voidButton}</div>}
       </ActionForm>
+      {/* ปุ่มที่เปิดฟอร์มของตัวเอง ต้องอยู่นอกฟอร์มภาษี (ฟอร์มซ้อนกันจะส่งข้อมูลไม่ได้) */}
+      {!dirty && (
+        <div className="space-y-2 px-4 pb-4 sm:px-5 sm:pb-5">
+          <Link href={`/print/invoice/${invoiceId}`} target="_blank" className="btn btn-primary w-full">
+            <Printer className="size-4" /> พิมพ์ใบวางบิล
+          </Link>
+          {payButton}
+          {voidButton && <div className="mt-3 border-t border-line pt-3">{voidButton}</div>}
+        </div>
+      )}
     </Card>
   );
 }
