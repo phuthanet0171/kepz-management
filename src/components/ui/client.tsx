@@ -13,6 +13,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/lib/types";
 
@@ -172,5 +173,24 @@ export function Sheet({
         <div className="safe-bottom px-5 pt-4 pb-6">{open && children(close)}</div>
       </dialog>
     </>
+  );
+}
+
+/** แถวตารางที่คลิกตรงไหนก็เปิดหน้ารายละเอียด (ลิงก์/ปุ่มในแถวยังทำงานตามปกติ, Ctrl/⌘+คลิกเปิดแท็บใหม่) */
+export function RowLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
+  const router = useRouter();
+  return (
+    <tr
+      className={clsx("cursor-pointer", className)}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("a, button, input, select, textarea, label")) return;
+        if (window.getSelection()?.toString()) return; // กำลังลากเลือกข้อความ
+        if (e.metaKey || e.ctrlKey) window.open(href, "_blank");
+        else router.push(href);
+      }}
+      onMouseEnter={() => router.prefetch(href)}
+    >
+      {children}
+    </tr>
   );
 }

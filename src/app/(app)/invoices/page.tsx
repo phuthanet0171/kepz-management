@@ -1,6 +1,7 @@
 import { CalendarCheck, ReceiptText, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RowLink } from "@/components/ui/client";
 import { InvoiceStatusBadge } from "@/components/status";
 import { Card, EmptyState, PageHeader, Tabs } from "@/components/ui";
 import { fetchAll } from "@/lib/data";
@@ -148,7 +149,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                     </thead>
                     <tbody>
                       {list.map((i) => (
-                        <tr key={i.id}>
+                        <RowLink key={i.id} href={`/invoices/${i.id}`}>
                           <td>
                             <Link href={`/invoices/${i.id}`} className={`font-medium hover:underline ${i.status === "void" ? "text-muted line-through" : ""}`}>
                               {i.invoice_no}
@@ -169,7 +170,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                           <td>
                             <InvoiceStatusBadge status={i.status} overdue={i.is_overdue} days={i.days_overdue} />
                           </td>
-                        </tr>
+                        </RowLink>
                       ))}
                     </tbody>
                   </table>

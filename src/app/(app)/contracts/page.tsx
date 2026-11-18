@@ -1,6 +1,7 @@
 import { FileSignature, Plus, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RowLink } from "@/components/ui/client";
 import { ContractStatusBadge } from "@/components/status";
 import { Card, EmptyState, PageHeader, Tabs } from "@/components/ui";
 import { fetchAll } from "@/lib/data";
@@ -122,7 +123,7 @@ export default async function ContractsPage({ searchParams }: PageProps<"/contra
                 </thead>
                 <tbody>
                   {list.map((c) => (
-                    <tr key={c.id}>
+                    <RowLink key={c.id} href={`/contracts/${c.id}`}>
                       <td>
                         <Link href={`/contracts/${c.id}`} className="font-medium hover:underline">
                           {c.contract_no}
@@ -144,7 +145,7 @@ export default async function ContractsPage({ searchParams }: PageProps<"/contra
                       <td>
                         <ContractStatusBadge status={c.status} expiring={c.is_expiring} />
                       </td>
-                    </tr>
+                    </RowLink>
                   ))}
                 </tbody>
               </table>
