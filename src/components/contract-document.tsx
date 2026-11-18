@@ -1,17 +1,9 @@
 import clsx from "clsx";
-import type { ReactNode } from "react";
 import type { Block, Inline } from "@/lib/contract-template";
 import type { UnitKind } from "@/lib/types";
+import { BrandHeader, DocFooter, InfoBox, InfoGrid, SignatureBoxes, WriteLine, type DocBusiness, type InfoRow } from "./print-kit";
 
-const BLANK = "……………………………";
-
-export type ContractBusiness = {
-  name: string;
-  address: string | null;
-  phone: string | null;
-  email: string | null;
-  tax_id: string | null;
-};
+export type ContractBusiness = DocBusiness;
 
 function Parts({ parts, preview }: { parts: Inline[]; preview?: boolean }) {
   return (
@@ -26,20 +18,21 @@ function Parts({ parts, preview }: { parts: Inline[]; preview?: boolean }) {
             </span>
           );
         }
-        // ช่องว่าง: เว้นเส้นจุดไว้ให้เขียนด้วยมือ
+        // ไม่มีข้อมูล: เว้นเส้นให้เขียนด้วยมือ กว้างพอเขียนได้จริง
         if (!p.v) {
           return (
-            <span key={i} className={clsx("text-muted", preview && "rounded bg-brand-soft")} title={preview ? `{${p.key}} ยังไม่มีข้อมูล` : undefined}>
-              {BLANK}
+            <span key={i} className={clsx(preview && "rounded bg-brand-soft")} title={preview ? `{${p.key}} ยังไม่มีข้อมูล` : undefined}>
+              {" "}
+              <WriteLine width="13em" />{" "}
             </span>
           );
         }
-        // ข้อมูลที่เติมให้: ตัวหนาเล็กน้อย ขีดเส้นจุดใต้ ให้ดูเหมือนช่องกรอกในแบบฟอร์ม
+        // ข้อมูลที่ระบบเติมให้: ตัวหนา ขีดเส้นใต้บางๆ ให้ดูเหมือนช่องกรอกที่กรอกแล้ว
         return (
           <span
             key={i}
             className={clsx(
-              "border-b border-dotted border-ink/50 px-0.5 font-semibold",
+              "border-b border-ink/30 px-0.5 font-semibold",
               p.bold && "font-bold",
               preview && "rounded-sm bg-brand-soft/70",
             )}
@@ -50,22 +43,6 @@ function Parts({ parts, preview }: { parts: Inline[]; preview?: boolean }) {
       })}
     </>
   );
-}
-
-type SummaryItem = { label: string; value: ReactNode; wide?: boolean; highlight?: boolean };
-
-/** จัดรายการเป็น 2 คอลัมน์ บอกว่าช่องไหนอยู่ซ้าย (ต้องมีเส้นคั่นด้านขวา) */
-function withColumns(items: SummaryItem[]) {
-  let col = 0;
-  return items.map((s) => {
-    if (s.wide) {
-      col = 0;
-      return { s, left: false };
-    }
-    const left = col === 0;
-    col = left ? 1 : 0;
-    return { s, left };
-  });
 }
 
 function plainText(parts: Inline[]) {
@@ -91,9 +68,10 @@ export function ContractDocument({
 }) {
   // หัวเรื่องแรกของแม่แบบ (# ...) ย้ายไปแสดงที่หัวกระดาษ
   const titleIdx = blocks.findIndex((b) => b.kind === "title");
+  const titleBlock = titleIdx >= 0 ? blocks[titleIdx] : null;
   const title =
-    titleIdx >= 0 && "parts" in blocks[titleIdx]
-      ? plainText((blocks[titleIdx] as { parts: Inline[] }).parts)
+    titleBlock && "parts" in titleBlock
+      ? plainText(titleBlock.parts)
       : kind === "parking"
         ? "สัญญาเช่าที่จอดรถ"
         : "สัญญาเช่าห้องเก็บของ";
@@ -102,18 +80,25 @@ export function ContractDocument({
 
   const parking = kind === "parking";
   const v = (k: string) => fields[k] || "-";
-  const summary: SummaryItem[] = [
+  const summary: InfoRow[] = [
     { label: "ผู้เช่า", value: v("ชื่อผู้เช่า") },
     { label: "เบอร์โทร", value: v("เบอร์ผู้เช่า") },
     {
       label: parking ? "ช่องจอด" : "ห้องเก็บของ",
       value: (
         <>
-          {v("เลขห้อง")} <span className="font-normal text-muted">· {v("ประเภทห้อง")}{fields["ขนาดห้อง"] ? ` · ${fields["ขนาดห้อง"]}` : ""}</span>
+          {v("เลขห้อง")}{" "}
+          <span className="font-normal text-muted">
+            · {v("ประเภทห้อง")}
+            {fields["ขนาดห้อง"] ? ` · ${fields["ขนาดห้อง"]}` : ""}
+          </span>
         </>
       ),
     },
-    { label: parking ? "ทะเบียนรถ" : "สิ่งของที่เก็บ", value: v(parking ? "ทะเบียนรถ" : "สิ่งของที่เก็บ") },
+    {
+      label: parking ? "ทะเบียนรถ" : "สิ่งของที่เก็บ",
+      value: fields[parking ? "ทะเบียนรถ" : "สิ่งของที่เก็บ"] || <WriteLine width="100%" />,
+    },
     {
       label: "ระยะเวลาเช่า",
       value: (
@@ -123,88 +108,49 @@ export function ContractDocument({
       ),
       wide: true,
     },
-    { label: "ค่าเช่า", value: `${v("ค่าเช่า")} บาท/เดือน · ชำระ${v("รอบชำระ")}` },
+    { label: "ค่าเช่า", value: `${v("ค่าเช่า")} บาท/เดือน` },
+    { label: "รอบชำระ", value: `${v("รอบชำระ")} ภายในวันที่ ${v("ชำระภายในวันที่")}` },
     { label: "เงินประกัน", value: `${v("เงินประกัน")} บาท` },
     { label: "ค่าเช่าล่วงหน้า", value: `${v("ค่าเช่าล่วงหน้า")} บาท` },
-    { label: "ชำระแรกเข้ารวม", value: `${v("ชำระแรกเข้ารวม")} บาท`, highlight: true },
+    {
+      label: "ชำระแรกเข้ารวม",
+      value: (
+        <>
+          <span className="text-[16px]">{v("ชำระแรกเข้ารวม")} บาท</span>{" "}
+          <span className="font-normal text-muted">({v("ชำระแรกเข้ารวมตัวอักษร")})</span>
+        </>
+      ),
+      wide: true,
+      highlight: true,
+    },
   ];
 
   return (
-    <div className="text-[13px] leading-[1.8] text-ink [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
-      {/* หัวกระดาษ */}
-      <header className="relative">
-        <div className="flex items-start justify-between gap-6">
-          <div className="min-w-0">
-            <div className="text-[34px] leading-none font-bold tracking-tight">
-              kepz<span className="text-brand-strong">.</span>
-            </div>
-            <div className="mt-2 text-[12px] leading-snug text-muted">
-              <div className="font-semibold text-ink">{business.name}</div>
-              {business.address && <div className="whitespace-pre-line">{business.address}</div>}
-              {(business.phone || business.email) && (
-                <div>{[business.phone && `โทร ${business.phone}`, business.email].filter(Boolean).join(" · ")}</div>
-              )}
-            </div>
-          </div>
-          <div className="shrink-0 text-right">
-            <div className="inline-block rounded-md bg-ink px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-brand">
-              {parking ? "PARKING RENTAL AGREEMENT" : "STORAGE RENTAL AGREEMENT"}
-            </div>
-            <h1 className="mt-2 text-[22px] leading-tight font-bold">{title}</h1>
-            <table className="mt-1.5 ml-auto text-left text-[12px] leading-snug">
-              <tbody>
-                <tr>
-                  <td className="pr-3 text-muted">เลขที่สัญญา</td>
-                  <td className="font-semibold">{v("เลขที่สัญญา")}</td>
-                </tr>
-                <tr>
-                  <td className="pr-3 text-muted">วันที่ทำสัญญา</td>
-                  <td className="font-semibold">{v("วันที่ทำสัญญา")}</td>
-                </tr>
-                <tr>
-                  <td className="pr-3 text-muted">สาขา</td>
-                  <td className="font-semibold">{v("ชื่อสาขา")}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="mt-4 flex h-1.5 overflow-hidden rounded-full">
-          <div className="w-1/4 bg-ink" />
-          <div className="flex-1 bg-brand" />
-        </div>
-      </header>
+    <div className="text-[15px] leading-[1.95] text-ink [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
+      <BrandHeader
+        business={business}
+        badge={parking ? "PARKING RENTAL AGREEMENT" : "STORAGE RENTAL AGREEMENT"}
+        title={title}
+        meta={[
+          { label: "เลขที่สัญญา", value: v("เลขที่สัญญา") },
+          { label: "วันที่ทำสัญญา", value: v("วันที่ทำสัญญา") },
+          { label: "สาขา", value: v("ชื่อสาขา") },
+        ]}
+      />
 
-      {/* สรุปข้อมูลสัญญา */}
-      <section className="mt-5 overflow-hidden rounded-lg border border-ink/15 break-inside-avoid">
-        <div className="bg-ink px-3.5 py-1.5 text-[12px] font-semibold text-white">ข้อมูลสัญญาโดยสรุป</div>
-        <dl className="grid grid-cols-2 text-[12.5px] leading-snug">
-          {withColumns(summary).map(({ s, left }) => (
-            <div
-              key={s.label}
-              className={clsx(
-                "flex gap-3 border-t border-ink/10 px-3.5 py-2",
-                s.wide && "col-span-2",
-                left && "border-r",
-                s.highlight && "bg-brand-soft",
-              )}
-            >
-              <dt className="w-28 shrink-0 text-muted">{s.label}</dt>
-              <dd className="min-w-0 font-semibold">{s.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+      <InfoBox title="ข้อมูลสัญญาโดยสรุป" className="mt-6">
+        <InfoGrid rows={summary} />
+      </InfoBox>
 
       {/* เนื้อหาสัญญาตามแม่แบบ */}
-      <div className="mt-5">
+      <div className="mt-6">
         {body.map((b, i) => {
           switch (b.kind) {
             case "gap":
-              return <div key={i} className="h-2" />;
+              return <div key={i} className="h-3" />;
             case "title":
               return (
-                <h2 key={i} className="mt-3 mb-2 text-center text-[16px] font-bold">
+                <h2 key={i} className="mt-4 mb-2 text-center text-[18px] font-bold">
                   <Parts parts={b.parts} preview={preview} />
                 </h2>
               );
@@ -212,7 +158,7 @@ export function ContractDocument({
               return (
                 <h3
                   key={i}
-                  className="mt-2 mb-1 flex items-center gap-2 rounded-r-md border-l-4 border-brand bg-canvas py-0.5 pl-2.5 text-[13.5px] font-bold break-after-avoid"
+                  className="mt-3 mb-1.5 rounded-r-md border-l-[5px] border-brand bg-canvas py-1 pl-3 text-[16px] font-bold break-after-avoid"
                 >
                   <Parts parts={b.parts} preview={preview} />
                 </h3>
@@ -222,7 +168,7 @@ export function ContractDocument({
                 <p
                   key={i}
                   className={clsx(
-                    plainText(b.parts).startsWith("-") ? "pl-[4.2em] -indent-[1em]" : "pl-[2.8em] -indent-[1.7em]",
+                    plainText(b.parts).startsWith("-") ? "pl-[4.2em] -indent-[1em]" : "pl-[2.8em] -indent-[1.8em]",
                   )}
                 >
                   <Parts parts={b.parts} preview={preview} />
@@ -238,27 +184,14 @@ export function ContractDocument({
         })}
       </div>
 
-      {/* ลงนาม */}
-      <section className="mt-10 grid grid-cols-2 gap-6 break-inside-avoid">
-        {[
+      <SignatureBoxes
+        items={[
           { role: "ผู้ให้เช่า", name: lessorName },
           { role: "ผู้เช่า", name: tenantName },
-        ].map((s) => (
-          <div key={s.role} className="rounded-lg border border-ink/15 px-4 pt-3 pb-4 text-center">
-            <div className="text-left text-[11px] font-semibold tracking-wide text-muted">{s.role}</div>
-            <div className="mx-auto mt-10 w-[85%] border-b border-dotted border-ink" />
-            <div className="mt-1.5 font-semibold">({s.name || <span className="inline-block w-40" />})</div>
-            <div className="mt-1 text-[12px] text-muted">วันที่ ........../........../..........</div>
-          </div>
-        ))}
-      </section>
+        ]}
+      />
 
-      <div className="mt-6 flex items-center justify-between border-t border-ink/10 pt-2 text-[10.5px] text-muted">
-        <span>
-          kepz<span className="text-brand-strong">.</span> · {business.name}
-        </span>
-        <span>สัญญาเลขที่ {v("เลขที่สัญญา")}</span>
-      </div>
+      <DocFooter business={business} right={`สัญญาเลขที่ ${v("เลขที่สัญญา")}`} />
     </div>
   );
 }

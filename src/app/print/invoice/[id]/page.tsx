@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ItemsTable, PartyBoxes, TotalsBox } from "@/components/bill-parts";
+import { AmountWords, BrandHeader, businessOf, DocFooter, InfoBox, SignatureBoxes, VoidBanner } from "@/components/print-kit";
 import { bahtText } from "@/lib/baht-text";
+import { resolveContractTerms } from "@/lib/contract-template";
 import { getSettings } from "@/lib/data";
-import { money, thDateLong } from "@/lib/format";
+import { thDateLong } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import type { InvoiceItem, InvoiceView, Tenant } from "@/lib/types";
-import { DocHeader, Paper, Signatures } from "../../doc";
+import type { Branch, InvoiceItem, InvoiceView, Tenant } from "@/lib/types";
+import { Paper } from "../../doc";
 
 export const metadata: Metadata = { title: "ใบแจ้งหนี้" };
 
@@ -20,120 +23,63 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
   if (!invData) notFound();
   const inv = invData as InvoiceView;
   const items = (itemData ?? []) as InvoiceItem[];
-  const { data: tenantData } = await supabase.from("tenants").select("*").eq("id", inv.tenant_id).single();
+  const [{ data: tenantData }, { data: branchData }] = await Promise.all([
+    supabase.from("tenants").select("*").eq("id", inv.tenant_id).single(),
+    supabase.from("branches").select("*").eq("id", inv.branch_id).maybeSingle(),
+  ]);
   const tenant = tenantData as Tenant;
+  const terms = resolveContractTerms(settings, branchData as Branch | null);
+  const business = businessOf(settings);
   const vat = Number(inv.vat_rate) > 0;
+  const paid = Number(inv.paid_amount) > 0 && inv.status !== "void";
+  const payTo = settings.payment_instructions || terms.bank_account;
+
+  const rows: { label: string; value: number | string }[] = [];
+  if (vat) {
+    rows.push({ label: "มูลค่าก่อนภาษี", value: inv.subtotal });
+    rows.push({ label: `ภาษีมูลค่าเพิ่ม ${Number(inv.vat_rate)}%`, value: inv.vat_amount });
+  }
+  if (paid) {
+    rows.push({ label: "ยอดรวมทั้งสิ้น", value: inv.total });
+    rows.push({ label: "ชำระแล้ว", value: inv.paid_amount });
+  }
+  const due = paid ? inv.outstanding : inv.total;
 
   return (
     <Paper title={`ใบแจ้งหนี้ ${inv.invoice_no}`}>
-      {inv.status === "void" && (
-        <div className="mb-4 rounded border-2 border-bad py-2 text-center text-lg font-bold text-bad">ยกเลิก — {inv.void_reason}</div>
-      )}
-      <DocHeader
-        settings={settings}
+      {inv.status === "void" && <VoidBanner reason={inv.void_reason} />}
+      <BrandHeader
+        business={business}
+        badge="INVOICE"
         title="ใบแจ้งหนี้"
-        subtitle="INVOICE"
         meta={[
           { label: "เลขที่", value: inv.invoice_no },
-          { label: "วันที่", value: thDateLong(inv.issue_date) },
-          { label: "ครบกำหนด", value: thDateLong(inv.due_date) },
+          { label: "วันที่ออก", value: thDateLong(inv.issue_date) },
+          { label: "ครบกำหนดชำระ", value: thDateLong(inv.due_date) },
         ]}
       />
 
-      <section className="mb-5 grid grid-cols-2 gap-6">
-        <div>
-          <div className="text-xs font-semibold text-muted">ลูกค้า</div>
-          <div className="font-semibold">{tenant.full_name}</div>
-          {tenant.address && <div className="whitespace-pre-line">{tenant.address}</div>}
-          <div>โทร {tenant.phone}</div>
-          {tenant.id_number && (
-            <div>
-              {tenant.tenant_type === "company" ? "เลขประจำตัวผู้เสียภาษี" : "เลขประจำตัวประชาชน"} {tenant.id_number}
+      <PartyBoxes partyTitle="ลูกค้า" tenant={tenant} inv={inv} />
+      <ItemsTable items={items} />
+
+      <div className="mt-4 flex items-start justify-between gap-6 break-inside-avoid">
+        <div className="min-w-0 flex-1 space-y-3">
+          <AmountWords>{bahtText(Number(due))}</AmountWords>
+          {inv.status !== "void" && Number(due) > 0 && (
+            <div className="rounded-lg border-2 border-brand px-4 py-2.5 text-[14.5px]">
+              กรุณาชำระภายใน <b className="text-[16px]">{thDateLong(inv.due_date)}</b>
             </div>
           )}
         </div>
-        <div>
-          <div className="text-xs font-semibold text-muted">รายละเอียดการเช่า</div>
-          <div>
-            สาขา {inv.branch_name} · ห้อง <b>{inv.unit_code}</b>
-          </div>
-          <div>สัญญาเลขที่ {inv.contract_no}</div>
-          {inv.period_start && (
-            <div>
-              รอบบิล {thDateLong(inv.period_start)} – {thDateLong(inv.period_end)}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-y-2 border-ink text-left">
-            <th className="w-10 py-2">#</th>
-            <th className="py-2">รายการ</th>
-            <th className="w-20 py-2 text-right">จำนวน</th>
-            <th className="w-28 py-2 text-right">ราคาต่อหน่วย</th>
-            <th className="w-32 py-2 text-right">จำนวนเงิน</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((it, i) => (
-            <tr key={it.id} className="border-b border-line">
-              <td className="py-2 align-top">{i + 1}</td>
-              <td className="py-2">{it.description}</td>
-              <td className="tabular py-2 text-right">{Number(it.quantity)}</td>
-              <td className="tabular py-2 text-right">{money(Math.abs(it.unit_price))}</td>
-              <td className="tabular py-2 text-right">{money(it.amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="mt-3 flex justify-between gap-6 break-inside-avoid">
-        <div className="flex-1 self-end rounded bg-canvas px-3 py-2 font-medium print:bg-transparent print:px-0">
-          ({bahtText(Number(inv.total))})
-        </div>
-        <table className="w-72">
-          <tbody>
-            {vat && (
-              <>
-                <tr>
-                  <td className="py-0.5 text-muted">มูลค่าก่อนภาษี</td>
-                  <td className="tabular py-0.5 text-right">{money(inv.subtotal)}</td>
-                </tr>
-                <tr>
-                  <td className="py-0.5 text-muted">ภาษีมูลค่าเพิ่ม {Number(inv.vat_rate)}%</td>
-                  <td className="tabular py-0.5 text-right">{money(inv.vat_amount)}</td>
-                </tr>
-              </>
-            )}
-            <tr className="border-t-2 border-ink text-base font-bold">
-              <td className="py-1.5">ยอดรวมทั้งสิ้น</td>
-              <td className="tabular py-1.5 text-right">{money(inv.total)}</td>
-            </tr>
-            {Number(inv.paid_amount) > 0 && inv.status !== "void" && (
-              <>
-                <tr>
-                  <td className="py-0.5 text-muted">ชำระแล้ว</td>
-                  <td className="tabular py-0.5 text-right">{money(inv.paid_amount)}</td>
-                </tr>
-                <tr className="font-semibold">
-                  <td className="py-0.5">ยอดคงค้าง</td>
-                  <td className="tabular py-0.5 text-right">{money(inv.outstanding)}</td>
-                </tr>
-              </>
-            )}
-          </tbody>
-        </table>
+        <TotalsBox rows={rows} totalLabel={paid ? "ยอดคงค้างที่ต้องชำระ" : "ยอดที่ต้องชำระ"} total={due} />
       </div>
 
-      {(settings.payment_instructions || inv.note) && (
-        <section className="mt-6 space-y-3 break-inside-avoid">
-          {settings.payment_instructions && (
-            <div className="rounded border border-line p-3">
-              <div className="mb-1 font-semibold">ช่องทางการชำระเงิน</div>
-              <div className="whitespace-pre-line">{settings.payment_instructions}</div>
-            </div>
+      {(payTo || inv.note) && (
+        <div className="mt-5 space-y-3 text-[14.5px] break-inside-avoid">
+          {payTo && (
+            <InfoBox title="ช่องทางการชำระเงิน">
+              <div className="px-4 py-3 whitespace-pre-line">{payTo}</div>
+            </InfoBox>
           )}
           {inv.note && (
             <div>
@@ -141,10 +87,16 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
               {inv.note}
             </div>
           )}
-        </section>
+        </div>
       )}
 
-      <Signatures left="ผู้รับวางบิล" right="ผู้วางบิล" />
+      <SignatureBoxes
+        items={[
+          { role: "ผู้รับวางบิล", name: tenant.full_name },
+          { role: "ผู้วางบิล", name: terms.lessor_name },
+        ]}
+      />
+      <DocFooter business={business} right={`ใบแจ้งหนี้เลขที่ ${inv.invoice_no}`} />
     </Paper>
   );
 }
