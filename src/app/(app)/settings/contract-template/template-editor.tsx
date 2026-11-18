@@ -2,11 +2,11 @@
 
 import clsx from "clsx";
 import { AlertTriangle, Car, Eye, Package, PencilLine, RotateCcw } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ContractDocument, type ContractBusiness } from "@/components/contract-document";
 import { Card } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
-import { FIELD_GROUPS, parseTemplate, unknownFields } from "@/lib/contract-template";
+import { parseTemplate, unknownFields } from "@/lib/contract-template";
 import type { UnitKind } from "@/lib/types";
 import { saveContractTemplate } from "../actions";
 
@@ -40,7 +40,6 @@ export function TemplateEditor({
   const [text, setText] = useState<PerKind<string>>({ storage: start("storage"), parking: start("parking") });
   const [saved, setSaved] = useState<PerKind<string>>({ storage: start("storage"), parking: start("parking") });
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
-  const ref = useRef<HTMLTextAreaElement>(null);
 
   const value = text[kind];
   const preview = previews[kind];
@@ -50,18 +49,6 @@ export function TemplateEditor({
   const unknown = useMemo(() => unknownFields(value), [value]);
 
   const setValue = (v: string) => setText((t) => ({ ...t, [kind]: v }));
-
-  function insert(snippet: string) {
-    const el = ref.current;
-    if (!el) return setValue(value + snippet);
-    const { selectionStart: s, selectionEnd: e } = el;
-    const next = value.slice(0, s) + snippet + value.slice(e);
-    setValue(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(s + snippet.length, s + snippet.length);
-    });
-  }
 
   function resetToDefault() {
     if (!confirm(`แทนที่เนื้อหาสัญญา${kind === "parking" ? "ที่จอดรถ" : "ห้องเก็บของ"}ด้วยแม่แบบตั้งต้น? (ยังไม่บันทึกจนกว่าจะกด “บันทึกแม่แบบ”)`)) return;
@@ -112,7 +99,6 @@ export function TemplateEditor({
                 </span>
               </div>
               <textarea
-                ref={ref}
                 name="template"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
@@ -124,7 +110,7 @@ export function TemplateEditor({
                 <div className="flex gap-2 rounded-xl bg-bad-soft px-3.5 py-2.5 text-sm text-bad">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                   <span>
-                    ไม่รู้จักช่อง {unknown.map((u) => `{${u}}`).join(", ")} — ตรวจการสะกด หรือเลือกจากปุ่มช่องข้อมูลด้านล่าง
+                    ไม่รู้จักช่อง {unknown.map((u) => `{${u}}`).join(", ")} — ตรวจการสะกดให้ตรงกับชื่อช่องข้อมูล
                   </span>
                 </div>
               )}
@@ -135,36 +121,6 @@ export function TemplateEditor({
                 </button>
               </div>
             </ActionForm>
-          </Card>
-
-          <Card className="p-4 sm:p-5">
-            <div className="space-y-3">
-              {FIELD_GROUPS.map((g) => (
-                <div key={g.title}>
-                  <div className="mb-1.5 text-xs font-medium text-muted">{g.title}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {g.fields.map((f) => (
-                      <button
-                        key={f}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => insert(`{${f}}`)}
-                        className="rounded-lg border border-line bg-surface px-2 py-1 text-xs transition hover:border-ink hover:bg-brand-soft"
-                        title={preview.fields[f] ? `ตัวอย่าง: ${preview.fields[f]}` : undefined}
-                      >
-                        {f}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-muted">
-              <div className="mb-1 font-medium text-ink">การจัดรูปแบบ</div>
-              <div><code># ข้อความ</code> หัวเรื่องกลางหน้า · <code>## ข้อความ</code> หัวข้อตัวหนา</div>
-              <div><code>**ข้อความ**</code> ตัวหนา · ขึ้นต้นด้วย <code>(ก)</code> <code>(1)</code> หรือ <code>-</code> เป็นข้อย่อยย่อหน้าเยื้อง</div>
-              <div>บรรทัดว่างเว้นระยะ · ช่องลงชื่อผู้ให้เช่าและผู้เช่าระบบใส่ท้ายสัญญาให้เอง</div>
-            </div>
           </Card>
         </div>
 
