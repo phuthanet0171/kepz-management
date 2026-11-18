@@ -32,7 +32,7 @@ export function PurgeButton({
   const rows = [
     kind === "branch" && { label: "ห้องและที่จอด", value: `${preview.units} หน่วย` },
     { label: "สัญญาเช่า", value: `${preview.contracts} สัญญา${preview.active_contracts ? ` (ใช้งานอยู่ ${preview.active_contracts})` : ""}` },
-    { label: "ใบแจ้งหนี้", value: `${preview.invoices} ใบ` },
+    { label: "ใบวางบิล", value: `${preview.invoices} ใบ` },
     { label: "ใบเสร็จ / การรับชำระ", value: `${preview.payments} ใบ · ${money(preview.paid_total)} บาท` },
   ].filter(Boolean) as { label: string; value: string }[];
 
@@ -64,7 +64,7 @@ export function PurgeButton({
               </dl>
               {hasHistory && (
                 <p className="mt-2 border-t border-bad/20 pt-2 text-xs">
-                  ใบแจ้งหนี้และใบเสร็จที่เคยออกให้ลูกค้าจะหายจากระบบและรายงานรายได้ เลขเอกสารที่ถูกลบจะไม่ถูกนำกลับมาใช้
+                  ใบวางบิลและใบเสร็จที่เคยออกให้ลูกค้าจะหายจากระบบและรายงานรายได้ เลขเอกสารที่ถูกลบจะไม่ถูกนำกลับมาใช้
                   {kind === "branch" && " ผู้เช่ายังอยู่ในระบบ ลบแยกได้ที่หน้าผู้เช่า"}
                 </p>
               )}

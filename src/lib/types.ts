@@ -140,6 +140,8 @@ export interface InvoiceView {
   vat_rate: number;
   vat_inclusive: boolean;
   vat_amount: number;
+  wht_rate: number;
+  wht_amount: number;
   total: number;
   paid_amount: number;
   status: InvoiceStatus;

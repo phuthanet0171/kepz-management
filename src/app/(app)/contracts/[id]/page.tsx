@@ -62,7 +62,7 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
               <Printer className="size-4" /> พิมพ์สัญญา
             </Link>
             <Link href={`/invoices/new?contract=${c.id}`} className="btn btn-primary">
-              <FilePlus2 className="size-4" /> ออกใบแจ้งหนี้
+              <FilePlus2 className="size-4" /> ออกใบวางบิล
             </Link>
           </>
         }
@@ -71,12 +71,12 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
       {sp.created === "1" && (
         <Alert tone={sp.invoice === "partial" || sp.invoice === "fail" ? "warn" : "ok"} className="mb-4">
           {sp.invoice === "ok"
-            ? "สร้างสัญญาและใบแจ้งหนี้ค่าเช่างวดแรกเรียบร้อยแล้ว พิมพ์สัญญาได้จากปุ่มด้านบน"
+            ? "สร้างสัญญาและใบวางบิลค่าเช่างวดแรกเรียบร้อยแล้ว พิมพ์สัญญาได้จากปุ่มด้านบน"
             : sp.invoice === "partial"
-              ? "สร้างสัญญาแล้ว แต่สัญญาสั้นกว่า 1 รอบชำระ ระบบจึงไม่ออกบิลอัตโนมัติ กรุณากด “ออกใบแจ้งหนี้” เพื่อตรวจยอดเอง"
+              ? "สร้างสัญญาแล้ว แต่สัญญาสั้นกว่า 1 รอบชำระ ระบบจึงไม่ออกบิลอัตโนมัติ กรุณากด “ออกใบวางบิล” เพื่อตรวจยอดเอง"
               : sp.invoice === "fail"
-                ? "สร้างสัญญาแล้ว แต่ออกใบแจ้งหนี้งวดแรกไม่สำเร็จ กรุณากด “ออกใบแจ้งหนี้” เพื่อออกเอง"
-                : "สร้างสัญญาเรียบร้อยแล้ว ขั้นต่อไปคือออกใบแจ้งหนี้รอบแรก"}
+                ? "สร้างสัญญาแล้ว แต่ออกใบวางบิลงวดแรกไม่สำเร็จ กรุณากด “ออกใบวางบิล” เพื่อออกเอง"
+                : "สร้างสัญญาเรียบร้อยแล้ว ขั้นต่อไปคือออกใบวางบิลรอบแรก"}
         </Alert>
       )}
 
@@ -153,12 +153,12 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
 
           <Card>
             <CardHeader
-              title="ใบแจ้งหนี้"
+              title="ใบวางบิล"
               description={
                 nextBill
                   ? `รอบถัดไป ${thDate(nextBill.period_start)} – ${thDate(nextBill.period_end)}`
                   : active
-                    ? "ออกใบแจ้งหนี้ค่าเช่าครบทุกรอบแล้ว"
+                    ? "ออกใบวางบิลค่าเช่าครบทุกรอบแล้ว"
                     : undefined
               }
               action={
@@ -168,7 +168,7 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
               }
             />
             {invoices.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted">ยังไม่มีใบแจ้งหนี้</p>
+              <p className="px-5 py-6 text-sm text-muted">ยังไม่มีใบวางบิล</p>
             ) : (
               <ul className="divide-y divide-line">
                 {invoices.map((i) => (

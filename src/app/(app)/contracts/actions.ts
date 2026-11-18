@@ -62,7 +62,7 @@ export async function createContract(_: ActionState, fd: FormData): Promise<Acti
   redirect(`/contracts/${id}?created=1${invoice ? `&invoice=${invoice}` : ""}`);
 }
 
-/** ออกใบแจ้งหนี้ค่าเช่างวดแรก (ค่าเช่าล่วงหน้า) คืนผลเป็น ok | partial | fail */
+/** ออกใบวางบิลค่าเช่างวดแรก (ค่าเช่าล่วงหน้า) คืนผลเป็น ok | partial | fail */
 async function createFirstInvoice(
   supabase: Awaited<ReturnType<typeof createClient>>,
   contractId: string,

@@ -33,21 +33,32 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
   const terms = resolveContractTerms(settings, branchData as Branch | null);
   const business = businessOf(settings);
 
-  // VAT ตามอัตราที่ใช้ตอนออกใบแจ้งหนี้ ยอดรับชำระรวม VAT แล้วเสมอ
+  // VAT ตามอัตราที่ใช้ตอนออกใบวางบิล ยอดรับชำระรวม VAT แล้วเสมอ
   const rate = Number(inv.vat_rate);
   const isTaxInvoice = rate > 0;
   const amount = Number(p.amount);
-  const vatPart = isTaxInvoice ? Math.round(((amount * rate) / (100 + rate)) * 100) / 100 : 0;
   const isFull = amount === Number(inv.total);
+  const hasWht = Number(inv.wht_rate) > 0;
+  // แบ่งภาษีตามสัดส่วนยอดที่รับครั้งนี้ (ยอดรับ = ยอดหลังหัก ณ ที่จ่าย)
+  const share = Number(inv.total) > 0 ? amount / Number(inv.total) : 0;
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const whtPart = hasWht ? (isFull ? Number(inv.wht_amount) : r2(Number(inv.wht_amount) * share)) : 0;
+  const grossPart = r2(amount + whtPart);
+  const vatPart = isTaxInvoice ? (isFull ? Number(inv.vat_amount) : r2(Number(inv.vat_amount) * share)) : 0;
 
-  const rows: { label: string; value: number | string }[] = [{ label: "ยอดตามใบแจ้งหนี้", value: inv.total }];
+  const rows: { label: string; value: number | string }[] = [];
+  if (!isFull) rows.push({ label: "ยอดตามใบวางบิล", value: inv.total });
   if (isTaxInvoice) {
-    rows.push({ label: "มูลค่าบริการ (รับครั้งนี้)", value: amount - vatPart });
+    rows.push({ label: isFull ? "มูลค่าบริการ" : "มูลค่าบริการ (รับครั้งนี้)", value: r2(grossPart - vatPart) });
     rows.push({ label: `ภาษีมูลค่าเพิ่ม ${rate}%`, value: vatPart });
+  }
+  if (hasWht) {
+    rows.push({ label: isTaxInvoice ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ", value: grossPart });
+    rows.push({ label: `หัก ณ ที่จ่าย ${Number(inv.wht_rate)}%`, value: -whtPart });
   }
 
   return (
-    <Paper title={`ใบเสร็จ ${p.receipt_no}`}>
+    <Paper title={`ใบเสร็จ ${p.receipt_no}`} tone="receipt">
       {p.is_void && <VoidBanner reason={p.void_reason} />}
       <BrandHeader
         business={business}
@@ -56,12 +67,12 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
         meta={[
           { label: "เลขที่", value: p.receipt_no },
           { label: "วันที่รับเงิน", value: thDateLong(p.paid_on) },
-          { label: "อ้างอิงใบแจ้งหนี้", value: inv.invoice_no },
+          { label: "อ้างอิงใบวางบิล", value: inv.invoice_no },
         ]}
       />
 
       <PartyBoxes partyTitle="ได้รับเงินจาก" tenant={tenant} inv={inv} />
-      <ItemsTable items={items} title={`รายการตามใบแจ้งหนี้ ${inv.invoice_no}`} detailed={false} />
+      <ItemsTable items={items} title={`รายการตามใบวางบิล ${inv.invoice_no}`} detailed={false} />
 
       <div className="mt-5 flex items-start justify-between gap-10 break-inside-avoid">
         <div className="min-w-0 flex-1 space-y-4 pt-1 text-[14.5px]">
@@ -72,7 +83,7 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
               {p.reference && <span className="text-muted"> · อ้างอิง {p.reference}</span>}
             </div>
             <div className={isFull ? "font-semibold text-ok" : "text-muted"}>
-              {isFull ? "✓ ชำระครบตามใบแจ้งหนี้แล้ว" : `ชำระบางส่วนของใบแจ้งหนี้ ${inv.invoice_no}`}
+              {isFull ? "✓ ชำระครบตามใบวางบิลแล้ว" : `ชำระบางส่วนของใบวางบิล ${inv.invoice_no}`}
             </div>
           </div>
           {p.note && (

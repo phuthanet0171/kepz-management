@@ -1,9 +1,20 @@
 /**
- * ชิ้นส่วนเอกสารพิมพ์ที่ใช้ร่วมกัน (สัญญา ใบแจ้งหนี้ ใบเสร็จ) ให้หน้าตาเป็นชุดเดียวกัน
+ * ชิ้นส่วนเอกสารพิมพ์ที่ใช้ร่วมกัน (สัญญา ใบวางบิล ใบเสร็จ) ให้หน้าตาเป็นชุดเดียวกัน
  * โทนดำ-เหลือง ตัวอักษรใหญ่อ่านง่าย ไม่มีโค้ดฝั่งเซิร์ฟเวอร์ ใช้ในหน้าตัวอย่างได้
  */
 import clsx from "clsx";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+
+/** สีประจำเอกสาร ธีมดำ-ขาวเหมือนกัน ต่างกันที่สีเน้น (ป้ายหัว แถบสี ยอดรวม) */
+export type DocTone = "contract" | "bill" | "receipt";
+export const DOC_ACCENT: Record<DocTone, string> = {
+  contract: "#ffd21f", // เหลือง
+  bill: "#f97316", // ส้ม
+  receipt: "#22c55e", // เขียว
+};
+export function toneStyle(tone: DocTone): CSSProperties {
+  return { "--doc-accent": DOC_ACCENT[tone] } as CSSProperties;
+}
 
 export type DocBusiness = {
   name: string;
@@ -48,7 +59,7 @@ export function BrandHeader({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="inline-block rounded-md bg-ink px-3 py-1 text-[11.5px] font-semibold tracking-[0.18em] text-brand">
+          <div className="inline-block rounded-md bg-ink px-3 py-1 text-[11.5px] font-semibold tracking-[0.18em] text-[var(--doc-accent,#ffd21f)]">
             {badge}
           </div>
           <h1 className="mt-2 text-[26px] leading-tight font-bold">{title}</h1>
@@ -73,7 +84,7 @@ export function BrandBar({ className }: { className?: string }) {
   return (
     <div className={clsx("flex h-1.5 overflow-hidden rounded-full", className)}>
       <div className="w-1/4 bg-ink" />
-      <div className="flex-1 bg-brand" />
+      <div className="flex-1 bg-[var(--doc-accent,#ffd21f)]" />
     </div>
   );
 }
@@ -152,10 +163,10 @@ export function SignatureBoxes({ items }: { items: { role: string; name: string 
   );
 }
 
-/** หัวข้อส่วนเล็ก ขีดเหลืองด้านล่าง ใช้แทนกล่องเพื่อลดเส้นกรอบ */
+/** หัวข้อส่วนเล็ก ขีดสีประจำเอกสารด้านล่าง ใช้แทนกล่องเพื่อลดเส้นกรอบ */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-2 inline-block border-b-[3px] border-brand pb-0.5 text-[13px] font-semibold tracking-wide text-muted">
+    <div className="mb-2 inline-block border-b-[3px] border-[var(--doc-accent,#ffd21f)] pb-0.5 text-[13px] font-semibold tracking-wide text-muted">
       {children}
     </div>
   );

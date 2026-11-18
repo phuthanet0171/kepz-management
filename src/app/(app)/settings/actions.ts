@@ -3,7 +3,7 @@
 import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { thaiError } from "@/lib/errors";
-import { bool, isMoney, num, reqStr, str } from "@/lib/form";
+import { isMoney, num, reqStr, str } from "@/lib/form";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 import { readContractTerms } from "@/lib/contract-terms-form";
@@ -29,24 +29,6 @@ export async function saveBusiness(_: ActionState, fd: FormData): Promise<Action
     business_phone: str(fd, "business_phone"),
     business_email: str(fd, "business_email"),
     tax_id: taxId,
-  });
-}
-
-export async function saveVat(_: ActionState, fd: FormData): Promise<ActionState> {
-  const denied = await ownerOnlyError();
-  if (denied) return { error: denied };
-  const enabled = bool(fd, "vat_enabled");
-  const rate = num(fd, "vat_rate") ?? 7;
-  if (!Number.isFinite(rate) || rate < 0 || rate > 30) return { error: "อัตราภาษีต้องอยู่ระหว่าง 0–30%" };
-  if (enabled) {
-    const supabase = await createClient();
-    const { data } = await supabase.from("settings").select("tax_id").eq("id", 1).single();
-    if (!data?.tax_id) return { error: "กรุณากรอกเลขประจำตัวผู้เสียภาษีของกิจการก่อนเปิดใช้ VAT" };
-  }
-  return saveSettings({
-    vat_enabled: enabled,
-    vat_rate: rate,
-    vat_inclusive: fd.get("vat_inclusive") !== "exclusive",
   });
 }
 

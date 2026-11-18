@@ -5,20 +5,23 @@ import { notFound } from "next/navigation";
 import { InvoiceStatusBadge } from "@/components/status";
 import { Alert, Badge, Card, CardHeader, DefinitionList, PageHeader } from "@/components/ui";
 import { money, PAYMENT_METHOD_LABEL, thDate, thDateTime, todayTH } from "@/lib/format";
+import { getSettings } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import type { InvoiceItem, InvoiceView, Payment } from "@/lib/types";
 import { RecordPaymentButton, VoidInvoiceButton, VoidPaymentButton } from "./payment-actions";
+import { InvoiceTaxPanel } from "./tax-panel";
 
-export const metadata: Metadata = { title: "ใบแจ้งหนี้" };
+export const metadata: Metadata = { title: "ใบวางบิล" };
 
 export default async function InvoicePage({ params }: PageProps<"/invoices/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: invData }, { data: itemData }, { data: payData }] = await Promise.all([
+  const [{ data: invData }, { data: itemData }, { data: payData }, settings] = await Promise.all([
     supabase.from("v_invoices").select("*").eq("id", id).maybeSingle(),
     supabase.from("invoice_items").select("*").eq("invoice_id", id).order("sort_order"),
     supabase.from("payments").select("*").eq("invoice_id", id).order("paid_on").order("created_at"),
+    getSettings(),
   ]);
   if (!invData) notFound();
   const inv = invData as InvoiceView;
@@ -34,6 +37,15 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
 
   const canPay = inv.status === "unpaid" || inv.status === "partial";
   const hasActivePayments = payments.some((p) => !p.is_void);
+  const itemsSum = items.reduce((a, it) => a + Number(it.amount), 0);
+  const hasVat = Number(inv.vat_rate) > 0;
+  const hasWht = Number(inv.wht_rate) > 0;
+  const taxLocked =
+    inv.status === "void"
+      ? "ใบนี้ถูกยกเลิกแล้ว"
+      : hasActivePayments
+        ? "มีการรับชำระแล้ว เปลี่ยนภาษีไม่ได้ (ต้องยกเลิกใบเสร็จก่อน)"
+        : null;
 
   return (
     <>
@@ -47,9 +59,6 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
         subtitle={`${inv.unit_code} · ${inv.tenant_name} · ${inv.branch_name}`}
         actions={
           <>
-            <Link href={`/print/invoice/${inv.id}`} target="_blank" className="btn btn-outline">
-              <Printer className="size-4" /> พิมพ์ใบแจ้งหนี้
-            </Link>
             {canPay && <RecordPaymentButton invoiceId={inv.id} outstanding={Number(inv.outstanding)} today={todayTH()} />}
           </>
         }
@@ -57,7 +66,7 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
 
       {inv.status === "void" && (
         <Alert tone="bad" className="mb-4">
-          ใบแจ้งหนี้นี้ถูกยกเลิกเมื่อ {thDateTime(inv.voided_at)} · เหตุผล: {inv.void_reason}
+          ใบวางบิลนี้ถูกยกเลิกเมื่อ {thDateTime(inv.voided_at)} · เหตุผล: {inv.void_reason}
         </Alert>
       )}
 
@@ -79,7 +88,7 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
               ))}
             </ul>
             <div className="space-y-1.5 border-t border-line bg-canvas/60 px-4 py-4 text-sm sm:px-5">
-              {Number(inv.vat_rate) > 0 && (
+              {hasVat && (
                 <>
                   <div className="flex justify-between text-muted">
                     <span>มูลค่าก่อนภาษี</span>
@@ -91,8 +100,20 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
                   </div>
                 </>
               )}
+              {hasWht && (
+                <>
+                  <div className="flex justify-between text-muted">
+                    <span>{hasVat ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ"}</span>
+                    <span className="tabular">{money(Number(inv.subtotal) + Number(inv.vat_amount))}</span>
+                  </div>
+                  <div className="flex justify-between text-bad">
+                    <span>หัก ณ ที่จ่าย {Number(inv.wht_rate)}%</span>
+                    <span className="tabular">−{money(inv.wht_amount)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between text-base font-bold">
-                <span>ยอดรวมทั้งสิ้น</span>
+                <span>{hasWht ? "ยอดชำระสุทธิ" : "ยอดรวมทั้งสิ้น"}</span>
                 <span className="tabular">{money(inv.total)}</span>
               </div>
               <div className="flex justify-between text-ok">
@@ -153,9 +174,17 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
           </Card>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-lg:order-first">
+          <InvoiceTaxPanel
+            key={`${inv.vat_rate}-${inv.vat_inclusive}-${inv.wht_rate}`}
+            invoiceId={inv.id}
+            itemsSum={itemsSum}
+            initial={{ vat: hasVat, inclusive: inv.vat_inclusive, wht: hasWht }}
+            lockedReason={taxLocked}
+            hasTaxId={Boolean(settings.tax_id)}
+          />
           <Card>
-            <CardHeader title="ข้อมูลใบแจ้งหนี้" />
+            <CardHeader title="ข้อมูลใบวางบิล" />
             <div className="p-4 sm:p-5">
               <DefinitionList
                 items={[

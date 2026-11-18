@@ -6,6 +6,7 @@ import { thaiError } from "@/lib/errors";
 import { isDate, isMoney, num, reqStr, str } from "@/lib/form";
 import { thDate, todayTH } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import type { TaxChoice } from "@/lib/tax";
 import type { ActionState, BillingDue, ItemType } from "@/lib/types";
 
 const ITEM_TYPES: ItemType[] = ["rent", "late_fee", "other", "discount"];
@@ -54,7 +55,10 @@ export async function createInvoice(_: ActionState, fd: FormData): Promise<Actio
     return { error: "รายการค่าเช่าต้องระบุรอบบิล" };
   }
 
+  const tax = readTax(fd);
   const supabase = await createClient();
+  const taxError = await vatNeedsTaxId(supabase, tax.vat);
+  if (taxError) return { error: taxError };
   const { data: id, error } = await supabase.rpc("create_invoice", {
     p_contract_id: contractId,
     p_period_start: periodStart,
@@ -63,14 +67,46 @@ export async function createInvoice(_: ActionState, fd: FormData): Promise<Actio
     p_due_date: due,
     p_items: items,
     p_note: str(fd, "note"),
+    p_vat: tax.vat,
+    p_vat_inclusive: tax.inclusive,
+    p_wht: tax.wht,
   });
-  if (error) return { error: thaiError(error, "ออกใบแจ้งหนี้ไม่สำเร็จ") };
+  if (error) return { error: thaiError(error, "ออกใบวางบิลไม่สำเร็จ") };
 
   revalidatePath("/", "layout");
   redirect(`/invoices/${id}`);
 }
 
-/** ออกใบแจ้งหนี้ค่าเช่ารอบถัดไปให้หลายสัญญาพร้อมกัน (ยอด = ค่าเช่าต่อเดือน × จำนวนเดือนในรอบ) */
+function readTax(fd: FormData): TaxChoice {
+  return { vat: fd.get("vat") === "1", inclusive: fd.get("vat_inclusive") !== "0", wht: fd.get("wht") === "1" };
+}
+
+/** ใบที่มี VAT ต้องมีเลขผู้เสียภาษีของกิจการ เพราะใบเสร็จจะเป็นใบกำกับภาษี */
+async function vatNeedsTaxId(supabase: Awaited<ReturnType<typeof createClient>>, vat: boolean) {
+  if (!vat) return null;
+  const { data } = await supabase.from("settings").select("tax_id").eq("id", 1).single();
+  return data?.tax_id ? null : "กรุณากรอกเลขประจำตัวผู้เสียภาษีของกิจการก่อน (ตั้งค่า → ข้อมูลกิจการ) จึงจะออกบิลแบบมี VAT ได้";
+}
+
+/** เปลี่ยนภาษีของใบที่ยังไม่มีการรับชำระ (ก่อนพิมพ์/ส่งให้ลูกค้า) */
+export async function setInvoiceTax(_: ActionState, fd: FormData): Promise<ActionState> {
+  const id = reqStr(fd, "id");
+  const tax = readTax(fd);
+  const supabase = await createClient();
+  const taxError = await vatNeedsTaxId(supabase, tax.vat);
+  if (taxError) return { error: taxError };
+  const { error } = await supabase.rpc("set_invoice_tax", {
+    p_invoice_id: id,
+    p_vat: tax.vat,
+    p_vat_inclusive: tax.inclusive,
+    p_wht: tax.wht,
+  });
+  if (error) return { error: thaiError(error, "บันทึกภาษีไม่สำเร็จ") };
+  revalidatePath("/", "layout");
+  return { ok: true, message: "บันทึกภาษีแล้ว พิมพ์ใบวางบิลได้เลย" };
+}
+
+/** ออกใบวางบิลค่าเช่ารอบถัดไปให้หลายสัญญาพร้อมกัน (ยอด = ค่าเช่าต่อเดือน × จำนวนเดือนในรอบ) */
 export async function createInvoicesBulk(_: ActionState, fd: FormData): Promise<ActionState> {
   const ids = fd.getAll("contract_id").map(String).filter(Boolean);
   if (ids.length === 0) return { error: "กรุณาเลือกสัญญาอย่างน้อย 1 รายการ" };
@@ -115,7 +151,7 @@ export async function createInvoicesBulk(_: ActionState, fd: FormData): Promise<
       error: `ออกบิลสำเร็จ ${created} รายการ ไม่สำเร็จ ${failed.length} รายการ — ${failed.join(" / ")}`,
     };
   }
-  return { ok: true, message: `ออกใบแจ้งหนี้สำเร็จ ${created} รายการ` };
+  return { ok: true, message: `ออกใบวางบิลสำเร็จ ${created} รายการ` };
 }
 
 export async function voidInvoice(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -125,7 +161,7 @@ export async function voidInvoice(_: ActionState, fd: FormData): Promise<ActionS
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("void_invoice", { p_invoice_id: id, p_reason: reason });
-  if (error) return { error: thaiError(error, "ยกเลิกใบแจ้งหนี้ไม่สำเร็จ") };
+  if (error) return { error: thaiError(error, "ยกเลิกใบวางบิลไม่สำเร็จ") };
 
   revalidatePath("/", "layout");
   return { ok: true };

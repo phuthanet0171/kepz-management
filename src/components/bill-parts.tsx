@@ -1,4 +1,4 @@
-/** ส่วนที่ใช้ร่วมกันของใบแจ้งหนี้และใบเสร็จ (เรียบ โล่ง ใช้เส้นคั่นแทนกล่อง) */
+/** ส่วนที่ใช้ร่วมกันของใบวางบิลและใบเสร็จ (เรียบ โล่ง ใช้เส้นคั่นแทนกล่อง) */
 import type { ReactNode } from "react";
 import { money, thDateLong } from "@/lib/format";
 import type { InvoiceItem, InvoiceView, Tenant } from "@/lib/types";
@@ -101,7 +101,7 @@ export function TotalsBox({
       ))}
       <div className="mt-1 flex items-baseline justify-between gap-4 rounded-md bg-ink px-4 py-3 text-white">
         <span className="font-semibold">{totalLabel}</span>
-        <span className="tabular text-[22px] font-bold text-brand">{money(total)}</span>
+        <span className="tabular text-[22px] font-bold text-[var(--doc-accent,#ffd21f)]">{money(total)}</span>
       </div>
     </div>
   );

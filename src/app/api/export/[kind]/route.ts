@@ -50,7 +50,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind
         const ps = await getPaymentsInRange(from, to);
         filename = `kepz-receipts-${year + 543}.csv`;
         rows = [
-          ["เลขที่ใบเสร็จ", "วันที่ชำระ", "เลขที่ใบแจ้งหนี้", "เลขที่สัญญา", "สาขา", "ห้อง", "ผู้เช่า", "ช่องทาง", "เลขอ้างอิง", "จำนวนเงิน", "สถานะ"],
+          ["เลขที่ใบเสร็จ", "วันที่ชำระ", "เลขที่ใบวางบิล", "เลขที่สัญญา", "สาขา", "ห้อง", "ผู้เช่า", "ช่องทาง", "เลขอ้างอิง", "จำนวนเงิน", "สถานะ"],
           ...ps.map((p) => [
             p.receipt_no,
             p.paid_on,
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind
         const inv = await getInvoicesInRange(from, to);
         filename = `kepz-invoices-${year + 543}.csv`;
         rows = [
-          ["เลขที่", "วันที่ออก", "ครบกำหนด", "รอบเริ่ม", "รอบสิ้นสุด", "สาขา", "ห้อง", "ผู้เช่า", "มูลค่าก่อนภาษี", "VAT", "ยอดรวม", "ชำระแล้ว", "คงค้าง", "สถานะ"],
+          ["เลขที่", "วันที่ออก", "ครบกำหนด", "รอบเริ่ม", "รอบสิ้นสุด", "สาขา", "ห้อง", "ผู้เช่า", "มูลค่าก่อนภาษี", "VAT", "หัก ณ ที่จ่าย", "ยอดชำระสุทธิ", "ชำระแล้ว", "คงค้าง", "สถานะ"],
           ...inv.map((i) => [
             i.invoice_no,
             i.issue_date,
@@ -84,6 +84,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind
             i.tenant_name,
             Number(i.subtotal).toFixed(2),
             Number(i.vat_amount).toFixed(2),
+            Number(i.wht_amount ?? 0).toFixed(2),
             Number(i.total).toFixed(2),
             Number(i.paid_amount).toFixed(2),
             i.status === "void" ? "0.00" : Number(i.outstanding).toFixed(2),

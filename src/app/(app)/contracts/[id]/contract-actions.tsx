@@ -49,7 +49,7 @@ function RenewForm({ contract, onDone }: { contract: ContractView; onDone: () =>
           className="input"
         />
       </Field>
-      <Field label="ค่าเช่าต่อเดือน (บาท)" required hint="ค่าเช่าใหม่จะใช้กับใบแจ้งหนี้ที่ออกหลังจากนี้">
+      <Field label="ค่าเช่าต่อเดือน (บาท)" required hint="ค่าเช่าใหม่จะใช้กับใบวางบิลที่ออกหลังจากนี้">
         <input
           name="new_rent"
           type="number"
@@ -84,7 +84,7 @@ export function EndContractButton({ contract, today }: { contract: ContractView;
         <ActionForm action={endContract} onSuccess={close}>
           <input type="hidden" name="id" value={contract.id} />
           {Number(contract.outstanding) > 0 && (
-            <Alert tone="bad">ยังมียอดค้างชำระ {money(contract.outstanding)} บาท ใบแจ้งหนี้จะยังคงค้างอยู่หลังสิ้นสุดสัญญา</Alert>
+            <Alert tone="bad">ยังมียอดค้างชำระ {money(contract.outstanding)} บาท ใบวางบิลจะยังคงค้างอยู่หลังสิ้นสุดสัญญา</Alert>
           )}
           {Number(contract.deposit_balance) > 0 && (
             <Alert tone="warn">

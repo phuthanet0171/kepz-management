@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
 import { getSettings, getUnitTypes } from "@/lib/data";
 import { requireOwner } from "@/lib/auth";
-import { AlertsForm, BusinessForm, ContractSettingsForm, DocumentsForm, UnitTypesForm, VatForm } from "./settings-forms";
+import { AlertsForm, BusinessForm, ContractSettingsForm, DocumentsForm, UnitTypesForm } from "./settings-forms";
 
 export const metadata: Metadata = { title: "ตั้งค่า" };
 
@@ -16,7 +16,6 @@ export default async function SettingsPage() {
       <div className="space-y-4">
         <BusinessForm s={s} />
         <UnitTypesForm types={types} />
-        <VatForm s={s} />
         <ContractSettingsForm s={s} />
         <DocumentsForm s={s} />
         <AlertsForm s={s} />

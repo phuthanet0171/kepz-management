@@ -26,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/units", label: "ห้องและที่จอด", icon: Warehouse },
   { href: "/tenants", label: "ผู้เช่า", icon: Users },
   { href: "/contracts", label: "สัญญาเช่า", icon: FileSignature },
-  { href: "/invoices", label: "ใบแจ้งหนี้", icon: ReceiptText },
+  { href: "/invoices", label: "ใบวางบิล", icon: ReceiptText },
   { href: "/payments", label: "รับชำระ", icon: Wallet, ownerOnly: true },
   { href: "/reports", label: "รายงาน", icon: BarChart3, ownerOnly: true },
   { href: "/branches", label: "สาขา", icon: Building2, ownerOnly: true },

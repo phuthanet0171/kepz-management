@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Branch, InvoiceItem, InvoiceView, Tenant } from "@/lib/types";
 import { Paper } from "../../doc";
 
-export const metadata: Metadata = { title: "ใบแจ้งหนี้" };
+export const metadata: Metadata = { title: "ใบวางบิล" };
 
 export default async function PrintInvoicePage({ params }: PageProps<"/print/invoice/[id]">) {
   const { id } = await params;
@@ -30,6 +30,7 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
   const terms = resolveContractTerms(settings, branchData as Branch | null);
   const business = businessOf(settings);
   const vat = Number(inv.vat_rate) > 0;
+  const wht = Number(inv.wht_rate) > 0;
   const paid = Number(inv.paid_amount) > 0 && inv.status !== "void";
   const payTo = settings.payment_instructions || terms.bank_account;
 
@@ -38,19 +39,23 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
     rows.push({ label: "มูลค่าก่อนภาษี", value: inv.subtotal });
     rows.push({ label: `ภาษีมูลค่าเพิ่ม ${Number(inv.vat_rate)}%`, value: inv.vat_amount });
   }
+  if (wht) {
+    rows.push({ label: vat ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ", value: Number(inv.subtotal) + Number(inv.vat_amount) });
+    rows.push({ label: `หัก ณ ที่จ่าย ${Number(inv.wht_rate)}%`, value: -Number(inv.wht_amount) });
+  }
   if (paid) {
-    rows.push({ label: "ยอดรวมทั้งสิ้น", value: inv.total });
+    rows.push({ label: wht ? "ยอดชำระสุทธิ" : "ยอดรวมทั้งสิ้น", value: inv.total });
     rows.push({ label: "ชำระแล้ว", value: inv.paid_amount });
   }
   const due = paid ? inv.outstanding : inv.total;
 
   return (
-    <Paper title={`ใบแจ้งหนี้ ${inv.invoice_no}`}>
+    <Paper title={`ใบวางบิล ${inv.invoice_no}`} tone="bill">
       {inv.status === "void" && <VoidBanner reason={inv.void_reason} />}
       <BrandHeader
         business={business}
-        badge="INVOICE"
-        title="ใบแจ้งหนี้"
+        badge="BILLING NOTE"
+        title="ใบวางบิล"
         meta={[
           { label: "เลขที่", value: inv.invoice_no },
           { label: "วันที่ออก", value: thDateLong(inv.issue_date) },
@@ -84,7 +89,7 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
             </div>
           )}
         </div>
-        <TotalsBox rows={rows} totalLabel={paid ? "ยอดคงค้างที่ต้องชำระ" : "ยอดที่ต้องชำระ"} total={due} />
+        <TotalsBox rows={rows} totalLabel={paid ? "ยอดคงค้างที่ต้องชำระ" : wht ? "ยอดชำระสุทธิ" : "ยอดที่ต้องชำระ"} total={due} />
       </div>
 
       <SignatureBoxes
@@ -93,7 +98,7 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
           { role: "ผู้วางบิล", name: terms.lessor_name },
         ]}
       />
-      <DocFooter business={business} right={`ใบแจ้งหนี้เลขที่ ${inv.invoice_no}`} />
+      <DocFooter business={business} right={`ใบวางบิลเลขที่ ${inv.invoice_no}`} />
     </Paper>
   );
 }

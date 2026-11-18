@@ -159,7 +159,7 @@ export function RecordPaymentButton({ invoiceId, outstanding, today }: { invoice
 export function VoidInvoiceButton({ invoiceId }: { invoiceId: string }) {
   return (
     <Sheet
-      title="ยกเลิกใบแจ้งหนี้"
+      title="ยกเลิกใบวางบิล"
       triggerClassName="btn btn-danger"
       trigger={
         <>
@@ -171,13 +171,13 @@ export function VoidInvoiceButton({ invoiceId }: { invoiceId: string }) {
         <ActionForm action={voidInvoice} onSuccess={close}>
           <input type="hidden" name="id" value={invoiceId} />
           <p className="text-sm text-ink-2">
-            ใบแจ้งหนี้จะถูกทำเครื่องหมายยกเลิกแต่ยังเก็บไว้ในระบบ เลขที่บิลนี้จะไม่ถูกนำกลับมาใช้ใหม่
+            ใบวางบิลจะถูกทำเครื่องหมายยกเลิกแต่ยังเก็บไว้ในระบบ เลขที่บิลนี้จะไม่ถูกนำกลับมาใช้ใหม่
             และสามารถออกบิลใหม่สำหรับรอบเดียวกันได้
           </p>
           <Field label="เหตุผลการยกเลิก" required>
             <input name="reason" required className="input" placeholder="เช่น ยอดผิด ออกบิลซ้ำ" />
           </Field>
-          <SubmitButton className="btn w-full bg-bad text-white hover:bg-bad/90">ยืนยันยกเลิกใบแจ้งหนี้</SubmitButton>
+          <SubmitButton className="btn w-full bg-bad text-white hover:bg-bad/90">ยืนยันยกเลิกใบวางบิล</SubmitButton>
         </ActionForm>
       )}
     </Sheet>
@@ -194,7 +194,7 @@ export function VoidPaymentButton({ paymentId, receiptNo }: { paymentId: string;
       {(close) => (
         <ActionForm action={voidPayment} onSuccess={close}>
           <input type="hidden" name="id" value={paymentId} />
-          <p className="text-sm text-ink-2">ยอดชำระนี้จะถูกหักออกจากใบแจ้งหนี้ และใบเสร็จจะแสดงสถานะ “ยกเลิก”</p>
+          <p className="text-sm text-ink-2">ยอดชำระนี้จะถูกหักออกจากใบวางบิล และใบเสร็จจะแสดงสถานะ “ยกเลิก”</p>
           <Field label="เหตุผลการยกเลิก" required>
             <input name="reason" required className="input" placeholder="เช่น บันทึกยอดผิด เช็คสลิปแล้วไม่พบยอดโอน" />
           </Field>

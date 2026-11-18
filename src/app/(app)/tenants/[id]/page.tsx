@@ -132,9 +132,9 @@ export default async function TenantPage({ params }: PageProps<"/tenants/[id]">)
           </Card>
 
           <Card>
-            <CardHeader title="ใบแจ้งหนี้ล่าสุด" />
+            <CardHeader title="ใบวางบิลล่าสุด" />
             {invoices.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted">ยังไม่มีใบแจ้งหนี้</p>
+              <p className="px-5 py-6 text-sm text-muted">ยังไม่มีใบวางบิล</p>
             ) : (
               <ul className="divide-y divide-line">
                 {invoices.map((i) => (

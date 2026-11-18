@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { BillingDue, ContractView } from "@/lib/types";
 import { InvoiceForm } from "./invoice-form";
 
-export const metadata: Metadata = { title: "ออกใบแจ้งหนี้" };
+export const metadata: Metadata = { title: "ออกใบวางบิล" };
 
 export default async function NewInvoicePage({ searchParams }: PageProps<"/invoices/new">) {
   const sp = await searchParams;
@@ -18,7 +18,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
   if (!contractId) {
     return (
       <>
-        <PageHeader title="ออกใบแจ้งหนี้" back={{ href: "/invoices", label: "ใบแจ้งหนี้" }} />
+        <PageHeader title="ออกใบวางบิล" back={{ href: "/invoices", label: "ใบวางบิล" }} />
         <Card>
           <EmptyState
             icon={<FileSignature className="size-6" />}
@@ -36,10 +36,19 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
   }
 
   const supabase = await createClient();
-  const [{ data: cData }, { data: due }, settings] = await Promise.all([
+  const [{ data: cData }, { data: due }, settings, { data: lastInv }] = await Promise.all([
     supabase.from("v_contracts").select("*").eq("id", contractId).maybeSingle(),
     supabase.from("v_billing_due").select("*").eq("contract_id", contractId).maybeSingle(),
     getSettings(),
+    // ภาษีตั้งต้น = แบบเดียวกับใบล่าสุดของสัญญานี้
+    supabase
+      .from("invoices")
+      .select("vat_rate, vat_inclusive, wht_rate")
+      .eq("contract_id", contractId)
+      .neq("status", "void")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   if (!cData) notFound();
   const c = cData as ContractView;
@@ -48,7 +57,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        title="ออกใบแจ้งหนี้"
+        title="ออกใบวางบิล"
         back={{ href: `/contracts/${c.id}`, label: c.contract_no }}
         subtitle={
           <>
@@ -58,7 +67,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
       />
       {c.status === "cancelled" ? (
         <Card>
-          <EmptyState title="สัญญานี้ถูกยกเลิกแล้ว" description="ไม่สามารถออกใบแจ้งหนี้ให้สัญญาที่ยกเลิกได้" />
+          <EmptyState title="สัญญานี้ถูกยกเลิกแล้ว" description="ไม่สามารถออกใบวางบิลให้สัญญาที่ยกเลิกได้" />
         </Card>
       ) : (
         <InvoiceForm
@@ -73,7 +82,12 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
           contractStart={c.start_date}
           contractEnd={c.end_date}
           today={todayTH()}
-          vat={{ enabled: settings.vat_enabled, rate: Number(settings.vat_rate), inclusive: settings.vat_inclusive }}
+          defaultTax={{
+            vat: Number(lastInv?.vat_rate ?? 0) > 0,
+            inclusive: lastInv?.vat_inclusive ?? settings.vat_inclusive ?? true,
+            wht: Number(lastInv?.wht_rate ?? 0) > 0,
+          }}
+          hasTaxId={Boolean(settings.tax_id)}
         />
       )}
     </div>

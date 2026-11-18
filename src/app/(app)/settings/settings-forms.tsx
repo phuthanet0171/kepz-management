@@ -2,11 +2,10 @@
 
 import { FileText } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import { Card, CardHeader, Field } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import type { Settings, UnitType } from "@/lib/types";
-import { saveAlerts, saveBusiness, saveContractSettings, saveDocuments, saveUnitTypes, saveVat } from "./actions";
+import { saveAlerts, saveBusiness, saveContractSettings, saveDocuments, saveUnitTypes } from "./actions";
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -19,7 +18,7 @@ function Section({ title, description, children }: { title: string; description?
 
 export function BusinessForm({ s }: { s: Settings }) {
   return (
-    <Section title="ข้อมูลกิจการ" description="แสดงบนหัวใบแจ้งหนี้ ใบเสร็จ และสัญญา">
+    <Section title="ข้อมูลกิจการ" description="แสดงบนหัวใบวางบิล ใบเสร็จ และสัญญา">
       <ActionForm action={saveBusiness} resetOnSuccess={false}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="ชื่อกิจการ / บริษัท" required className="sm:col-span-2">
@@ -38,44 +37,6 @@ export function BusinessForm({ s }: { s: Settings }) {
             <input name="tax_id" inputMode="numeric" defaultValue={s.tax_id ?? ""} className="input tabular" />
           </Field>
         </div>
-        <SubmitButton>บันทึก</SubmitButton>
-      </ActionForm>
-    </Section>
-  );
-}
-
-export function VatForm({ s }: { s: Settings }) {
-  const [enabled, setEnabled] = useState(s.vat_enabled);
-  return (
-    <Section title="ภาษีมูลค่าเพิ่ม (VAT)" description="มีผลกับใบแจ้งหนี้ที่ออกหลังจากบันทึก ใบเดิมไม่เปลี่ยน">
-      <ActionForm action={saveVat} resetOnSuccess={false}>
-        <label className="flex items-center gap-3 rounded-xl border border-line p-3">
-          <input
-            type="checkbox"
-            name="vat_enabled"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-            className="size-5 accent-ink"
-          />
-          <span>
-            <span className="block text-sm font-medium">กิจการจดทะเบียนภาษีมูลค่าเพิ่ม</span>
-            <span className="block text-xs text-muted">ใบเสร็จจะออกเป็น “ใบเสร็จรับเงิน/ใบกำกับภาษี”</span>
-          </span>
-        </label>
-        {enabled && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="อัตราภาษี (%)">
-              <input name="vat_rate" type="number" step="0.01" min={0} max={30} defaultValue={s.vat_rate} className="input tabular" />
-            </Field>
-            <Field label="ราคาค่าเช่าที่ตั้งไว้">
-              <select name="vat_inclusive" defaultValue={s.vat_inclusive ? "inclusive" : "exclusive"} className="input">
-                <option value="inclusive">รวม VAT แล้ว (ยอดรวมเท่าเดิม แยก VAT ออกมาแสดง)</option>
-                <option value="exclusive">ยังไม่รวม VAT (บวก VAT เพิ่มจากราคา)</option>
-              </select>
-            </Field>
-          </div>
-        )}
-        {!enabled && <input type="hidden" name="vat_rate" value={s.vat_rate} />}
         <SubmitButton>บันทึก</SubmitButton>
       </ActionForm>
     </Section>
@@ -122,7 +83,7 @@ export function DocumentsForm({ s }: { s: Settings }) {
     <Section title="เอกสาร" description="เลขเอกสารรันใหม่ทุกปี เช่น INV2569-0001">
       <ActionForm action={saveDocuments} resetOnSuccess={false}>
         <div className="grid grid-cols-3 gap-3">
-          <Field label="ใบแจ้งหนี้">
+          <Field label="ใบวางบิล">
             <input name="invoice_prefix" required defaultValue={s.invoice_prefix} className="input uppercase" />
           </Field>
           <Field label="ใบเสร็จ">
@@ -132,7 +93,7 @@ export function DocumentsForm({ s }: { s: Settings }) {
             <input name="contract_prefix" required defaultValue={s.contract_prefix} className="input uppercase" />
           </Field>
         </div>
-        <Field label="ช่องทางการชำระเงิน (พิมพ์ในใบแจ้งหนี้)" hint="เช่น ชื่อธนาคาร เลขบัญชี ชื่อบัญชี หรือเลขพร้อมเพย์">
+        <Field label="ช่องทางการชำระเงิน (พิมพ์ในใบวางบิล)" hint="เช่น ชื่อธนาคาร เลขบัญชี ชื่อบัญชี หรือเลขพร้อมเพย์">
           <textarea name="payment_instructions" rows={3} defaultValue={s.payment_instructions ?? ""} className="input" />
         </Field>
         <SubmitButton>บันทึก</SubmitButton>

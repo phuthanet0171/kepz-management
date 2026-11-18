@@ -2,9 +2,11 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { TaxPicker, TaxSummary } from "@/components/tax-picker";
 import { Alert, Card, CardHeader, Field } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import { ITEM_TYPE_LABEL, money, thDate } from "@/lib/format";
+import { computeTax, type TaxChoice } from "@/lib/tax";
 import type { ItemType } from "@/lib/types";
 import { createInvoice } from "../actions";
 
@@ -18,7 +20,8 @@ export function InvoiceForm({
   contractStart,
   contractEnd,
   today,
-  vat,
+  defaultTax,
+  hasTaxId,
 }: {
   contractId: string;
   unitCode: string;
@@ -27,7 +30,8 @@ export function InvoiceForm({
   contractStart: string;
   contractEnd: string;
   today: string;
-  vat: { enabled: boolean; rate: number; inclusive: boolean };
+  defaultTax: TaxChoice;
+  hasTaxId: boolean;
 }) {
   const [hasPeriod, setHasPeriod] = useState(Boolean(nextPeriod));
   const [periodStart, setPeriodStart] = useState(nextPeriod?.start ?? "");
@@ -36,6 +40,7 @@ export function InvoiceForm({
   const defaultDue = nextPeriod && nextPeriod.start > today ? nextPeriod.start : today;
   const [due, setDue] = useState(defaultDue);
   const [seq, setSeq] = useState(2);
+  const [tax, setTax] = useState<TaxChoice>(defaultTax);
   const rentDesc = (s: string, e: string) => `ค่าเช่า ${unitCode}${s && e ? ` (${thDate(s)} – ${thDate(e)})` : ""}`;
   const [rows, setRows] = useState<Row[]>(
     nextPeriod
@@ -72,9 +77,8 @@ export function InvoiceForm({
     return r.item_type === "discount" ? -a : a;
   };
   const sum = rows.reduce((a, r) => a + amountOf(r), 0);
-  const rate = vat.enabled ? vat.rate : 0;
-  const vatAmount = rate === 0 ? 0 : vat.inclusive ? Math.round(((sum * rate) / (100 + rate)) * 100) / 100 : Math.round(((sum * rate) / 100) * 100) / 100;
-  const total = rate && !vat.inclusive ? sum + vatAmount : sum;
+  const t = computeTax(sum, tax);
+  const total = t.total;
   const hasRent = rows.some((r) => r.item_type === "rent");
 
   const itemsJson = JSON.stringify(
@@ -97,7 +101,7 @@ export function InvoiceForm({
         </Alert>
       )}
       {!nextPeriod && (
-        <Alert tone="info">ออกใบแจ้งหนี้ค่าเช่าครบทุกรอบตามสัญญาแล้ว ใบนี้ใช้สำหรับค่าใช้จ่ายอื่น เช่น ค่าปรับหรือค่าเสียหาย</Alert>
+        <Alert tone="info">ออกใบวางบิลค่าเช่าครบทุกรอบตามสัญญาแล้ว ใบนี้ใช้สำหรับค่าใช้จ่ายอื่น เช่น ค่าปรับหรือค่าเสียหาย</Alert>
       )}
 
       <Card>
@@ -242,33 +246,26 @@ export function InvoiceForm({
             <Plus className="size-3.5" /> ส่วนลด
           </button>
         </div>
-        <div className="space-y-1.5 rounded-b-card border-t border-line bg-canvas/60 px-4 py-4 text-sm sm:px-5">
-          {rate > 0 && (
-            <>
-              <div className="flex justify-between text-muted">
-                <span>{vat.inclusive ? "มูลค่าก่อนภาษี" : "รวมเป็นเงิน"}</span>
-                <span className="tabular">{money(vat.inclusive ? sum - vatAmount : sum)}</span>
-              </div>
-              <div className="flex justify-between text-muted">
-                <span>ภาษีมูลค่าเพิ่ม {rate}%</span>
-                <span className="tabular">{money(vatAmount)}</span>
-              </div>
-            </>
+        <TaxSummary t={t} choice={tax} className="rounded-b-card border-t border-line bg-canvas/60 px-4 py-4 sm:px-5" />
+      </Card>
+
+      <Card>
+        <CardHeader title="ภาษี" description="เลือกให้ตรงกับลูกค้ารายนี้ ใบถัดไปของสัญญานี้จะใช้ค่าเดียวกันให้อัตโนมัติ" />
+        <div className="space-y-3 p-4 sm:p-5">
+          <TaxPicker value={tax} onChange={setTax} />
+          {tax.vat && !hasTaxId && (
+            <Alert tone="warn">ยังไม่ได้กรอกเลขประจำตัวผู้เสียภาษีของกิจการ กรุณากรอกที่ ตั้งค่า → ข้อมูลกิจการ ก่อนออกบิลแบบมี VAT</Alert>
           )}
-          <div className="flex justify-between text-base font-bold">
-            <span>ยอดรวมทั้งสิ้น</span>
-            <span className={`tabular ${total < 0 ? "text-bad" : ""}`}>{money(total)} บาท</span>
-          </div>
         </div>
       </Card>
 
-      <Field label="หมายเหตุในใบแจ้งหนี้">
+      <Field label="หมายเหตุในใบวางบิล">
         <textarea name="note" rows={2} className="input min-h-0" />
       </Field>
 
       <div className="flex justify-end">
-        <SubmitButton className="btn btn-primary w-full sm:w-auto" pendingText="กำลังออกใบแจ้งหนี้…">
-          ออกใบแจ้งหนี้ {money(total)} บาท
+        <SubmitButton className="btn btn-primary w-full sm:w-auto" pendingText="กำลังออกใบวางบิล…">
+          ออกใบวางบิล {money(total)} บาท
         </SubmitButton>
       </div>
     </ActionForm>

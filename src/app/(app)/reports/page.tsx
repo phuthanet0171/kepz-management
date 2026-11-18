@@ -106,7 +106,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
           <div className="tabular mt-1 text-xl font-bold sm:text-2xl">{money(sum("received"))}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-sm text-muted">ออกใบแจ้งหนี้ทั้งปี</div>
+          <div className="text-sm text-muted">ออกใบวางบิลทั้งปี</div>
           <div className="tabular mt-1 text-xl font-bold sm:text-2xl">{money(sum("invoiced"))}</div>
         </Card>
         <Card className="p-4">
@@ -122,7 +122,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
       <Card className="mb-4 overflow-hidden">
         <CardHeader
           title="รายรับรายเดือน"
-          description="รับชำระ = ตามวันที่รับเงิน · ออกบิล = ตามวันที่ออกใบแจ้งหนี้"
+          description="รับชำระ = ตามวันที่รับเงิน · ออกบิล = ตามวันที่ออกใบวางบิล"
           action={
             <Link href={`/api/export/payments?year=${year}`} className="btn btn-outline btn-sm" prefetch={false}>
               <Download className="size-3.5" /> CSV
@@ -259,7 +259,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
         <CardHeader title="ส่งออกข้อมูล (CSV เปิดด้วย Excel ได้)" />
         <div className="flex flex-wrap gap-2 p-4 sm:p-5">
           <Link href={`/api/export/invoices?year=${year}`} className="btn btn-outline" prefetch={false}>
-            <Download className="size-4" /> ใบแจ้งหนี้ ปี {year + 543}
+            <Download className="size-4" /> ใบวางบิล ปี {year + 543}
           </Link>
           <Link href={`/api/export/payments?year=${year}`} className="btn btn-outline" prefetch={false}>
             <Download className="size-4" /> ใบเสร็จ ปี {year + 543}

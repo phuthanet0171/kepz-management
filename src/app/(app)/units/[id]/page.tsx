@@ -115,7 +115,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
 
                 <div className="mt-5 grid grid-cols-2 gap-2 sm:flex">
                   <Link href={`/invoices/new?contract=${current.id}`} className="btn btn-brand">
-                    <FilePlus2 className="size-4" /> ออกใบแจ้งหนี้
+                    <FilePlus2 className="size-4" /> ออกใบวางบิล
                   </Link>
                   <Link href={`/contracts/${current.id}`} className="btn btn-outline">
                     <FileSignature className="size-4" /> ดูสัญญา
@@ -198,7 +198,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
               <ReceiptText className="mr-1 inline size-4" />
               มียอดค้างชำระ {money(current.outstanding)} บาท{" "}
               <Link href={`/contracts/${current.id}`} className="font-semibold underline">
-                ดูใบแจ้งหนี้
+                ดูใบวางบิล
               </Link>
             </Alert>
           )}

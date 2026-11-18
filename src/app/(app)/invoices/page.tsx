@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { BillingDue, InvoiceView } from "@/lib/types";
 import { BulkBilling } from "./bulk-billing";
 
-export const metadata: Metadata = { title: "ใบแจ้งหนี้" };
+export const metadata: Metadata = { title: "ใบวางบิล" };
 
 const TABS = [
   { key: "due", label: "ถึงรอบออกบิล" },
@@ -62,7 +62,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
 
   return (
     <>
-      <PageHeader title="ใบแจ้งหนี้" subtitle={`ยอดค้างชำระทั้งหมด ${money(outstandingTotal)} บาท`} />
+      <PageHeader title="ใบวางบิล" subtitle={`ยอดค้างชำระทั้งหมด ${money(outstandingTotal)} บาท`} />
 
       <Tabs
         items={TABS.map((t) => ({
@@ -110,7 +110,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
 
           <Card className="overflow-hidden">
             {list.length === 0 ? (
-              <EmptyState icon={<ReceiptText className="size-6" />} title={tab === "unpaid" ? "ไม่มียอดค้างชำระ" : "ไม่มีใบแจ้งหนี้ในเดือนนี้"} />
+              <EmptyState icon={<ReceiptText className="size-6" />} title={tab === "unpaid" ? "ไม่มียอดค้างชำระ" : "ไม่มีใบวางบิลในเดือนนี้"} />
             ) : (
               <>
                 <ul className="divide-y divide-line md:hidden">

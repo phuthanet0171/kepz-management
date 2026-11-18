@@ -327,7 +327,7 @@ export function ContractForm({
               className="mt-0.5 size-5 shrink-0 accent-ink"
             />
             <span>
-              <span className="block text-sm font-medium">ออกใบแจ้งหนี้ค่าเช่างวดแรกทันที</span>
+              <span className="block text-sm font-medium">ออกใบวางบิลค่าเช่างวดแรกทันที</span>
               <span className="block text-xs text-muted">
                 {rentNum > 0 && start && firstBillEnd
                   ? `ค่าเช่า ${thDate(start)} – ${thDate(firstBillEnd)} · ${money(rentNum * BILLING_CYCLE_MONTHS[cycle])} บาท (= ค่าเช่าล่วงหน้าในสัญญา) เงินประกันบันทึกแยกด้านบน`
