@@ -112,6 +112,13 @@ export default async function ContractTemplatePage() {
         initial={{ storage: s.contract_template_storage, parking: s.contract_template_parking }}
         defaults={{ storage: DEFAULT_TEMPLATE_STORAGE, parking: DEFAULT_TEMPLATE_PARKING }}
         previews={{ storage: storage ?? sample("storage"), parking: parking ?? sample("parking") }}
+        business={{
+          name: s.business_name,
+          address: s.business_address,
+          phone: s.business_phone,
+          email: s.business_email,
+          tax_id: s.tax_id,
+        }}
       />
     </>
   );

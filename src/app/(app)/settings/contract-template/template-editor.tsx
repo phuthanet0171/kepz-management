@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { AlertTriangle, Car, Eye, Package, PencilLine, RotateCcw } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { ContractDocument } from "@/components/contract-document";
+import { ContractDocument, type ContractBusiness } from "@/components/contract-document";
 import { Card } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import { FIELD_GROUPS, parseTemplate, unknownFields } from "@/lib/contract-template";
@@ -28,10 +28,12 @@ export function TemplateEditor({
   initial,
   defaults,
   previews,
+  business,
 }: {
   initial: PerKind<string | null>;
   defaults: PerKind<string>;
   previews: PerKind<PreviewSource>;
+  business: ContractBusiness;
 }) {
   const start = (k: UnitKind) => (initial[k]?.trim() ? initial[k]! : defaults[k]);
   const [kind, setKind] = useState<UnitKind>("storage");
@@ -174,7 +176,15 @@ export function TemplateEditor({
               <Eye className="size-3.5" /> ตัวอย่าง: {preview.label}
             </div>
             <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border border-line bg-white p-5 text-ink shadow-sm sm:p-8">
-              <ContractDocument blocks={blocks} lessorName={preview.lessorName} tenantName={preview.tenantName} preview />
+              <ContractDocument
+                blocks={blocks}
+                fields={preview.fields}
+                kind={kind}
+                business={business}
+                lessorName={preview.lessorName}
+                tenantName={preview.tenantName}
+                preview
+              />
             </div>
             <p className="mt-2 text-xs text-muted">
               <span className="rounded bg-brand-soft px-1">ไฮไลต์เหลือง</span> = ข้อมูลที่ระบบเติมให้ · จุดไข่ปลา = ยังไม่มีข้อมูล เว้นให้เขียนด้วยมือ

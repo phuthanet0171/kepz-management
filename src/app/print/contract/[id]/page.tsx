@@ -54,8 +54,22 @@ export default async function PrintContractPage({ params }: PageProps<"/print/co
 
   return (
     <Paper title={`สัญญาเช่า ${c.contract_no}`}>
-      <div className="mb-2 text-right text-xs text-muted">เลขที่สัญญา {c.contract_no}</div>
-      <ContractDocument blocks={blocks} lessorName={terms.lessor_name} tenantName={t.full_name} />
+      {/* เลขหน้าท้ายกระดาษทุกหน้าตอนพิมพ์ / บันทึก PDF */}
+      <style>{`@media print { @page { margin: 12mm 12mm 14mm; @bottom-right { content: "สัญญาเลขที่ ${c.contract_no.replace(/[^A-Za-z0-9-]/g, "")}  ·  หน้า " counter(page) " / " counter(pages); font-size: 9pt; color: #6b7280; } } }`}</style>
+      <ContractDocument
+        blocks={blocks}
+        fields={fields}
+        kind={kind}
+        business={{
+          name: settings.business_name,
+          address: settings.business_address,
+          phone: settings.business_phone,
+          email: settings.business_email,
+          tax_id: settings.tax_id,
+        }}
+        lessorName={terms.lessor_name}
+        tenantName={t.full_name}
+      />
     </Paper>
   );
 }
