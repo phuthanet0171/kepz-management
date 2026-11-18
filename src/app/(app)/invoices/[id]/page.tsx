@@ -1,9 +1,10 @@
-import { Paperclip, Printer } from "lucide-react";
+import { Paperclip, Phone, Printer, StickyNote } from "lucide-react";
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvoiceStatusBadge } from "@/components/status";
-import { Alert, Badge, Card, CardHeader, DefinitionList, PageHeader } from "@/components/ui";
+import { Alert, Badge, Card, CardHeader, PageHeader } from "@/components/ui";
 import { money, PAYMENT_METHOD_LABEL, thDate, thDateTime, todayTH } from "@/lib/format";
 import { getSettings } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
@@ -64,6 +65,47 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
           ใบวางบิลนี้ถูกยกเลิกเมื่อ {thDateTime(inv.voided_at)} · เหตุผล: {inv.void_reason}
         </Alert>
       )}
+
+      {/* ข้อมูลหลักของบิล ไว้บนสุดให้เห็นทันทีที่เข้าหน้า */}
+      <Card className="mb-4 overflow-hidden">
+        <div className="grid grid-cols-2 divide-line sm:grid-cols-4 sm:divide-x">
+          <InfoTile label={inv.status === "void" ? "ยอดตามบิล" : "ยอดคงค้าง"} highlight={inv.status !== "void" && Number(inv.outstanding) > 0}>
+            <span className="tabular">{money(inv.status === "void" ? inv.total : inv.outstanding)}</span>
+            <span className="ml-1 text-sm font-medium">บาท</span>
+          </InfoTile>
+          <InfoTile label="ครบกำหนดชำระ">
+            <span className={inv.is_overdue ? "text-bad" : undefined}>{thDate(inv.due_date)}</span>
+            {inv.is_overdue && <span className="block text-xs font-medium text-bad">เกินกำหนด {inv.days_overdue} วัน</span>}
+          </InfoTile>
+          <InfoTile label="รอบบิล">
+            {inv.period_start ? (
+              <span className="text-[15px]">
+                {thDate(inv.period_start)} – {thDate(inv.period_end)}
+              </span>
+            ) : (
+              <span className="text-[15px]">ค่าใช้จ่ายอื่น</span>
+            )}
+            <span className="block text-xs font-normal text-muted">ออกเมื่อ {thDate(inv.issue_date)}</span>
+          </InfoTile>
+          <InfoTile label="ผู้เช่า">
+            <Link href={`/tenants/${inv.tenant_id}`} className="block truncate text-[15px] underline-offset-2 hover:underline">
+              {inv.tenant_name}
+            </Link>
+            <a href={`tel:${inv.tenant_phone}`} className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 underline-offset-2 hover:underline">
+              <Phone className="size-3.5" /> {inv.tenant_phone}
+            </a>
+          </InfoTile>
+        </div>
+        {inv.note && (
+          <div className="flex gap-2 border-t border-line bg-canvas/60 px-4 py-2.5 text-sm sm:px-5">
+            <StickyNote className="mt-0.5 size-4 shrink-0 text-muted" />
+            <span>
+              <span className="text-muted">หมายเหตุ: </span>
+              {inv.note}
+            </span>
+          </div>
+        )}
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -189,32 +231,6 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
               )
             }
           />
-          <Card>
-            <CardHeader title="ข้อมูลใบวางบิล" />
-            <div className="p-4 sm:p-5">
-              <DefinitionList
-                items={[
-                  { label: "วันที่ออก", value: thDate(inv.issue_date) },
-                  { label: "ครบกำหนด", value: <span className={inv.is_overdue ? "text-bad" : undefined}>{thDate(inv.due_date)}</span> },
-                  {
-                    label: "รอบบิล",
-                    value: inv.period_start ? `${thDate(inv.period_start)} – ${thDate(inv.period_end)}` : "-",
-                    full: true,
-                  },
-                  {
-                    label: "ผู้เช่า",
-                    value: (
-                      <Link href={`/tenants/${inv.tenant_id}`} className="underline">
-                        {inv.tenant_name}
-                      </Link>
-                    ),
-                  },
-                  { label: "โทร", value: <a href={`tel:${inv.tenant_phone}`} className="underline">{inv.tenant_phone}</a> },
-                  ...(inv.note ? [{ label: "หมายเหตุ", value: inv.note, full: true }] : []),
-                ]}
-              />
-            </div>
-          </Card>
           {inv.status !== "void" && !hasActivePayments && (
             <div className="flex justify-end">
               <VoidInvoiceButton invoiceId={inv.id} />
@@ -223,5 +239,14 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
         </div>
       </div>
     </>
+  );
+}
+
+function InfoTile({ label, highlight, children }: { label: string; highlight?: boolean; children: ReactNode }) {
+  return (
+    <div className={`min-w-0 border-b border-line px-4 py-3.5 sm:border-b-0 sm:px-5 ${highlight ? "bg-brand-soft" : ""}`}>
+      <div className="text-xs text-muted">{label}</div>
+      <div className="mt-0.5 text-lg leading-snug font-bold">{children}</div>
+    </div>
   );
 }
