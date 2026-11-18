@@ -64,7 +64,7 @@ export function TemplateEditor({
   }
 
   function resetToDefault() {
-    if (!confirm(`แทนที่ถ้อยคำสัญญา${kind === "parking" ? "ที่จอดรถ" : "ห้องเก็บของ"}ด้วยแม่แบบตั้งต้น? (ยังไม่บันทึกจนกว่าจะกด “บันทึกแม่แบบ”)`)) return;
+    if (!confirm(`แทนที่เนื้อหาสัญญา${kind === "parking" ? "ที่จอดรถ" : "ห้องเก็บของ"}ด้วยแม่แบบตั้งต้น? (ยังไม่บันทึกจนกว่าจะกด “บันทึกแม่แบบ”)`)) return;
     setValue(defaults[kind]);
   }
 
@@ -105,7 +105,7 @@ export function TemplateEditor({
               <input type="hidden" name="kind" value={kind} />
               <input type="hidden" name="reset" value={isDefault ? "1" : "0"} />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-semibold">ถ้อยคำสัญญา{kind === "parking" ? "ที่จอดรถ" : "ห้องเก็บของ"}</span>
+                <span className="text-sm font-semibold">เนื้อหาสัญญา{kind === "parking" ? "ที่จอดรถ" : "ห้องเก็บของ"}</span>
                 <span className="text-xs text-muted">
                   {isDefault ? "ใช้แม่แบบตั้งต้น" : "แก้ไขเองแล้ว"}
                   {dirty(kind) && <span className="ml-2 font-medium text-warn">· ยังไม่บันทึก</span>}
@@ -138,9 +138,7 @@ export function TemplateEditor({
           </Card>
 
           <Card className="p-4 sm:p-5">
-            <div className="text-sm font-semibold">แทรกช่องข้อมูล</div>
-            <p className="mt-0.5 text-xs text-muted">วางเคอร์เซอร์ในข้อความ แล้วกดปุ่มเพื่อแทรกตรงตำแหน่งนั้น</p>
-            <div className="mt-3 space-y-3">
+            <div className="space-y-3">
               {FIELD_GROUPS.map((g) => (
                 <div key={g.title}>
                   <div className="mb-1.5 text-xs font-medium text-muted">{g.title}</div>

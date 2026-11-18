@@ -105,7 +105,7 @@ export default async function ContractTemplatePage() {
     <>
       <PageHeader
         title="แม่แบบสัญญาเช่า"
-        subtitle="แก้ถ้อยคำได้เอง ช่องในวงเล็บปีกกา เช่น {ชื่อผู้เช่า} ระบบจะเติมข้อมูลจริงให้ตอนพิมพ์"
+        subtitle="แก้เนื้อหาได้เอง ช่องในวงเล็บปีกกา เช่น {ชื่อผู้เช่า} ระบบจะเติมข้อมูลจริงให้ตอนพิมพ์"
         back={{ href: "/settings", label: "ตั้งค่า" }}
       />
       <TemplateEditor

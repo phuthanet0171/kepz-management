@@ -117,6 +117,6 @@ export async function saveContractTemplate(_: ActionState, fd: FormData): Promis
   if (text.length > TEMPLATE_MAX) return { error: `แม่แบบยาวเกิน ${TEMPLATE_MAX.toLocaleString()} ตัวอักษร` };
   const col = kind === "parking" ? "contract_template_parking" : "contract_template_storage";
   const r = await saveSettings({ [col]: reset ? null : text });
-  if (r?.ok) r.message = reset ? "คืนค่าแม่แบบเดิมแล้ว" : "บันทึกแม่แบบแล้ว สัญญาที่พิมพ์ต่อจากนี้ใช้ถ้อยคำใหม่ทันที";
+  if (r?.ok) r.message = reset ? "คืนค่าแม่แบบเดิมแล้ว" : "บันทึกแม่แบบแล้ว สัญญาที่พิมพ์ต่อจากนี้ใช้เนื้อหาใหม่ทันที";
   return r;
 }

@@ -209,7 +209,7 @@ export function ContractSettingsForm({ s }: { s: Settings }) {
         <div className="flex flex-wrap items-center gap-2">
           <SubmitButton>บันทึก</SubmitButton>
           <Link href="/settings/contract-template" className="btn btn-outline">
-            <FileText className="size-4" /> แก้ไขถ้อยคำสัญญา
+            <FileText className="size-4" /> แก้ไขเนื้อหาสัญญา
           </Link>
         </div>
       </ActionForm>
