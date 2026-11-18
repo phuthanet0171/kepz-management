@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ItemsTable, PaidStamp, PartyBoxes, ReceiptPaidPanel, TotalsBox } from "@/components/bill-parts";
+import { ItemsTable, PaidStamp, PartyBoxes, PaymentInfoBox, TotalsBox } from "@/components/bill-parts";
 import { BrandHeader, businessOf, DocFooter, SectionLabel, SignatureBoxes, VoidBanner } from "@/components/print-kit";
 import { resolveContractTerms } from "@/lib/contract-template";
 import { getSettings } from "@/lib/data";
@@ -71,32 +71,21 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
         ]}
       />
 
-      {!p.is_void && (
-        <ReceiptPaidPanel amount={amount} paidOn={p.paid_on} method={PAYMENT_METHOD_LABEL[p.method]} full={isFull} />
-      )}
-
       <PartyBoxes partyTitle="ได้รับเงินจาก" tenant={tenant} inv={inv} />
       <ItemsTable items={items} title={`รายการตามใบวางบิล ${inv.invoice_no}`} detailed={false} />
 
-      <div className="mt-5 flex items-start justify-between gap-10 break-inside-avoid">
-        <div className="min-w-0 flex-1 space-y-4 pt-1 text-[14.5px]">
-          <div>
-            <SectionLabel>การชำระเงิน</SectionLabel>
+      {/* ใบเสร็จ: ซ้าย = วิธีชำระ (กล่องเทา) + ตราจ่ายแล้ว · ขวา = ยอดรับเงิน (กล่องดำ ตัวเลขเหลือง) ที่เดียว */}
+      <div className="mt-6 flex items-start justify-between gap-10 break-inside-avoid">
+        <div className="min-w-0 flex-1">
+          <SectionLabel>การชำระเงิน</SectionLabel>
+          <PaymentInfoBox>
             <div>
               ชำระโดย <b>{PAYMENT_METHOD_LABEL[p.method]}</b>
-              {p.reference && <span className="text-muted"> · อ้างอิง {p.reference}</span>}
             </div>
-            <div className={isFull ? "font-bold text-ok" : "text-muted"}>
-              {isFull ? "✓ ชำระครบตามใบวางบิลแล้ว" : `ชำระบางส่วนของใบวางบิล ${inv.invoice_no}`}
-            </div>
-          </div>
-          {!p.is_void && <PaidStamp className="ml-2" />}
-          {p.note && (
-            <div>
-              <SectionLabel>หมายเหตุ</SectionLabel>
-              <div>{p.note}</div>
-            </div>
-          )}
+            {p.reference && <div className="text-muted">เลขอ้างอิง {p.reference}</div>}
+            {p.note && <div className="text-muted">หมายเหตุ: {p.note}</div>}
+          </PaymentInfoBox>
+          {!p.is_void && <PaidStamp partial={!isFull} className="mt-4 ml-3" />}
         </div>
         <TotalsBox rows={rows} totalLabel={isFull ? "รับชำระ" : "รับชำระครั้งนี้"} total={amount} />
       </div>

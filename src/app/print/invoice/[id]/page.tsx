@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BillDuePanel, ItemsTable, PartyBoxes, PayToBox, TotalsBox } from "@/components/bill-parts";
+import { BillDuePanel, ItemsTable, PartyBoxes, PayToBox, type FootRow } from "@/components/bill-parts";
 import { BrandHeader, businessOf, DocFooter, SectionLabel, SignatureBoxes, VoidBanner } from "@/components/print-kit";
 import { resolveContractTerms } from "@/lib/contract-template";
 import { getSettings } from "@/lib/data";
@@ -34,24 +34,25 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
   const paid = Number(inv.paid_amount) > 0 && inv.status !== "void";
   const payTo = settings.payment_instructions || terms.bank_account;
 
-  const rows: { label: string; value: number | string }[] = [];
+  // แถวสรุปใต้ตาราง: แสดงเฉพาะเมื่อมีภาษี/มีการชำระแล้ว (ยอดที่ต้องจ่ายอยู่ในแถบเหลืองด้านบนที่เดียว)
+  const foot: FootRow[] = [];
   if (vat) {
-    rows.push({ label: "มูลค่าก่อนภาษี", value: inv.subtotal });
-    rows.push({ label: `ภาษีมูลค่าเพิ่ม ${Number(inv.vat_rate)}%`, value: inv.vat_amount });
+    foot.push({ label: "มูลค่าก่อนภาษี", value: inv.subtotal });
+    foot.push({ label: `ภาษีมูลค่าเพิ่ม ${Number(inv.vat_rate)}%`, value: inv.vat_amount });
   }
   if (wht) {
-    rows.push({ label: vat ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ", value: Number(inv.subtotal) + Number(inv.vat_amount) });
-    rows.push({ label: `หัก ณ ที่จ่าย ${Number(inv.wht_rate)}%`, value: -Number(inv.wht_amount) });
+    foot.push({ label: vat ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ", value: Number(inv.subtotal) + Number(inv.vat_amount) });
+    foot.push({ label: `หัก ณ ที่จ่าย ${Number(inv.wht_rate)}%`, value: -Number(inv.wht_amount), tone: "bad" });
   }
-  if (paid) {
-    rows.push({ label: wht ? "ยอดชำระสุทธิ" : "ยอดรวมทั้งสิ้น", value: inv.total });
-    rows.push({ label: "ชำระแล้ว", value: inv.paid_amount });
-  }
-  const due = paid ? inv.outstanding : inv.total;
+  const isVoid = inv.status === "void";
+  if (foot.length || paid || isVoid) foot.push({ label: wht ? "ยอดชำระสุทธิ" : "ยอดรวมทั้งสิ้น", value: inv.total, strong: true });
+  if (paid) foot.push({ label: "ชำระแล้ว", value: -Number(inv.paid_amount) });
+  const due = paid ? Number(inv.outstanding) : Number(inv.total);
+  const showDue = !isVoid && due > 0;
 
   return (
     <Paper title={`ใบวางบิล ${inv.invoice_no}`} tone="bill">
-      {inv.status === "void" && <VoidBanner reason={inv.void_reason} />}
+      {isVoid && <VoidBanner reason={inv.void_reason} />}
       <BrandHeader
         business={business}
         badge="BILLING NOTE"
@@ -59,27 +60,34 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
         meta={[
           { label: "เลขที่", value: inv.invoice_no },
           { label: "วันที่ออก", value: thDateLong(inv.issue_date) },
-          { label: "ครบกำหนดชำระ", value: thDateLong(inv.due_date) },
+          // วันครบกำหนดอยู่ในแถบดำด้านบนแล้ว ไม่ต้องซ้ำ
+          ...(showDue ? [] : [{ label: "ครบกำหนดชำระ", value: thDateLong(inv.due_date) }]),
         ]}
       />
 
-      {inv.status !== "void" && <BillDuePanel amount={due} dueDate={inv.due_date} settled={Number(due) <= 0} />}
+      {!isVoid && (
+        <BillDuePanel
+          label={paid ? "ยอดคงค้างที่ต้องชำระ" : wht ? "ยอดชำระสุทธิ" : "ยอดที่ต้องชำระ"}
+          amount={due}
+          dueDate={inv.due_date}
+          settled={!showDue}
+        />
+      )}
 
       <PartyBoxes partyTitle="ลูกค้า" tenant={tenant} inv={inv} />
-      <ItemsTable items={items} />
+      <ItemsTable items={items} foot={foot} />
 
-      <div className="mt-5 flex items-start justify-between gap-10 break-inside-avoid">
-        <div className="min-w-0 flex-1 space-y-4 pt-1 text-[14.5px]">
-          {payTo && <PayToBox text={payTo} />}
+      {(payTo || inv.note) && (
+        <div className="mt-6 space-y-4 break-inside-avoid">
+          {payTo && showDue && <PayToBox text={payTo} />}
           {inv.note && (
-            <div>
+            <div className="text-[14.5px]">
               <SectionLabel>หมายเหตุ</SectionLabel>
               <div>{inv.note}</div>
             </div>
           )}
         </div>
-        <TotalsBox rows={rows} totalLabel={paid ? "ยอดคงค้างที่ต้องชำระ" : wht ? "ยอดชำระสุทธิ" : "ยอดที่ต้องชำระ"} total={due} />
-      </div>
+      )}
 
       <SignatureBoxes
         items={[

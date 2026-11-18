@@ -48,7 +48,21 @@ export function PartyBoxes({ partyTitle, tenant, inv }: { partyTitle: string; te
 }
 
 /** ตารางรายการ: หัวดำ แถวคั่นด้วยเส้นบาง ไม่มีกรอบรอบนอก */
-export function ItemsTable({ items, title = "รายการ", detailed = true }: { items: InvoiceItem[]; title?: string; detailed?: boolean }) {
+export type FootRow = { label: string; value: number | string; strong?: boolean; tone?: "bad" };
+
+export function ItemsTable({
+  items,
+  title = "รายการ",
+  detailed = true,
+  foot = [],
+}: {
+  items: InvoiceItem[];
+  title?: string;
+  detailed?: boolean;
+  /** แถวสรุปใต้ตาราง (มูลค่าก่อนภาษี / VAT / หัก ณ ที่จ่าย / รวม) */
+  foot?: FootRow[];
+}) {
+  const span = detailed ? 4 : 2;
   return (
     <table className="mt-7 w-full border-separate border-spacing-0 text-[14.5px] [&_tbody_td]:border-b [&_tbody_td]:border-ink/10">
       <thead>
@@ -79,6 +93,20 @@ export function ItemsTable({ items, title = "รายการ", detailed = tru
           </tr>
         ))}
       </tbody>
+      {foot.length > 0 && (
+        <tfoot>
+          {foot.map((r) => (
+            <tr key={r.label} className={r.strong ? "font-bold text-ink" : r.tone === "bad" ? "text-bad" : "text-muted"}>
+              <td colSpan={span} className={clsx("px-3 text-right", r.strong ? "pt-2 pb-1 text-[15.5px]" : "py-1")}>
+                {r.label}
+              </td>
+              <td className={clsx("tabular px-4 text-right", r.strong ? "pt-2 pb-1 text-[15.5px]" : "py-1")}>
+                {money(r.value)}
+              </td>
+            </tr>
+          ))}
+        </tfoot>
+      )}
     </table>
   );
 }
@@ -117,10 +145,20 @@ export function TotalsBox({
 }
 
 /**
- * ใบวางบิล: แถบ "ยอดที่ต้องชำระ" ใต้หัวกระดาษ (เหลือง) + กำหนดชำระ (ดำ)
- * ให้ลูกค้าเห็นทันทีว่าต้องจ่ายเท่าไหร่ ภายในวันไหน
+ * ใบวางบิล: แถบใหญ่ใต้หัวกระดาษ ที่เดียวที่บอก "ต้องจ่ายเท่าไหร่ ภายในวันไหน"
+ * ซ้ายเหลือง = ยอดเงิน · ขวาดำ = วันครบกำหนด
  */
-export function BillDuePanel({ amount, dueDate, settled }: { amount: number | string; dueDate: string; settled: boolean }) {
+export function BillDuePanel({
+  label,
+  amount,
+  dueDate,
+  settled,
+}: {
+  label: string;
+  amount: number | string;
+  dueDate: string;
+  settled: boolean;
+}) {
   if (settled) {
     return (
       <div className="mt-6 flex items-center gap-3 rounded-lg border-2 border-ok bg-ok-soft px-5 py-3 text-ok break-inside-avoid">
@@ -132,7 +170,7 @@ export function BillDuePanel({ amount, dueDate, settled }: { amount: number | st
   return (
     <div className="mt-6 flex overflow-hidden rounded-lg break-inside-avoid">
       <div className="flex-1 bg-[#ffd21f] px-5 py-3.5 text-ink">
-        <div className="text-[13.5px] font-semibold">ยอดที่ต้องชำระ</div>
+        <div className="text-[13.5px] font-semibold">{label}</div>
         <div className="flex flex-wrap items-baseline gap-x-3">
           <span className="tabular text-[34px] leading-tight font-bold">{money(amount)}</span>
           <span className="text-[15px] font-semibold">บาท</span>
@@ -147,60 +185,34 @@ export function BillDuePanel({ amount, dueDate, settled }: { amount: number | st
   );
 }
 
-/** ใบวางบิล: กล่องช่องทางชำระเงิน ขอบเหลืองหนา ตัวใหญ่ เลขบัญชีอ่านง่าย */
+/** ใบวางบิล: กล่องช่องทางชำระเงิน พื้นเทาอ่อน ขีดเหลืองด้านซ้าย เลขบัญชีตัวใหญ่หนา */
 export function PayToBox({ text }: { text: string }) {
   return (
-    <div className="rounded-lg border-2 border-dashed border-[#e0b400] bg-[#fffbe6] px-4 py-3">
-      <div className="text-[13px] font-semibold text-muted">ช่องทางการชำระเงิน · โอนแล้วกรุณาส่งสลิปแจ้ง</div>
-      <div className="mt-1 text-[18px] leading-relaxed font-bold whitespace-pre-line">{text}</div>
-    </div>
-  );
-}
-
-/**
- * ใบเสร็จ: แถบยืนยัน "ได้รับเงินแล้ว" สีเขียว ใต้หัวกระดาษ
- * เขียว = จ่ายแล้ว อ่านเข้าใจทันทีโดยไม่ต้องอ่านตัวหนังสือ
- */
-export function ReceiptPaidPanel({
-  amount,
-  paidOn,
-  method,
-  full,
-}: {
-  amount: number;
-  paidOn: string;
-  method: string;
-  full: boolean;
-}) {
-  return (
-    <div className="mt-6 flex items-center gap-4 rounded-lg border-2 border-ok bg-ok-soft px-5 py-3.5 break-inside-avoid">
-      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-ok text-2xl font-bold text-white">✓</span>
-      <div className="min-w-0 flex-1">
-        <div className="text-[19px] leading-tight font-bold text-ok">
-          {full ? "ได้รับเงินเรียบร้อยแล้ว" : "ได้รับเงินแล้ว (ชำระบางส่วน)"}
-        </div>
-        <div className="text-[13.5px] text-ink-2">
-          วันที่ {thDateLong(paidOn)} · {method}
-        </div>
-      </div>
-      <div className="shrink-0 text-right">
-        <div className="text-[13px] text-ink-2">จำนวนเงิน</div>
-        <div className="tabular text-[26px] leading-tight font-bold text-ink">{money(amount)}</div>
+    <div className="flex overflow-hidden rounded-lg bg-[#f1f0ec] break-inside-avoid">
+      <div className="w-1.5 shrink-0 bg-[#ffd21f]" />
+      <div className="px-5 py-3.5">
+        <div className="text-[13px] font-semibold text-muted">ช่องทางการชำระเงิน · โอนแล้วกรุณาส่งสลิปแจ้ง</div>
+        <div className="mt-1 text-[18px] leading-relaxed font-bold whitespace-pre-line">{text}</div>
       </div>
     </div>
   );
 }
 
-/** ตราประทับ "ชำระแล้ว PAID" เอียง สีเขียว ใช้บนใบเสร็จ */
-export function PaidStamp({ className }: { className?: string }) {
+/** ใบเสร็จ: กล่องข้อมูลการชำระ พื้นเทาอ่อน */
+export function PaymentInfoBox({ children }: { children: ReactNode }) {
+  return <div className="rounded-lg bg-[#f1f0ec] px-4 py-3 text-[14.5px] leading-relaxed">{children}</div>;
+}
+
+/** ตราประทับเอียงสีเขียว บอกว่าจ่ายแล้ว (ใช้บนใบเสร็จที่เดียว) */
+export function PaidStamp({ partial, className }: { partial?: boolean; className?: string }) {
   return (
     <div
       className={clsx(
-        "inline-flex -rotate-[8deg] flex-col items-center rounded-lg border-[3px] border-double border-ok px-5 py-1.5 text-ok opacity-85",
+        "inline-flex -rotate-[8deg] flex-col items-center rounded-lg border-[3px] border-double border-ok px-5 py-1.5 text-ok opacity-90",
         className,
       )}
     >
-      <span className="text-[22px] leading-tight font-bold">ชำระแล้ว</span>
+      <span className="text-[21px] leading-tight font-bold">{partial ? "ชำระบางส่วน" : "ชำระครบแล้ว"}</span>
       <span className="text-[12px] font-bold tracking-[0.35em]">PAID</span>
     </div>
   );

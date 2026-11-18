@@ -8,18 +8,17 @@ import type { CSSProperties, ReactNode } from "react";
 /**
  * สีประจำเอกสาร ใช้แค่ เหลือง-ดำ-เทา แต่จัดน้ำหนักต่างกันให้แยกออกทันที
  *  สัญญา   = ดำเด่น ตัวเหลือง (แบบเดิม)
- *  ใบวางบิล = เหลืองเด่น ตัวดำ
- *  ใบเสร็จ  = เทาเด่น ตัวดำ/ขาว
+ *  ใบวางบิล = เหลืองเด่น (แถบยอดที่ต้องจ่ายด้านบน + กล่องบัญชีเทา)
+ *  ใบเสร็จ  = เทาเด่น (กล่องยอดรับดำตัวเลขเหลืองด้านล่าง + ตรา PAID)
  */
 export type DocTone = "contract" | "bill" | "receipt";
 const Y = "#ffd21f";
 const K = "#111111";
 const G = "#6b6b6b";
-const GL = "#e9e8e4";
 const TONES: Record<DocTone, Record<string, string>> = {
   contract: { badgeBg: K, badgeFg: Y, barA: K, barB: Y, totalBg: K, totalFg: "#ffffff", totalNum: Y, line: Y },
   bill: { badgeBg: Y, badgeFg: K, barA: Y, barB: K, totalBg: Y, totalFg: K, totalNum: K, line: Y },
-  receipt: { badgeBg: G, badgeFg: "#ffffff", barA: K, barB: G, totalBg: GL, totalFg: K, totalNum: K, line: G },
+  receipt: { badgeBg: G, badgeFg: "#ffffff", barA: G, barB: K, totalBg: K, totalFg: "#ffffff", totalNum: Y, line: G },
 };
 export function toneStyle(tone: DocTone): CSSProperties {
   const t = TONES[tone];
