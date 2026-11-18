@@ -45,6 +45,8 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
   const purpose = (extra?.purpose as string | null) ?? null;
   const unitRel = extra?.unit as unknown as { unit_type: { kind: string } | null } | null;
   const isParking = unitRel?.unit_type?.kind === "parking";
+  // ใบวางบิลที่ยังไม่ได้ชำระล่าสุด (ไว้ให้กดไปพิมพ์ได้ทันทีเมื่อออกบิลค่าเช่าครบทุกรอบแล้ว)
+  const openInv = invoices.find((i) => i.status === "unpaid" || i.status === "partial") ?? null;
 
   return (
     <>
@@ -61,9 +63,17 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
             <Link href={`/print/contract/${c.id}`} target="_blank" className="btn btn-outline">
               <Printer className="size-4" /> พิมพ์สัญญา
             </Link>
-            <Link href={`/invoices/new?contract=${c.id}`} className="btn btn-primary">
-              <FilePlus2 className="size-4" /> ออกใบวางบิล
-            </Link>
+            {nextBill ? (
+              <Link href={`/invoices/new?contract=${c.id}`} className="btn btn-primary">
+                <FilePlus2 className="size-4" /> ออกใบวางบิล
+              </Link>
+            ) : (
+              openInv && (
+                <Link href={`/invoices/${openInv.id}`} className="btn btn-primary">
+                  <Printer className="size-4" /> พิมพ์ใบวางบิล {openInv.invoice_no}
+                </Link>
+              )
+            )}
           </>
         }
       />
@@ -157,14 +167,24 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
               description={
                 nextBill
                   ? `รอบถัดไป ${thDate(nextBill.period_start)} – ${thDate(nextBill.period_end)}`
-                  : active
-                    ? "ออกใบวางบิลค่าเช่าครบทุกรอบแล้ว"
+                  : invoices.length
+                    ? "ออกบิลค่าเช่าครบทุกรอบแล้ว · กดที่ใบวางบิลด้านล่างเพื่อดูและพิมพ์"
                     : undefined
               }
               action={
-                <Link href={`/invoices/new?contract=${c.id}`} className="btn btn-outline btn-sm">
-                  <FilePlus2 className="size-3.5" /> ออกบิล
-                </Link>
+                nextBill ? (
+                  <Link href={`/invoices/new?contract=${c.id}`} className="btn btn-outline btn-sm">
+                    <FilePlus2 className="size-3.5" /> ออกบิลรอบถัดไป
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/invoices/new?contract=${c.id}`}
+                    className="btn btn-outline btn-sm"
+                    title="บิลแยกสำหรับค่าปรับ ค่าเสียหาย หรือค่าใช้จ่ายอื่นที่ไม่ใช่ค่าเช่า"
+                  >
+                    <FilePlus2 className="size-3.5" /> บิลค่าใช้จ่ายอื่น
+                  </Link>
+                )
               }
             />
             {invoices.length === 0 ? (
