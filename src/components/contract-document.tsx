@@ -95,10 +95,7 @@ export function ContractDocument({
         </>
       ),
     },
-    {
-      label: parking ? "ทะเบียนรถ" : "สิ่งของที่เก็บ",
-      value: fields[parking ? "ทะเบียนรถ" : "สิ่งของที่เก็บ"] || <WriteLine width="100%" />,
-    },
+    { label: "ค่าเช่า", value: `${v("ค่าเช่า")} บาท/เดือน` },
     {
       label: "ระยะเวลาเช่า",
       value: (
@@ -108,21 +105,10 @@ export function ContractDocument({
       ),
       wide: true,
     },
-    { label: "ค่าเช่า", value: `${v("ค่าเช่า")} บาท/เดือน` },
     { label: "รอบชำระ", value: `${v("รอบชำระ")} ภายในวันที่ ${v("ชำระภายในวันที่")}` },
     { label: "เงินประกัน", value: `${v("เงินประกัน")} บาท` },
     { label: "ค่าเช่าล่วงหน้า", value: `${v("ค่าเช่าล่วงหน้า")} บาท` },
-    {
-      label: "ชำระแรกเข้ารวม",
-      value: (
-        <>
-          <span className="text-[16px]">{v("ชำระแรกเข้ารวม")} บาท</span>{" "}
-          <span className="font-normal text-muted">({v("ชำระแรกเข้ารวมตัวอักษร")})</span>
-        </>
-      ),
-      wide: true,
-      highlight: true,
-    },
+    { label: "ชำระแรกเข้ารวม", value: <span className="text-[16.5px]">{v("ชำระแรกเข้ารวม")} บาท</span>, highlight: true },
   ];
 
   return (

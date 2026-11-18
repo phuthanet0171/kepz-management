@@ -134,21 +134,30 @@ export function WriteLine({ width = "11em" }: { width?: string }) {
   return <span className="inline-block border-b border-ink/60 align-baseline" style={{ width, height: "1.3em" }} />;
 }
 
-/** ช่องลงนาม พร้อมชื่อผู้ลงนามในวงเล็บ */
+/** ช่องลงนาม: เส้นเซ็นชื่อ + ชื่อในวงเล็บ + วันที่ (ไม่มีกรอบ ให้หน้าเอกสารโล่งตา) */
 export function SignatureBoxes({ items }: { items: { role: string; name: string | null }[] }) {
   return (
-    <section className="mt-10 grid grid-cols-2 gap-6 break-inside-avoid">
+    <section className="mt-14 grid grid-cols-2 gap-12 text-center text-[14.5px] break-inside-avoid">
       {items.map((s) => (
-        <div key={s.role} className="rounded-lg border border-ink/15 px-5 pt-3 pb-5 text-center text-[14.5px]">
-          <div className="text-left text-[12.5px] font-semibold tracking-wide text-muted">{s.role}</div>
-          <div className="mx-auto mt-14 w-[85%] border-b border-ink/70" />
+        <div key={s.role}>
+          <div className="mx-auto w-[80%] border-b border-ink/70 pt-10" />
           <div className="mt-2 font-semibold">{s.name ? `(${s.name})` : <>(<WriteLine width="12em" />)</>}</div>
-          <div className="mt-3 flex items-end justify-center gap-1.5 text-muted">
+          <div className="text-muted">{s.role}</div>
+          <div className="mt-2 flex items-end justify-center gap-1.5 text-muted">
             วันที่ <WriteLine width="2.6em" />/<WriteLine width="2.6em" />/<WriteLine width="3.6em" />
           </div>
         </div>
       ))}
     </section>
+  );
+}
+
+/** หัวข้อส่วนเล็ก ขีดเหลืองด้านล่าง ใช้แทนกล่องเพื่อลดเส้นกรอบ */
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-2 inline-block border-b-[3px] border-brand pb-0.5 text-[13px] font-semibold tracking-wide text-muted">
+      {children}
+    </div>
   );
 }
 
@@ -169,15 +178,6 @@ export function VoidBanner({ reason }: { reason: string | null }) {
   return (
     <div className="mb-5 rounded-lg border-2 border-bad py-2.5 text-center text-xl font-bold text-bad">
       ยกเลิก{reason ? ` — ${reason}` : ""}
-    </div>
-  );
-}
-
-/** กล่องยอดเงินตัวอักษร (เหลืองอ่อน) */
-export function AmountWords({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-lg bg-brand-soft px-4 py-2.5 text-[14.5px] font-semibold">
-      <span className="mr-2 font-normal text-muted">ตัวอักษร</span>({children})
     </div>
   );
 }

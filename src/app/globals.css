@@ -127,9 +127,10 @@ dialog::backdrop {
 }
 
 @media print {
+  /* ขอบ 0 = เบราว์เซอร์ไม่มีที่พิมพ์วันที่/ชื่อหน้า/ลิงก์ ระยะขอบจริงทำใน Paper (print/doc.tsx) */
   @page {
     size: A4;
-    margin: 12mm;
+    margin: 0;
   }
   html,
   body {

@@ -54,8 +54,6 @@ export default async function PrintContractPage({ params }: PageProps<"/print/co
 
   return (
     <Paper title={`สัญญาเช่า ${c.contract_no}`}>
-      {/* เลขหน้าท้ายกระดาษทุกหน้าตอนพิมพ์ / บันทึก PDF */}
-      <style>{`@media print { @page { margin: 12mm 12mm 14mm; @bottom-right { content: "สัญญาเลขที่ ${c.contract_no.replace(/[^A-Za-z0-9-]/g, "")}  ·  หน้า " counter(page) " / " counter(pages); font-size: 9pt; color: #6b7280; } } }`}</style>
       <ContractDocument
         blocks={blocks}
         fields={fields}

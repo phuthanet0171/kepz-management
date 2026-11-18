@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ItemsTable, PartyBoxes, TotalsBox } from "@/components/bill-parts";
-import { AmountWords, BrandHeader, businessOf, DocFooter, InfoBox, SignatureBoxes, VoidBanner } from "@/components/print-kit";
-import { bahtText } from "@/lib/baht-text";
+import { BrandHeader, businessOf, DocFooter, SectionLabel, SignatureBoxes, VoidBanner } from "@/components/print-kit";
 import { resolveContractTerms } from "@/lib/contract-template";
 import { getSettings } from "@/lib/data";
 import { PAYMENT_METHOD_LABEL, thDateLong } from "@/lib/format";
@@ -64,21 +63,24 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
       <PartyBoxes partyTitle="ได้รับเงินจาก" tenant={tenant} inv={inv} />
       <ItemsTable items={items} title={`รายการตามใบแจ้งหนี้ ${inv.invoice_no}`} detailed={false} />
 
-      <div className="mt-4 flex items-start justify-between gap-6 break-inside-avoid">
-        <div className="min-w-0 flex-1 space-y-3">
-          <AmountWords>{bahtText(amount)}</AmountWords>
-          <InfoBox title="การชำระเงิน">
-            <div className="space-y-0.5 px-4 py-3 text-[14.5px]">
-              <div>
-                ชำระโดย <b>{PAYMENT_METHOD_LABEL[p.method]}</b>
-                {p.reference && <span className="text-muted"> · อ้างอิง {p.reference}</span>}
-              </div>
-              <div className={isFull ? "font-semibold text-ok" : "text-muted"}>
-                {isFull ? "✓ ชำระครบตามใบแจ้งหนี้แล้ว" : `ชำระบางส่วนของใบแจ้งหนี้ ${inv.invoice_no}`}
-              </div>
-              {p.note && <div>หมายเหตุ: {p.note}</div>}
+      <div className="mt-5 flex items-start justify-between gap-10 break-inside-avoid">
+        <div className="min-w-0 flex-1 space-y-4 pt-1 text-[14.5px]">
+          <div>
+            <SectionLabel>การชำระเงิน</SectionLabel>
+            <div>
+              ชำระโดย <b>{PAYMENT_METHOD_LABEL[p.method]}</b>
+              {p.reference && <span className="text-muted"> · อ้างอิง {p.reference}</span>}
             </div>
-          </InfoBox>
+            <div className={isFull ? "font-semibold text-ok" : "text-muted"}>
+              {isFull ? "✓ ชำระครบตามใบแจ้งหนี้แล้ว" : `ชำระบางส่วนของใบแจ้งหนี้ ${inv.invoice_no}`}
+            </div>
+          </div>
+          {p.note && (
+            <div>
+              <SectionLabel>หมายเหตุ</SectionLabel>
+              <div>{p.note}</div>
+            </div>
+          )}
         </div>
         <TotalsBox rows={rows} totalLabel={isFull ? "รับชำระ" : "รับชำระครั้งนี้"} total={amount} />
       </div>

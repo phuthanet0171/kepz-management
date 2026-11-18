@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ItemsTable, PartyBoxes, TotalsBox } from "@/components/bill-parts";
-import { AmountWords, BrandHeader, businessOf, DocFooter, InfoBox, SignatureBoxes, VoidBanner } from "@/components/print-kit";
-import { bahtText } from "@/lib/baht-text";
+import { BrandHeader, businessOf, DocFooter, SectionLabel, SignatureBoxes, VoidBanner } from "@/components/print-kit";
 import { resolveContractTerms } from "@/lib/contract-template";
 import { getSettings } from "@/lib/data";
 import { thDateLong } from "@/lib/format";
@@ -62,33 +61,31 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
       <PartyBoxes partyTitle="ลูกค้า" tenant={tenant} inv={inv} />
       <ItemsTable items={items} />
 
-      <div className="mt-4 flex items-start justify-between gap-6 break-inside-avoid">
-        <div className="min-w-0 flex-1 space-y-3">
-          <AmountWords>{bahtText(Number(due))}</AmountWords>
+      <div className="mt-5 flex items-start justify-between gap-10 break-inside-avoid">
+        <div className="min-w-0 flex-1 space-y-4 pt-1 text-[14.5px]">
           {inv.status !== "void" && Number(due) > 0 && (
-            <div className="rounded-lg border-2 border-brand px-4 py-2.5 text-[14.5px]">
-              กรุณาชำระภายใน <b className="text-[16px]">{thDateLong(inv.due_date)}</b>
+            <div>
+              <SectionLabel>กำหนดชำระ</SectionLabel>
+              <div>
+                กรุณาชำระภายใน <b className="text-[16.5px]">{thDateLong(inv.due_date)}</b>
+              </div>
+            </div>
+          )}
+          {payTo && (
+            <div>
+              <SectionLabel>ช่องทางการชำระเงิน</SectionLabel>
+              <div className="whitespace-pre-line">{payTo}</div>
+            </div>
+          )}
+          {inv.note && (
+            <div>
+              <SectionLabel>หมายเหตุ</SectionLabel>
+              <div>{inv.note}</div>
             </div>
           )}
         </div>
         <TotalsBox rows={rows} totalLabel={paid ? "ยอดคงค้างที่ต้องชำระ" : "ยอดที่ต้องชำระ"} total={due} />
       </div>
-
-      {(payTo || inv.note) && (
-        <div className="mt-5 space-y-3 text-[14.5px] break-inside-avoid">
-          {payTo && (
-            <InfoBox title="ช่องทางการชำระเงิน">
-              <div className="px-4 py-3 whitespace-pre-line">{payTo}</div>
-            </InfoBox>
-          )}
-          {inv.note && (
-            <div>
-              <span className="font-semibold">หมายเหตุ: </span>
-              {inv.note}
-            </div>
-          )}
-        </div>
-      )}
 
       <SignatureBoxes
         items={[
