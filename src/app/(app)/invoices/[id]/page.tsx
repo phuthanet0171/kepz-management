@@ -220,13 +220,14 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
             lockedReason={taxLocked}
             hasTaxId={Boolean(settings.tax_id)}
             payButton={
-              canPay && (
+              inv.status !== "void" && (
                 <RecordPaymentButton
                   invoiceId={inv.id}
                   outstanding={Number(inv.outstanding)}
                   today={todayTH()}
                   label="ชำระเรียบร้อย พิมพ์ใบเสร็จ"
                   triggerClassName="btn btn-brand w-full"
+                  hidden={!canPay}
                 />
               )
             }

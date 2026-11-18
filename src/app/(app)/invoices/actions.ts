@@ -194,8 +194,8 @@ export async function recordPayment(_: ActionState, fd: FormData): Promise<Actio
   if (error) return { error: thaiError(error, "บันทึกการชำระไม่สำเร็จ") };
 
   revalidatePath("/", "layout");
-  // เปิดใบเสร็จให้พิมพ์ทันที (ใช้ redirect ฝั่งเซิร์ฟเวอร์ เพราะปุ่มรับชำระจะหายไปเมื่อบิลชำระครบ)
-  redirect(`/print/receipt/${paymentId}?print=1`);
+  // ส่งเลขใบเสร็จกลับไปให้หน้าจอเปิดใบเสร็จพิมพ์ต่อ
+  return { ok: true, id: String(paymentId) };
 }
 
 export async function voidPayment(_: ActionState, fd: FormData): Promise<ActionState> {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Ban, Camera, CheckCircle2, Loader2, Wallet, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Field } from "@/components/ui";
 import { ActionForm, Sheet, SubmitButton } from "@/components/ui/client";
@@ -99,18 +100,22 @@ export function RecordPaymentButton({
   today,
   label = "รับชำระ",
   triggerClassName = "btn btn-brand",
+  hidden = false,
 }: {
   invoiceId: string;
   outstanding: number;
   today: string;
   label?: string;
   triggerClassName?: string;
+  /** ซ่อนปุ่ม (บิลชำระครบแล้ว) แต่ยังคงหน้าต่างไว้ เพื่อให้เปิดใบเสร็จต่อได้หลังบันทึก */
+  hidden?: boolean;
 }) {
+  const router = useRouter();
   return (
     <Sheet
       title="บันทึกรับชำระ"
       description={`ยอดค้าง ${money(outstanding)} บาท · บันทึกแล้วจะเปิดใบเสร็จให้พิมพ์ทันที`}
-      triggerClassName={triggerClassName}
+      triggerClassName={hidden ? "hidden" : triggerClassName}
       trigger={
         <>
           <Wallet className="size-4" /> {label}
@@ -118,7 +123,14 @@ export function RecordPaymentButton({
       }
     >
       {(close) => (
-        <ActionForm action={recordPayment} onSuccess={close}>
+        <ActionForm
+          action={recordPayment}
+          onSuccess={(s) => {
+            close();
+            // เปิดหน้าใบเสร็จ พร้อมเด้งหน้าต่างพิมพ์/บันทึก PDF ให้อัตโนมัติ
+            if (s.id) router.push(`/print/receipt/${s.id}?print=1`);
+          }}
+        >
           <input type="hidden" name="invoice_id" value={invoiceId} />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="ยอดที่ได้รับ (บาท)" required hint="รับบางส่วนได้ ไม่เกินยอดค้าง">

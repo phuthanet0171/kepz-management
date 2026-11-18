@@ -76,7 +76,7 @@ export function ActionForm({
   action: Action;
   children: ReactNode;
   className?: string;
-  onSuccess?: () => void;
+  onSuccess?: (state: NonNullable<ActionState>) => void;
   encType?: "multipart/form-data";
   /** ล้างฟอร์มหลังบันทึกสำเร็จ (ปิดสำหรับฟอร์มแก้ไขที่ต้องการคงค่าที่บันทึกไว้) */
   resetOnSuccess?: boolean;
@@ -91,7 +91,10 @@ export function ActionForm({
   useEffect(() => {
     if (state?.ok) {
       if (resetOnSuccess) formRef.current?.reset();
-      onSuccessRef.current?.();
+      onSuccessRef.current?.(state);
+    } else if (state?.error) {
+      // ข้อความผิดพลาดอยู่บนสุดของฟอร์ม เลื่อนให้เห็นเสมอ (เช่น ในหน้าต่างที่เลื่อนลงมาถึงปุ่มบันทึก)
+      formRef.current?.querySelector('[role="alert"]')?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);

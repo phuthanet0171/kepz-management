@@ -231,7 +231,7 @@ export interface BillingDue {
 }
 
 /** ผลลัพธ์ของ Server Action ที่ใช้กับ useActionState */
-export type ActionState = { ok?: boolean; error?: string; message?: string } | null;
+export type ActionState = { ok?: boolean; error?: string; message?: string; id?: string } | null;
 
 export interface FloorPlan {
   id: string;
