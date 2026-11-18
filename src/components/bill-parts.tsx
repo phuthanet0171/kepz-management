@@ -1,5 +1,6 @@
 /** ส่วนที่ใช้ร่วมกันของใบวางบิลและใบเสร็จ (เรียบ โล่ง ใช้เส้นคั่นแทนกล่อง) */
 import type { ReactNode } from "react";
+import { bahtText } from "@/lib/baht-text";
 import { money, thDateLong } from "@/lib/format";
 import type { InvoiceItem, InvoiceView, Tenant } from "@/lib/types";
 import { SectionLabel } from "./print-kit";
@@ -99,9 +100,13 @@ export function TotalsBox({
           <span className="tabular font-medium">{money(r.value)}</span>
         </div>
       ))}
-      <div className="mt-1 flex items-baseline justify-between gap-4 rounded-md bg-ink px-4 py-3 text-white">
-        <span className="font-semibold">{totalLabel}</span>
-        <span className="tabular text-[22px] font-bold text-[var(--doc-accent,#ffd21f)]">{money(total)}</span>
+      <div className="mt-1 rounded-md bg-ink px-4 py-3 text-white">
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="font-semibold">{totalLabel}</span>
+          <span className="tabular text-[22px] font-bold text-[var(--doc-accent,#ffd21f)]">{money(total)}</span>
+        </div>
+        {/* จำนวนเงินตัวอักษร */}
+        <div className="mt-1.5 border-t border-white/15 pt-1.5 text-right text-[13px] text-white/80">({bahtText(Number(total))})</div>
       </div>
     </div>
   );

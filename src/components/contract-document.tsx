@@ -108,7 +108,18 @@ export function ContractDocument({
     { label: "รอบชำระ", value: `${v("รอบชำระ")} ภายในวันที่ ${v("ชำระภายในวันที่")}` },
     { label: "เงินประกัน", value: `${v("เงินประกัน")} บาท` },
     { label: "ค่าเช่าล่วงหน้า", value: `${v("ค่าเช่าล่วงหน้า")} บาท` },
-    { label: "ชำระแรกเข้ารวม", value: <span className="text-[16.5px]">{v("ชำระแรกเข้ารวม")} บาท</span>, highlight: true },
+    {
+      label: "ชำระแรกเข้ารวม",
+      value: (
+        <>
+          <span className="text-[16.5px]">{v("ชำระแรกเข้ารวม")} บาท</span>
+          {fields["ชำระแรกเข้ารวมตัวอักษร"] && (
+            <span className="block text-[13px] font-normal text-muted">({fields["ชำระแรกเข้ารวมตัวอักษร"]})</span>
+          )}
+        </>
+      ),
+      highlight: true,
+    },
   ];
 
   return (
