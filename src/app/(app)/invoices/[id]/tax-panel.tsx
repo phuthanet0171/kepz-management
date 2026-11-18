@@ -17,6 +17,7 @@ export function InvoiceTaxPanel({
   lockedReason,
   hasTaxId,
   payButton,
+  voidButton,
 }: {
   invoiceId: string;
   itemsSum: number;
@@ -25,6 +26,8 @@ export function InvoiceTaxPanel({
   hasTaxId: boolean;
   /** ปุ่มรับชำระ แสดงใต้ปุ่มพิมพ์ใบวางบิล (ซ่อนระหว่างแก้ภาษีที่ยังไม่บันทึก) */
   payButton?: ReactNode;
+  /** ปุ่มยกเลิกบิล อยู่ล่างสุด แยกห่างจากปุ่มหลัก */
+  voidButton?: ReactNode;
 }) {
   const [tax, setTax] = useState<TaxChoice>(initial);
   const [saved, setSaved] = useState<TaxChoice>(initial);
@@ -74,6 +77,7 @@ export function InvoiceTaxPanel({
           </div>
         )}
         {dirty && <p className="text-center text-xs text-muted">บันทึกก่อน แล้วจึงพิมพ์ใบวางบิลได้</p>}
+        {voidButton && !dirty && <div className="border-t border-line pt-3">{voidButton}</div>}
       </ActionForm>
     </Card>
   );

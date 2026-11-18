@@ -195,7 +195,7 @@ export async function recordPayment(_: ActionState, fd: FormData): Promise<Actio
 
   revalidatePath("/", "layout");
   // เปิดใบเสร็จให้พิมพ์ทันที (ใช้ redirect ฝั่งเซิร์ฟเวอร์ เพราะปุ่มรับชำระจะหายไปเมื่อบิลชำระครบ)
-  redirect(`/print/receipt/${paymentId}`);
+  redirect(`/print/receipt/${paymentId}?print=1`);
 }
 
 export async function voidPayment(_: ActionState, fd: FormData): Promise<ActionState> {

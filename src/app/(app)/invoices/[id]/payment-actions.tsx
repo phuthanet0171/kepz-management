@@ -169,11 +169,11 @@ export function RecordPaymentButton({
   );
 }
 
-export function VoidInvoiceButton({ invoiceId }: { invoiceId: string }) {
+export function VoidInvoiceButton({ invoiceId, triggerClassName = "btn btn-danger" }: { invoiceId: string; triggerClassName?: string }) {
   return (
     <Sheet
       title="ยกเลิกใบวางบิล"
-      triggerClassName="btn btn-danger"
+      triggerClassName={triggerClassName}
       trigger={
         <>
           <Ban className="size-4" /> ยกเลิกบิล

@@ -230,12 +230,11 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
                 />
               )
             }
+            voidButton={
+              inv.status !== "void" &&
+              !hasActivePayments && <VoidInvoiceButton invoiceId={inv.id} triggerClassName="btn btn-danger w-full" />
+            }
           />
-          {inv.status !== "void" && !hasActivePayments && (
-            <div className="flex justify-end">
-              <VoidInvoiceButton invoiceId={inv.id} />
-            </div>
-          )}
         </div>
       </div>
     </>
