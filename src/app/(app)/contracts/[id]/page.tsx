@@ -25,14 +25,20 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: cData }, { data: invData }, { data: depData }, { data: renData }, { data: dueData }, { data: extra }] = await Promise.all([
-    supabase.from("v_contracts").select("*").eq("id", id).maybeSingle(),
-    supabase.from("v_invoices").select("*").eq("contract_id", id).order("issue_date", { ascending: false }).order("created_at", { ascending: false }),
-    supabase.from("deposit_transactions").select("*").eq("contract_id", id).order("txn_date").order("created_at"),
-    supabase.from("contract_renewals").select("*").eq("contract_id", id).order("created_at", { ascending: false }),
-    supabase.from("v_billing_due").select("*").eq("contract_id", id).maybeSingle(),
-    supabase.from("contracts").select("purpose, unit:units(unit_type:unit_types(kind))").eq("id", id).maybeSingle(),
-  ]);
+  const [{ data: cData }, { data: invData }, { data: depData }, { data: renData }, { data: dueData }, { data: extra }] =
+    await Promise.all([
+      supabase.from("v_contracts").select("*").eq("id", id).maybeSingle(),
+      supabase
+        .from("v_invoices")
+        .select("*")
+        .eq("contract_id", id)
+        .order("issue_date", { ascending: false })
+        .order("created_at", { ascending: false }),
+      supabase.from("deposit_transactions").select("*").eq("contract_id", id).order("txn_date").order("created_at"),
+      supabase.from("contract_renewals").select("*").eq("contract_id", id).order("created_at", { ascending: false }),
+      supabase.from("v_billing_due").select("*").eq("contract_id", id).maybeSingle(),
+      supabase.from("contracts").select("purpose, unit:units(unit_type:unit_types(kind))").eq("id", id).maybeSingle(),
+    ]);
   if (!cData) notFound();
   const c = cData as ContractView;
   const invoices = (invData ?? []) as InvoiceView[];
@@ -43,6 +49,12 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
   const daysLeft = daysBetween(today, c.end_date);
   const active = c.status === "active";
   const purpose = (extra?.purpose as string | null) ?? null;
+  // ใบวางบิลที่ยังไม่ชำระครบและมีรายการเงินประกัน (เงินประกันจะบันทึกรับให้เองเมื่อบิลชำระครบ)
+  const openIds = invoices.filter((i) => i.status === "unpaid" || i.status === "partial").map((i) => i.id);
+  const { data: depItems } = openIds.length
+    ? await supabase.from("invoice_items").select("invoice_id, amount").eq("item_type", "deposit").in("invoice_id", openIds)
+    : { data: [] as { invoice_id: string; amount: number }[] };
+  const depositBill = depItems?.length ? invoices.find((i) => i.id === depItems[0].invoice_id) : undefined;
   const unitRel = extra?.unit as unknown as { unit_type: { kind: string } | null } | null;
   const isParking = unitRel?.unit_type?.kind === "parking";
   // ใบวางบิลที่ยังไม่ได้ชำระล่าสุด (ไว้ให้กดไปพิมพ์ได้ทันทีเมื่อออกบิลค่าเช่าครบทุกรอบแล้ว)
@@ -193,9 +205,14 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
               <ul className="divide-y divide-line">
                 {invoices.map((i) => (
                   <li key={i.id}>
-                    <Link href={`/invoices/${i.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas/50 sm:px-5">
+                    <Link
+                      href={`/invoices/${i.id}`}
+                      className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas/50 sm:px-5"
+                    >
                       <div className="min-w-0">
-                        <div className={`font-medium ${i.status === "void" ? "text-muted line-through" : ""}`}>{i.invoice_no}</div>
+                        <div className={`font-medium ${i.status === "void" ? "text-muted line-through" : ""}`}>
+                          {i.invoice_no}
+                        </div>
                         <div className="text-xs text-muted">
                           {i.period_start ? `รอบ ${thDate(i.period_start)} – ${thDate(i.period_end)}` : "ค่าใช้จ่ายอื่น"} · ครบกำหนด{" "}
                           {thDate(i.due_date)}
@@ -217,7 +234,9 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
           <Card>
             <CardHeader
               title="เงินประกัน"
-              action={(Number(c.deposit_amount) > 0 || Number(c.deposit_balance) > 0) && <DepositButton contract={c} today={today} />}
+              action={
+                (Number(c.deposit_amount) > 0 || Number(c.deposit_balance) > 0) && <DepositButton contract={c} today={today} />
+              }
             />
             <div className="p-4 sm:p-5">
               <div className="grid grid-cols-2 gap-3">
@@ -230,6 +249,18 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
                   <div className="tabular font-bold">{money(c.deposit_balance)}</div>
                 </div>
               </div>
+              {depositBill && (
+                <Link
+                  href={`/invoices/${depositBill.id}`}
+                  className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-brand bg-brand-soft/60 px-3 py-2.5 text-sm"
+                >
+                  <span>
+                    รอรับพร้อมใบวางบิล <b>{depositBill.invoice_no}</b>
+                    <span className="block text-xs text-muted">ชำระบิลครบแล้ว ระบบบันทึกรับเงินประกันให้เอง</span>
+                  </span>
+                  <span className="shrink-0 font-semibold">ไปรับชำระ →</span>
+                </Link>
+              )}
               {deposits.length > 0 && (
                 <ul className="mt-4 space-y-2.5 text-sm">
                   {deposits.map((d) => (

@@ -36,15 +36,18 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
   const payTo = terms.bank_account || settings.payment_instructions;
 
   // แถวสรุปใต้ตาราง: แสดงเฉพาะเมื่อมีภาษี/มีการชำระแล้ว (ยอดที่ต้องจ่ายอยู่ในแถบเหลืองด้านบนที่เดียว)
+  const depositSum = items.filter((it) => it.item_type === "deposit").reduce((a, it) => a + Number(it.amount), 0);
+  const taxBase = Number(inv.subtotal) - depositSum;
   const foot: FootRow[] = [];
   if (vat) {
-    foot.push({ label: "มูลค่าก่อนภาษี", value: inv.subtotal });
+    foot.push({ label: "มูลค่าก่อนภาษี", value: taxBase });
     foot.push({ label: `ภาษีมูลค่าเพิ่ม ${Number(inv.vat_rate)}%`, value: inv.vat_amount });
   }
   if (wht) {
-    foot.push({ label: vat ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ", value: Number(inv.subtotal) + Number(inv.vat_amount) });
+    foot.push({ label: vat ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ", value: taxBase + Number(inv.vat_amount) });
     foot.push({ label: `หัก ณ ที่จ่าย ${Number(inv.wht_rate)}%`, value: -Number(inv.wht_amount), tone: "bad" });
   }
+  if (depositSum > 0 && (vat || wht)) foot.push({ label: "เงินประกัน (ไม่คิดภาษี)", value: depositSum });
   const isVoid = inv.status === "void";
   if (foot.length || paid || isVoid) foot.push({ label: wht ? "ยอดชำระสุทธิ" : "ยอดรวมทั้งสิ้น", value: inv.total, strong: true });
   if (paid) foot.push({ label: "ชำระแล้ว", value: -Number(inv.paid_amount) });

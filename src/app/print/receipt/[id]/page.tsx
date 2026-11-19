@@ -43,7 +43,10 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
   const share = Number(inv.total) > 0 ? amount / Number(inv.total) : 0;
   const r2 = (n: number) => Math.round(n * 100) / 100;
   const whtPart = hasWht ? (isFull ? Number(inv.wht_amount) : r2(Number(inv.wht_amount) * share)) : 0;
-  const grossPart = r2(amount + whtPart);
+  // เงินประกันไม่คิดภาษี แยกออกจากมูลค่าบริการ
+  const depositSum = items.filter((it) => it.item_type === "deposit").reduce((a, it) => a + Number(it.amount), 0);
+  const depositPart = depositSum > 0 ? (isFull ? depositSum : r2(depositSum * share)) : 0;
+  const grossPart = r2(amount + whtPart - depositPart);
   const vatPart = isTaxInvoice ? (isFull ? Number(inv.vat_amount) : r2(Number(inv.vat_amount) * share)) : 0;
 
   const rows: { label: string; value: number | string }[] = [];
@@ -55,6 +58,9 @@ export default async function PrintReceiptPage({ params }: PageProps<"/print/rec
   if (hasWht) {
     rows.push({ label: isTaxInvoice ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ", value: grossPart });
     rows.push({ label: `หัก ณ ที่จ่าย ${Number(inv.wht_rate)}%`, value: -whtPart });
+  }
+  if (depositPart > 0 && (isTaxInvoice || hasWht)) {
+    rows.push({ label: isFull ? "เงินประกัน (ไม่คิดภาษี)" : "เงินประกัน (รับครั้งนี้)", value: depositPart });
   }
 
   return (

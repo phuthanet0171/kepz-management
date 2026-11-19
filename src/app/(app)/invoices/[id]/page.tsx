@@ -38,7 +38,9 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
 
   const canPay = inv.status === "unpaid" || inv.status === "partial";
   const hasActivePayments = payments.some((p) => !p.is_void);
-  const itemsSum = items.reduce((a, it) => a + Number(it.amount), 0);
+  const depositSum = items.filter((it) => it.item_type === "deposit").reduce((a, it) => a + Number(it.amount), 0);
+  const itemsSum = items.reduce((a, it) => a + Number(it.amount), 0) - depositSum;
+  const taxBase = Number(inv.subtotal) - depositSum;
   const hasVat = Number(inv.vat_rate) > 0;
   const hasWht = Number(inv.wht_rate) > 0;
   const taxLocked =
@@ -129,7 +131,7 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
                 <>
                   <div className="flex justify-between text-muted">
                     <span>มูลค่าก่อนภาษี</span>
-                    <span className="tabular">{money(inv.subtotal)}</span>
+                    <span className="tabular">{money(taxBase)}</span>
                   </div>
                   <div className="flex justify-between text-muted">
                     <span>ภาษีมูลค่าเพิ่ม {Number(inv.vat_rate)}%</span>
@@ -141,13 +143,19 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
                 <>
                   <div className="flex justify-between text-muted">
                     <span>{hasVat ? "รวมเป็นเงิน" : "ค่าเช่าและบริการ"}</span>
-                    <span className="tabular">{money(Number(inv.subtotal) + Number(inv.vat_amount))}</span>
+                    <span className="tabular">{money(taxBase + Number(inv.vat_amount))}</span>
                   </div>
                   <div className="flex justify-between text-bad">
                     <span>หัก ณ ที่จ่าย {Number(inv.wht_rate)}%</span>
                     <span className="tabular">−{money(inv.wht_amount)}</span>
                   </div>
                 </>
+              )}
+              {depositSum > 0 && (hasVat || hasWht) && (
+                <div className="flex justify-between text-muted">
+                  <span>เงินประกัน (ไม่คิดภาษี)</span>
+                  <span className="tabular">{money(depositSum)}</span>
+                </div>
               )}
               <div className="flex justify-between text-base font-bold">
                 <span>{hasWht ? "ยอดชำระสุทธิ" : "ยอดรวมทั้งสิ้น"}</span>
@@ -216,6 +224,7 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
             key={`${inv.vat_rate}-${inv.vat_inclusive}-${inv.wht_rate}`}
             invoiceId={inv.id}
             itemsSum={itemsSum}
+            depositSum={depositSum}
             initial={{ vat: hasVat, inclusive: inv.vat_inclusive, wht: hasWht }}
             lockedReason={taxLocked}
             hasTaxId={Boolean(settings.tax_id)}

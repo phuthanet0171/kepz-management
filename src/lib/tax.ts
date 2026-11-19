@@ -11,13 +11,16 @@ export type TaxBreakdown = {
   /** มูลค่ารวม VAT (ก่อนหัก ณ ที่จ่าย) */
   gross: number;
   wht: number;
+  /** เงินประกัน (ไม่คิดภาษี) */
+  deposit: number;
   /** ยอดที่ลูกค้าต้องโอนจริง */
   total: number;
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-export function computeTax(sum: number, t: TaxChoice, vatRate = VAT_RATE): TaxBreakdown {
+/** sum = ยอดรายการที่คิดภาษี (ไม่รวมเงินประกัน) · deposit = เงินประกัน บวกท้ายโดยไม่คิดภาษี */
+export function computeTax(sum: number, t: TaxChoice, vatRate = VAT_RATE, deposit = 0): TaxBreakdown {
   let subtotal = sum;
   let vat = 0;
   if (t.vat) {
@@ -30,7 +33,7 @@ export function computeTax(sum: number, t: TaxChoice, vatRate = VAT_RATE): TaxBr
   }
   const wht = t.wht ? r2((subtotal * WHT_RATE) / 100) : 0;
   const gross = r2(subtotal + vat);
-  return { subtotal, vat, gross, wht, total: r2(gross - wht) };
+  return { subtotal, vat, gross, wht, deposit, total: r2(gross - wht + deposit) };
 }
 
 export function taxLabel(inv: { vat_rate: number; wht_rate?: number | null }) {

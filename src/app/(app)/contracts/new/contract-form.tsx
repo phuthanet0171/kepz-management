@@ -49,7 +49,6 @@ export function ContractForm({
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [rent, setRent] = useState(defaultUnit ? String(defaultUnit.effective_price) : "");
   const [deposit, setDeposit] = useState("");
-  const [firstInvoice, setFirstInvoice] = useState(true);
 
   const branchUnits = units.filter((u) => u.branch_id === branchId);
   const unit = units.find((u) => u.id === unitId);
@@ -239,9 +238,7 @@ export function ContractForm({
                   />
                   <span className="block text-sm font-semibold">{BILLING_CYCLE_LABEL[c]}</span>
                   {rentNum > 0 && (
-                    <span className="tabular block text-xs text-muted">
-                      {money(rentNum * BILLING_CYCLE_MONTHS[c])} บาท/รอบ
-                    </span>
+                    <span className="tabular block text-xs text-muted">{money(rentNum * BILLING_CYCLE_MONTHS[c])} บาท/รอบ</span>
                   )}
                 </label>
               ))}
@@ -271,7 +268,7 @@ export function ContractForm({
                 onChange={(e) => setRent(e.target.value)}
               />
             </Field>
-            <Field label="เงินประกัน (บาท)" required hint="ไม่เก็บเงินประกัน ใส่ 0">
+            <Field label="เงินประกัน (บาท)" required hint="ไม่เก็บเงินประกัน ใส่ 0 · ระบบใส่ไว้ในใบวางบิลแรกให้">
               <input
                 name="deposit_amount"
                 required
@@ -287,24 +284,6 @@ export function ContractForm({
             </Field>
           </div>
 
-          <label className="flex items-start gap-3 rounded-xl border border-line p-3">
-            <input
-              type="checkbox"
-              name="first_invoice"
-              checked={firstInvoice}
-              onChange={(e) => setFirstInvoice(e.target.checked)}
-              className="mt-0.5 size-5 shrink-0 accent-ink"
-            />
-            <span>
-              <span className="block text-sm font-medium">ออกใบวางบิลค่าเช่างวดแรกทันที</span>
-              <span className="block text-xs text-muted">
-                {rentNum > 0 && start && firstBillEnd
-                  ? `ค่าเช่า ${thDate(start)} – ${thDate(firstBillEnd)} · ${money(rentNum * BILLING_CYCLE_MONTHS[cycle])} บาท (= ค่าเช่าล่วงหน้าในสัญญา) เงินประกันบันทึกแยกด้านบน`
-                  : "ค่าเช่าล่วงหน้างวดแรกตามรอบชำระ เงินประกันบันทึกแยกด้านบน"}
-              </span>
-            </span>
-          </label>
-
           <Field label="หมายเหตุ / เงื่อนไขเพิ่มเติม">
             <textarea name="note" rows={2} className="input min-h-0" />
           </Field>
@@ -317,7 +296,7 @@ export function ContractForm({
           <div className="mt-1 text-lg font-semibold">
             {unit.code} · {unit.branch_name}
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <div>
               <div className="text-white/60">ระยะสัญญา</div>
               <div>
@@ -329,14 +308,30 @@ export function ContractForm({
               <div className="tabular">{money(rentNum)} บาท/เดือน</div>
             </div>
             <div>
-              <div className="text-white/60">บิลแรก</div>
-              <div>
-                {thDate(start)} – {thDate(firstBillEnd)}
-              </div>
-            </div>
-            <div>
               <div className="text-white/60">เงินประกัน</div>
               <div className="tabular">{money(Number(deposit) || 0)} บาท</div>
+            </div>
+          </div>
+          {/* ใบวางบิลแรกที่ระบบออกให้พร้อมสัญญา */}
+          <div className="mt-4 rounded-xl bg-white/10 p-3 text-sm">
+            <div className="mb-1.5 font-semibold text-brand">ใบวางบิลแรก (ออกให้อัตโนมัติ)</div>
+            <div className="flex justify-between gap-3">
+              <span className="text-white/80">
+                ค่าเช่า {thDate(start)} – {thDate(firstBillEnd)}
+              </span>
+              <span className="tabular">{money(rentNum * BILLING_CYCLE_MONTHS[cycle])}</span>
+            </div>
+            {Number(deposit) > 0 && (
+              <div className="flex justify-between gap-3">
+                <span className="text-white/80">เงินประกัน</span>
+                <span className="tabular">{money(Number(deposit))}</span>
+              </div>
+            )}
+            <div className="mt-1.5 flex justify-between gap-3 border-t border-white/20 pt-1.5 font-semibold">
+              <span>รวมที่ต้องชำระ</span>
+              <span className="tabular text-brand">
+                {money(rentNum * BILLING_CYCLE_MONTHS[cycle] + (Number(deposit) || 0))} บาท
+              </span>
             </div>
           </div>
         </Card>

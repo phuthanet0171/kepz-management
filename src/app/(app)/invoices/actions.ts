@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { TaxChoice } from "@/lib/tax";
 import type { ActionState, BillingDue, ItemType } from "@/lib/types";
 
-const ITEM_TYPES: ItemType[] = ["rent", "late_fee", "other", "discount"];
+const ITEM_TYPES: ItemType[] = ["rent", "late_fee", "other", "discount", "deposit"];
 
 type ItemInput = { item_type: ItemType; description: string; quantity: number; unit_price: number };
 

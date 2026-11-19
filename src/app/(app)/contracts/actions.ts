@@ -55,20 +55,25 @@ export async function createContract(_: ActionState, fd: FormData): Promise<Acti
 
   // สัญญาสร้างแล้ว ขั้นต่อไปถ้าไม่สำเร็จจะไม่ยกเลิกสัญญา แต่แจ้งให้ทำต่อเองในหน้าสัญญา
   const purpose = str(fd, "purpose");
-  if (purpose) await supabase.from("contracts").update({ purpose: purpose.slice(0, 200) }).eq("id", id);
+  if (purpose)
+    await supabase
+      .from("contracts")
+      .update({ purpose: purpose.slice(0, 200) })
+      .eq("id", id);
 
-  let invoice = "";
-  if (bool(fd, "first_invoice")) invoice = await createFirstInvoice(supabase, id as string, unitId);
+  // ออกใบวางบิลแรกให้เสมอ: ค่าเช่างวดแรก + เงินประกัน (ถ้ามี)
+  const invoice = await createFirstInvoice(supabase, id as string, unitId, deposit);
 
   revalidatePath("/", "layout");
   redirect(`/contracts/${id}?created=1${invoice ? `&invoice=${invoice}` : ""}`);
 }
 
-/** ออกใบวางบิลค่าเช่างวดแรก (ค่าเช่าล่วงหน้า) คืนผลเป็น ok | partial | fail */
+/** ออกใบวางบิลแรก: ค่าเช่างวดแรก (ล่วงหน้า) + เงินประกัน คืนผลเป็น ok | partial | fail */
 async function createFirstInvoice(
   supabase: Awaited<ReturnType<typeof createClient>>,
   contractId: string,
   unitId: string,
+  deposit: number,
 ): Promise<string> {
   const [{ data: periods, error: pErr }, { data: c }, { data: u }] = await Promise.all([
     supabase.rpc("next_billing_period", { p_contract_id: contractId }),
@@ -76,27 +81,43 @@ async function createFirstInvoice(
     supabase.from("units").select("code").eq("id", unitId).single(),
   ]);
   const p = (periods as { period_start: string; period_end: string; months: number; is_partial: boolean }[] | null)?.[0];
-  if (pErr || !p || !c) return "fail";
-  if (p.is_partial) return "partial";
+  if (pErr || !c) return "fail";
+  // งวดแรกไม่เต็มรอบ (เช่น สัญญาสั้นกว่ารอบชำระ) ให้ออกบิลค่าเช่าเอง แต่ยังออกบิลเงินประกันให้
+  const rentOk = !!p && !p.is_partial;
+
+  const depositItem = {
+    item_type: "deposit",
+    description: `เงินประกันการเช่า ${u?.code ?? ""}`.trim(),
+    quantity: 1,
+    unit_price: deposit,
+  };
+  const items = [
+    ...(rentOk
+      ? [
+          {
+            item_type: "rent",
+            description: `ค่าเช่า ${u?.code ?? "งวดแรก"} (${thDate(p.period_start)} – ${thDate(p.period_end)})`,
+            quantity: p.months,
+            unit_price: Number(c.monthly_rent),
+          },
+        ]
+      : []),
+    ...(deposit > 0 ? [depositItem] : []),
+  ];
+  if (!items.length) return p?.is_partial ? "partial" : "fail";
 
   const today = todayTH();
   const { error } = await supabase.rpc("create_invoice", {
     p_contract_id: contractId,
-    p_period_start: p.period_start,
-    p_period_end: p.period_end,
+    p_period_start: rentOk ? p.period_start : null,
+    p_period_end: rentOk ? p.period_end : null,
     p_issue_date: today,
-    p_due_date: p.period_start > today ? p.period_start : today,
-    p_items: [
-      {
-        item_type: "rent",
-        description: `ค่าเช่า ${u?.code ?? "งวดแรก"} (${thDate(p.period_start)} – ${thDate(p.period_end)})`,
-        quantity: p.months,
-        unit_price: Number(c.monthly_rent),
-      },
-    ],
-    p_note: "ค่าเช่าล่วงหน้างวดแรก",
+    p_due_date: rentOk && p.period_start > today ? p.period_start : today,
+    p_items: items,
+    p_note: deposit > 0 ? "ค่าเช่าล่วงหน้างวดแรกและเงินประกัน" : "ค่าเช่าล่วงหน้างวดแรก",
   });
-  return error ? "fail" : "ok";
+  if (error) return "fail";
+  return rentOk ? "ok" : "partial";
 }
 
 export async function updateContractInfo(_: ActionState, fd: FormData): Promise<ActionState> {

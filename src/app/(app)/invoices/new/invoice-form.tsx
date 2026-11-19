@@ -76,8 +76,9 @@ export function InvoiceForm({
     const a = Math.round((Number(r.quantity) || 0) * (Number(r.unit_price) || 0) * 100) / 100;
     return r.item_type === "discount" ? -a : a;
   };
-  const sum = rows.reduce((a, r) => a + amountOf(r), 0);
-  const t = computeTax(sum, tax);
+  const depositSum = rows.filter((r) => r.item_type === "deposit").reduce((a, r) => a + amountOf(r), 0);
+  const sum = rows.reduce((a, r) => a + amountOf(r), 0) - depositSum;
+  const t = computeTax(sum, tax, undefined, depositSum);
   const total = t.total;
   const hasRent = rows.some((r) => r.item_type === "rent");
 

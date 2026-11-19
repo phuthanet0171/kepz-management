@@ -139,6 +139,7 @@ export function TaxSummary({ t, choice, className }: { t: TaxBreakdown; choice: 
           <Row label={`หัก ณ ที่จ่าย ${WHT_RATE}%`} value={`−${money(t.wht)}`} tone="text-bad" />
         </>
       )}
+      {t.deposit > 0 && (choice.vat || choice.wht) && <Row label="เงินประกัน (ไม่คิดภาษี)" value={money(t.deposit)} />}
       <div className="flex justify-between text-base font-bold text-ink">
         <span>{choice.wht ? "ยอดชำระสุทธิ" : "ยอดรวมทั้งสิ้น"}</span>
         <span className={clsx("tabular", t.total < 0 && "text-bad")}>{money(t.total)} บาท</span>

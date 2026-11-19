@@ -13,6 +13,7 @@ import { setInvoiceTax } from "../actions";
 export function InvoiceTaxPanel({
   invoiceId,
   itemsSum,
+  depositSum = 0,
   initial,
   lockedReason,
   hasTaxId,
@@ -21,6 +22,7 @@ export function InvoiceTaxPanel({
 }: {
   invoiceId: string;
   itemsSum: number;
+  depositSum?: number;
   initial: TaxChoice;
   lockedReason: string | null;
   hasTaxId: boolean;
@@ -32,7 +34,7 @@ export function InvoiceTaxPanel({
   const [tax, setTax] = useState<TaxChoice>(initial);
   const [saved, setSaved] = useState<TaxChoice>(initial);
   const dirty = tax.vat !== saved.vat || tax.wht !== saved.wht || (tax.vat && tax.inclusive !== saved.inclusive);
-  const t = computeTax(itemsSum, tax);
+  const t = computeTax(itemsSum, tax, undefined, depositSum);
 
   return (
     <Card>

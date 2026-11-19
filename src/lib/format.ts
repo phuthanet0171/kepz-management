@@ -138,6 +138,7 @@ export const ITEM_TYPE_LABEL: Record<ItemType, string> = {
   late_fee: "ค่าปรับ",
   other: "ค่าใช้จ่ายอื่น",
   discount: "ส่วนลด",
+  deposit: "เงินประกัน",
 };
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
