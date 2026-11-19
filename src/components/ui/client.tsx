@@ -179,7 +179,9 @@ export function Sheet({
             }}
             className="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto rounded-t-3xl bg-surface p-0 text-ink shadow-2xl sm:m-auto sm:max-w-lg sm:rounded-3xl"
           >
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-line bg-surface px-5 pt-4 pb-3">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b-2 border-brand bg-surface px-5 pt-5 pb-3 sm:pt-4">
+              {/* แถบจับด้านบนของหน้าต่างบนมือถือ */}
+              <span aria-hidden className="absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-line sm:hidden" />
               <div>
                 <h2 className="text-lg font-semibold">{title}</h2>
                 {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}

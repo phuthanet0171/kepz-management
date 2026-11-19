@@ -105,7 +105,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
       />
 
       {branches.length > 1 && (
-        <div className="-mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="no-scrollbar -mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <div className="flex gap-2">
             {branches.map((b) => (
               <Link
@@ -135,7 +135,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
             href={`/units?branch=${branchId}&view=${v}`}
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition",
-              view === v ? "bg-surface shadow-sm" : "text-muted hover:text-ink",
+              view === v ? "bg-ink text-white shadow-sm" : "text-muted hover:text-ink",
             )}
           >
             <Icon className="size-4" /> {label}
@@ -162,7 +162,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
             />
           </form>
 
-          <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <div className="no-scrollbar -mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <div className="flex gap-1.5">
               {STATUS_FILTERS.map((f) => (
                 <Link
@@ -170,7 +170,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
                   href={link({ status: f.key })}
                   className={clsx(
                     "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
-                    status === f.key ? "bg-brand text-ink" : "bg-surface text-muted ring-1 ring-line hover:text-ink",
+                    status === f.key ? "bg-ink text-white" : "bg-surface text-muted ring-1 ring-line hover:text-ink",
                   )}
                 >
                   {f.label}
@@ -242,7 +242,7 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
             href={`/units?branch=${branchId}&view=plan&plan=${p.id}`}
             className={clsx(
               "rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
-              p.id === plan.id ? "bg-brand text-ink" : "bg-surface text-muted ring-1 ring-line hover:text-ink",
+              p.id === plan.id ? "bg-ink text-white" : "bg-surface text-muted ring-1 ring-line hover:text-ink",
             )}
           >
             {p.name}

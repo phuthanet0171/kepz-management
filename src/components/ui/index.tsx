@@ -28,9 +28,11 @@ export function PageHeader({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">{title}</h1>
-          {subtitle && <div className="mt-1 text-sm text-muted">{subtitle}</div>}
+          <span aria-hidden className="mt-1.5 block h-1 w-10 rounded-full bg-brand" />
+          {subtitle && <div className="mt-2 text-sm text-muted">{subtitle}</div>}
         </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        {/* มือถือ: ปุ่มเต็มความกว้าง กดง่าย */}
+        {actions && <div className="flex w-full flex-wrap gap-2 *:flex-1 sm:w-auto sm:*:flex-none">{actions}</div>}
       </div>
     </header>
   );
@@ -224,7 +226,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function Tabs({ items }: { items: { href: string; label: ReactNode; active: boolean; count?: number }[] }) {
   return (
-    <nav className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <nav className="no-scrollbar -mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <div className="inline-flex gap-1 rounded-xl bg-line/50 p-1">
         {items.map((it) => (
           <Link
@@ -232,7 +234,7 @@ export function Tabs({ items }: { items: { href: string; label: ReactNode; activ
             href={it.href}
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
-              it.active ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
+              it.active ? "bg-ink text-white shadow-sm" : "text-muted hover:text-ink",
             )}
           >
             {it.label}
@@ -240,7 +242,7 @@ export function Tabs({ items }: { items: { href: string; label: ReactNode; activ
               <span
                 className={clsx(
                   "tabular rounded-full px-1.5 text-[11px]",
-                  it.active ? "bg-brand text-ink" : "bg-line text-ink-2",
+                  it.active ? "bg-brand text-ink" : "bg-surface text-ink-2",
                 )}
               >
                 {it.count}

@@ -98,7 +98,7 @@ export function BottomNav() {
 
 export function BottomNavView({ pathname }: { pathname: string }) {
   return (
-    <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden">
+    <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 bg-ink lg:hidden">
       <div className="mx-auto grid max-w-lg grid-cols-5">
         {MOBILE_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
@@ -107,11 +107,11 @@ export function BottomNavView({ pathname }: { pathname: string }) {
               key={href}
               href={href}
               className={clsx(
-                "flex flex-col items-center gap-1 py-2 text-[10.5px] font-medium whitespace-nowrap transition",
-                active ? "text-ink" : "text-muted",
+                "flex flex-col items-center gap-1 pt-2 pb-1.5 text-[10.5px] font-medium whitespace-nowrap transition active:opacity-70",
+                active ? "text-brand" : "text-white/60",
               )}
             >
-              <span className={clsx("grid h-7 w-12 place-items-center rounded-full transition", active && "bg-brand")}>
+              <span className={clsx("grid h-7 w-12 place-items-center rounded-full transition", active && "bg-brand text-ink")}>
                 <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} />
               </span>
               {label}

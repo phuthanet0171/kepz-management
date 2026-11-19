@@ -113,6 +113,14 @@ textarea.input {
 }
 }
 
+/* แถบเลื่อนแนวนอน (แท็บ/ตัวกรอง) ไม่แสดงเส้น scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ระยะเผื่อแถบเมนูล่างและ safe area ของ iPhone */
 .pb-nav {
   padding-bottom: calc(9rem + env(safe-area-inset-bottom)); /* เผื่อปุ่ม + ลอย */

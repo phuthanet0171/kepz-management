@@ -7,6 +7,25 @@ import { BottomNav, BottomNavView, SidebarNav, SidebarNavView } from "@/componen
 import { QuickActions } from "@/components/shell/quick-actions";
 import { getCurrentUser, ROLE_LABEL } from "@/lib/auth";
 
+/** ปุ่มบัญชีมุมขวาบนของมือถือ: วงกลมเหลืองอักษรแรกของชื่อ */
+async function MobileAccount() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const name = user.display_name || user.email;
+  return (
+    <Link
+      href="/account"
+      className="flex items-center gap-2 rounded-full py-1 pr-1 pl-3 active:bg-white/10"
+      aria-label="บัญชีของฉัน"
+    >
+      <span className="max-w-[9rem] truncate text-xs text-white/70">{name}</span>
+      <span className="grid size-8 place-items-center rounded-full bg-brand text-sm font-bold text-ink">
+        {name.trim().charAt(0).toUpperCase()}
+      </span>
+    </Link>
+  );
+}
+
 async function SidebarMenu() {
   const user = await getCurrentUser();
   return (
@@ -49,10 +68,18 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </form>
       </aside>
 
-      <header className="no-print sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-surface/95 px-4 backdrop-blur lg:hidden">
-        <Link href="/">
-          <Logo className="text-2xl" />
-        </Link>
+      <header
+        className="no-print sticky top-0 z-30 border-b-[3px] border-brand bg-ink lg:hidden"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
+        <div className="flex h-14 items-center justify-between px-4">
+          <Link href="/" aria-label="หน้าภาพรวม">
+            <Logo dark className="text-2xl" />
+          </Link>
+          <Suspense fallback={null}>
+            <MobileAccount />
+          </Suspense>
+        </div>
       </header>
 
       <main className="pb-nav mx-auto max-w-6xl px-4 pt-5 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
