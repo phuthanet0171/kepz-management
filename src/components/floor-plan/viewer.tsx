@@ -12,14 +12,17 @@ export function FloorPlanLegend() {
     <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
       {TILE_LEGEND.map((l) => (
         <span key={l.state} className="inline-flex items-center gap-1.5">
-          <span className={clsx("size-3 rounded border-2", TILE_CLASS[l.state])} />
+          <span
+            className={clsx(
+              "flex size-3.5 items-center justify-center rounded border-2 text-[10px] leading-none font-black",
+              TILE_CLASS[l.state],
+            )}
+          >
+            {l.state === "overdue" && "!"}
+          </span>
           {l.label}
         </span>
       ))}
-      <span className="inline-flex items-center gap-1.5">
-        <OverdueBadge size={14} />
-        ค้างชำระเกินกำหนด
-      </span>
     </div>
   );
 }
@@ -127,7 +130,7 @@ export function FloorPlanViewer({
               <Link
                 key={p.unit_id}
                 href={`/units/${u.id}`}
-                title={`${u.code} · ${u.tenant_name ?? TILE_LABEL[state]}${u.has_overdue ? " · ค้างชำระเกินกำหนด" : ""}`}
+                title={`${u.code} · ${u.tenant_name ?? TILE_LABEL[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : ""}`}
                 className={clsx(
                   "absolute flex flex-col items-center justify-center border-2 text-center leading-snug transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
                   p.shape === "circle" ? "rounded-full" : "rounded-md",
@@ -143,7 +146,7 @@ export function FloorPlanViewer({
                     {u.tenant_name}
                   </span>
                 )}
-                {u.has_overdue && (
+                {state === "overdue" && (
                   <OverdueBadge
                     size={Math.max(14, Math.min(22, cell * 0.8))}
                     className={clsx("absolute", p.shape === "circle" ? "top-[8%] right-[8%]" : "-top-1.5 -right-1.5")}

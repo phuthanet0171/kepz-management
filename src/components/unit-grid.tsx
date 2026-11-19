@@ -10,7 +10,8 @@ export function unitTileState(u: Pick<UnitView, "status" | "is_expiring">) {
 
 const tileClass = {
   available: "border-ok bg-ok-soft text-ink hover:brightness-95",
-  occupied: "border-bad bg-bad text-white hover:brightness-95",
+  occupied: "border-ink bg-ink text-white hover:bg-ink-2",
+  overdue: "border-bad bg-bad text-white hover:brightness-95",
   expiring: "border-brand-strong bg-brand text-ink hover:bg-brand-strong",
   maintenance: "border-muted/40 bg-line text-muted",
   inactive: "border-dashed border-line bg-surface text-muted/70",
@@ -20,12 +21,14 @@ const subLabel = {
   available: "ว่าง",
   occupied: "",
   expiring: "ใกล้หมดสัญญา",
+  overdue: "ค้างชำระเกินกำหนด",
   maintenance: "ปิดปรับปรุง",
   inactive: "ปิดใช้งาน",
 };
 
 export function UnitTile({ unit, overdue }: { unit: UnitView; overdue?: boolean }) {
-  const state = unitTileState(unit);
+  const base = unitTileState(unit);
+  const state = overdue && unit.status === "occupied" ? "overdue" : base;
   return (
     <Link
       href={`/units/${unit.id}`}
@@ -33,12 +36,12 @@ export function UnitTile({ unit, overdue }: { unit: UnitView; overdue?: boolean 
         "relative flex min-h-[4.25rem] flex-col justify-between rounded-xl border-2 px-2.5 py-2 transition active:scale-[0.97]",
         tileClass[state],
       )}
-      title={`${unit.tenant_name ?? subLabel[state]}${overdue ? " · ค้างชำระเกินกำหนด" : ""}`}
+      title={`${unit.tenant_name ?? subLabel[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : ""}`}
     >
-      {overdue && <OverdueBadge size={20} className="absolute -top-2 -right-2" />}
+      {state === "overdue" && <OverdueBadge size={20} className="absolute -top-2 -right-2" />}
       <span className="text-sm leading-snug font-bold">{unit.code}</span>
       <span className={clsx("truncate text-[11px] leading-snug", state === "available" && "text-ok")}>
-        {state === "occupied" || state === "expiring" ? (unit.tenant_name ?? "") : subLabel[state]}
+        {state === "occupied" || state === "expiring" || state === "overdue" ? (unit.tenant_name ?? "") : subLabel[state]}
       </span>
     </Link>
   );
@@ -57,7 +60,7 @@ export function UnitGrid({ units, overdue }: { units: UnitView[]; overdue?: Set<
 export function UnitLegend({ withOverdue = false }: { withOverdue?: boolean }) {
   const items = [
     { cls: "border-ok bg-ok-soft", label: "ว่าง" },
-    { cls: "border-bad bg-bad", label: "มีผู้เช่า" },
+    { cls: "border-ink bg-ink", label: "มีผู้เช่า" },
     { cls: "border-brand-strong bg-brand", label: "ใกล้หมดสัญญา" },
     { cls: "border-muted/40 bg-line", label: "ปิดปรับปรุง" },
   ];
@@ -71,7 +74,7 @@ export function UnitLegend({ withOverdue = false }: { withOverdue?: boolean }) {
       ))}
       {withOverdue && (
         <span className="inline-flex items-center gap-1.5">
-          <OverdueBadge size={14} />
+          <span className="flex size-3.5 items-center justify-center rounded bg-bad text-[10px] leading-none font-black text-white">!</span>
           ค้างชำระเกินกำหนด
         </span>
       )}

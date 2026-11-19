@@ -40,19 +40,21 @@ export function findFreeSpot(
   return null;
 }
 
-export type TileState = "available" | "occupied" | "expiring" | "maintenance" | "inactive";
+export type TileState = "available" | "occupied" | "expiring" | "overdue" | "maintenance" | "inactive";
 
-/** สีของห้องตามสถานะ (ค้างชำระแสดงเป็นป้าย ! แยกต่างหาก ดู OverdueBadge) */
-export function tileState(u: Pick<PlanUnit, "status" | "is_expiring">): TileState {
+/** สีของห้องตามสถานะ (ค้างชำระสำคัญที่สุด แสดงเป็นสีแดงพร้อมป้าย !) */
+export function tileState(u: Pick<PlanUnit, "status" | "is_expiring" | "has_overdue">): TileState {
+  if (u.status === "occupied" && u.has_overdue) return "overdue";
   if (u.status === "occupied" && u.is_expiring) return "expiring";
   return u.status;
 }
 
-/** ว่าง = เขียว · มีผู้เช่า = แดง · ใกล้หมดสัญญา = เหลือง · ปิดปรับปรุง = เทา */
+/** ว่าง = เขียว · มีผู้เช่า = ดำ · ใกล้หมดสัญญา = เหลือง · ค้างชำระ = แดง · ปิดปรับปรุง = เทา */
 export const TILE_CLASS: Record<TileState, string> = {
   available: "border-ok bg-ok-soft text-ok",
-  occupied: "border-bad bg-bad text-white",
+  occupied: "border-ink bg-ink text-white",
   expiring: "border-brand-strong bg-brand text-ink",
+  overdue: "border-bad bg-bad text-white",
   maintenance: "border-muted/40 bg-line text-muted",
   inactive: "border-dashed border-line bg-surface text-muted/60",
 };
@@ -61,6 +63,7 @@ export const TILE_LEGEND: { state: TileState; label: string }[] = [
   { state: "available", label: "ว่าง" },
   { state: "occupied", label: "มีผู้เช่า" },
   { state: "expiring", label: "ใกล้หมดสัญญา" },
+  { state: "overdue", label: "ค้างชำระเกินกำหนด" },
   { state: "maintenance", label: "ปิดปรับปรุง" },
 ];
 
@@ -68,6 +71,7 @@ export const TILE_LABEL: Record<TileState, string> = {
   available: "ว่าง",
   occupied: "มีผู้เช่า",
   expiring: "ใกล้หมดสัญญา",
+  overdue: "ค้างชำระเกินกำหนด",
   maintenance: "ปิดปรับปรุง",
   inactive: "ปิดใช้งาน",
 };
