@@ -110,8 +110,9 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <Card className="overflow-hidden">
+        {/* มือถือ: รายการ → พิมพ์/รับชำระ → ประวัติใบเสร็จ · คอม: ซ้าย 2 ส่วน ขวา 1 ส่วน */}
+        <div className="space-y-4 max-lg:contents lg:col-span-2">
+          <Card className="overflow-hidden max-lg:order-1">
             <CardHeader title="รายการ" />
             <ul className="divide-y divide-line">
               {items.map((it) => (
@@ -174,7 +175,7 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
             </div>
           </Card>
 
-          <Card>
+          <Card className="max-lg:order-3">
             <CardHeader title="การรับชำระ / ใบเสร็จ" description={`${payments.length} รายการ`} />
             {payments.length === 0 ? (
               <p className="px-5 py-6 text-sm text-muted">ยังไม่มีการชำระ</p>
@@ -219,7 +220,7 @@ export default async function InvoicePage({ params }: PageProps<"/invoices/[id]"
           </Card>
         </div>
 
-        <div className="space-y-4 max-lg:order-first">
+        <div className="space-y-4 max-lg:order-2">
           <InvoiceTaxPanel
             key={`${inv.vat_rate}-${inv.vat_inclusive}-${inv.wht_rate}`}
             invoiceId={inv.id}
