@@ -64,6 +64,52 @@ export function FormError({ state }: { state: ActionState }) {
 
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
+type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+/** ข้อความเตือนภาษาไทยของช่องที่กรอกไม่ถูก (ใช้ชื่อช่องจาก label) */
+function invalidMessage(el: Control) {
+  const raw = el.closest("label")?.querySelector(".label")?.textContent ?? el.getAttribute("aria-label") ?? "";
+  const name = raw.replace(/\*/g, "").trim();
+  const v = el.validity;
+  const choose = el.tagName === "SELECT" || (el as HTMLInputElement).type === "checkbox" || (el as HTMLInputElement).type === "radio";
+  if (v.valueMissing) {
+    const verb = choose ? "เลือก" : "กรอก";
+    // ชื่อช่องที่ขึ้นต้นด้วยคำกริยาอยู่แล้ว เช่น "เลือกผู้เช่า" ไม่ต้องเติมซ้ำ
+    const what = name.replace(/^(เลือก|กรอก|ระบุ)/, "");
+    return what ? `กรุณา${verb}${what}` : `กรุณา${verb}ช่องนี้`;
+  }
+  if (v.badInput) return "กรุณากรอกเป็นตัวเลข";
+  if (v.rangeUnderflow) return `${name || "ค่านี้"}ต้องไม่น้อยกว่า ${(el as HTMLInputElement).min}`;
+  if (v.rangeOverflow) return `${name || "ค่านี้"}ต้องไม่เกิน ${(el as HTMLInputElement).max}`;
+  if (v.stepMismatch) return "ตัวเลขไม่ถูกต้อง (ทศนิยมได้ไม่เกิน 2 ตำแหน่ง)";
+  if (v.typeMismatch) return (el as HTMLInputElement).type === "email" ? "รูปแบบอีเมลไม่ถูกต้อง" : "รูปแบบไม่ถูกต้อง";
+  if (v.tooLong) return `ยาวเกิน ${(el as HTMLInputElement).maxLength} ตัวอักษร`;
+  if (v.tooShort) return `สั้นเกินไป ต้องมีอย่างน้อย ${(el as HTMLInputElement).minLength} ตัวอักษร`;
+  if (v.patternMismatch) return "รูปแบบไม่ถูกต้อง";
+  return el.validationMessage;
+}
+
+/** ทำเครื่องหมายช่องที่ผิดด้วยกรอบแดงและข้อความใต้ช่อง */
+function markInvalid(el: Control) {
+  el.setAttribute("aria-invalid", "true");
+  let msg = el.nextElementSibling as HTMLElement | null;
+  if (!msg?.hasAttribute("data-field-error")) {
+    msg = document.createElement("span");
+    msg.setAttribute("data-field-error", "");
+    msg.setAttribute("role", "alert");
+    msg.className = "mt-1 block text-xs font-medium text-bad";
+    el.insertAdjacentElement("afterend", msg);
+  }
+  msg.textContent = invalidMessage(el);
+}
+
+function clearInvalid(el: Control) {
+  if (el.getAttribute("aria-invalid") !== "true" || !el.checkValidity()) return;
+  el.removeAttribute("aria-invalid");
+  const msg = el.nextElementSibling;
+  if (msg?.hasAttribute("data-field-error")) msg.remove();
+}
+
 /**
  * ฟอร์มที่เรียก Server Action และแสดงข้อผิดพลาดภาษาไทย
  * ถ้า action สำเร็จและคืนค่า ok จะเรียก onSuccess (เช่น ปิดหน้าต่าง)
@@ -86,6 +132,7 @@ export function ActionForm({
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const formRef = useRef<HTMLFormElement>(null);
+  const firstInvalid = useRef(false);
   const onSuccessRef = useRef(onSuccess);
   useEffect(() => {
     onSuccessRef.current = onSuccess;
@@ -107,6 +154,19 @@ export function ActionForm({
       ref={formRef}
       className={clsx("space-y-4", className)}
       encType={encType}
+      // ลืมกรอกช่องที่บังคับ: เลื่อนไปที่ช่องแรกที่ยังไม่ครบ ขึ้นกรอบแดงและข้อความบอกว่าต้องกรอกอะไร
+      onInvalidCapture={(e) => {
+        e.preventDefault();
+        const el = e.target as unknown as Control;
+        markInvalid(el);
+        if (firstInvalid.current) return;
+        firstInvalid.current = true;
+        setTimeout(() => (firstInvalid.current = false), 0);
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => el.focus({ preventScroll: true }), 350);
+      }}
+      onInputCapture={(e) => clearInvalid(e.target as unknown as Control)}
+      onChangeCapture={(e) => clearInvalid(e.target as unknown as Control)}
       // ส่งผ่าน onSubmit แทน action={...} เพื่อไม่ให้ React ล้างค่าที่กรอกไว้เมื่อบันทึกไม่สำเร็จ
       onSubmit={(e) => {
         // ไม่รับ submit ของฟอร์มอื่นที่ส่งต่อขึ้นมา (เช่น ฟอร์มในหน้าต่าง Sheet ที่อยู่ในฟอร์มนี้)

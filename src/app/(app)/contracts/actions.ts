@@ -18,7 +18,9 @@ export async function createContract(_: ActionState, fd: FormData): Promise<Acti
   const end = str(fd, "end_date");
   const cycle = reqStr(fd, "billing_cycle");
   const rent = num(fd, "monthly_rent");
-  const deposit = num(fd, "deposit_amount") ?? 0;
+  const depositRaw = num(fd, "deposit_amount");
+  if (depositRaw === null) return { error: "กรุณากรอกเงินประกัน (ถ้าไม่เก็บเงินประกัน ใส่ 0)" };
+  const deposit = depositRaw;
   const depositReceived = bool(fd, "deposit_received");
   const depositDate = str(fd, "deposit_received_on");
   const depositMethod = str(fd, "deposit_method");

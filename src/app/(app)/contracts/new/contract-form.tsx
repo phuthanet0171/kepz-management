@@ -49,7 +49,6 @@ export function ContractForm({
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [rent, setRent] = useState(defaultUnit ? String(defaultUnit.effective_price) : "");
   const [deposit, setDeposit] = useState("");
-  const [depositReceived, setDepositReceived] = useState(false);
   const [firstInvoice, setFirstInvoice] = useState(true);
 
   const branchUnits = units.filter((u) => u.branch_id === branchId);
@@ -272,9 +271,10 @@ export function ContractForm({
                 onChange={(e) => setRent(e.target.value)}
               />
             </Field>
-            <Field label="เงินประกัน (บาท)" hint="ใส่ 0 หากไม่เก็บเงินประกัน">
+            <Field label="เงินประกัน (บาท)" required hint="ไม่เก็บเงินประกัน ใส่ 0">
               <input
                 name="deposit_amount"
+                required
                 type="number"
                 inputMode="decimal"
                 min={0}
@@ -286,37 +286,6 @@ export function ContractForm({
               />
             </Field>
           </div>
-
-          {Number(deposit) > 0 && (
-            <div className="rounded-xl border border-line p-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  name="deposit_received"
-                  checked={depositReceived}
-                  onChange={(e) => setDepositReceived(e.target.checked)}
-                  className="size-5 accent-ink"
-                />
-                <span className="text-sm font-medium">ได้รับเงินประกันแล้ว</span>
-              </label>
-              {depositReceived && (
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <Field label="วันที่รับ" required>
-                    <input name="deposit_received_on" type="date" defaultValue={today} required className="input" />
-                  </Field>
-                  <Field label="ช่องทาง" required>
-                    <select name="deposit_method" required className="input" defaultValue="transfer">
-                      <option value="transfer">โอนเงิน / พร้อมเพย์</option>
-                      <option value="credit_card">บัตรเครดิต</option>
-                    </select>
-                  </Field>
-                  <Field label="เลขอ้างอิง">
-                    <input name="deposit_reference" className="input" />
-                  </Field>
-                </div>
-              )}
-            </div>
-          )}
 
           <label className="flex items-start gap-3 rounded-xl border border-line p-3">
             <input
