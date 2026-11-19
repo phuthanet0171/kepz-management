@@ -1,11 +1,41 @@
 "use client";
 
 import clsx from "clsx";
-import { Maximize2, Minus, Plus } from "lucide-react";
+import { Activity, Maximize2, Minus, Palette, Plus } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { FloorPlan, Placement, PlanObject, PlanUnit } from "@/lib/types";
-import { BASE_CELL, gridBackground, objectClass, TILE_CLASS, TILE_LABEL, TILE_LEGEND, tileState } from "./shared";
+import {
+  BASE_CELL,
+  colorStyle,
+  defaultUnitColor,
+  gridBackground,
+  TILE_CLASS,
+  TILE_LABEL,
+  TILE_LEGEND,
+  tileState,
+} from "./shared";
+
+type ViewMode = "plan" | "status";
+const MODE_KEY = "kepz-plan-view";
+const modeListeners = new Set<() => void>();
+function readMode(): ViewMode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "status" ? "status" : "plan";
+  } catch {
+    return "plan";
+  }
+}
+function writeMode(m: ViewMode) {
+  try {
+    localStorage.setItem(MODE_KEY, m);
+  } catch {}
+  modeListeners.forEach((l) => l());
+}
+function subscribeMode(cb: () => void) {
+  modeListeners.add(cb);
+  return () => modeListeners.delete(cb);
+}
 
 export function FloorPlanLegend() {
   return (
@@ -32,7 +62,10 @@ export function OverdueBadge({ size = 18, className }: { size?: number; classNam
   return (
     <span
       aria-label="ค้างชำระเกินกำหนด"
-      className={clsx("inline-flex shrink-0 items-center justify-center rounded-full bg-bad leading-none font-black text-white ring-2 ring-white", className)}
+      className={clsx(
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-bad leading-none font-black text-white ring-2 ring-white",
+        className,
+      )}
       style={{ width: size, height: size, fontSize: size * 0.7 }}
     >
       !
@@ -41,15 +74,21 @@ export function OverdueBadge({ size = 18, className }: { size?: number; classNam
 }
 
 /** สัญลักษณ์บนผัง (ทางเข้า ลิฟต์ เสา ป้ายโซน) ดูอย่างเดียว */
-export function PlanObjectBox({ o, cell }: { o: Pick<PlanObject, "label" | "shape" | "color" | "x" | "y" | "w" | "h">; cell: number }) {
+export function PlanObjectBox({
+  o,
+  cell,
+}: {
+  o: Pick<PlanObject, "label" | "shape" | "color" | "x" | "y" | "w" | "h">;
+  cell: number;
+}) {
   return (
     <div
       className={clsx(
         "absolute flex items-center justify-center overflow-hidden border-2 text-center leading-tight font-semibold",
         o.shape === "circle" ? "rounded-full" : "rounded-md",
-        objectClass(o.color),
       )}
       style={{
+        ...colorStyle(o.color),
         left: o.x * cell + 1,
         top: o.y * cell + 1,
         width: o.w * cell - 2,
@@ -75,6 +114,8 @@ export function FloorPlanViewer({
   units: Map<string, PlanUnit>;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  // แบบที่เลือกล่าสุดถูกจำไว้ในเครื่องนี้ (ครั้งแรก = สีตามผัง)
+  const mode = useSyncExternalStore(subscribeMode, readMode, () => "plan" as ViewMode);
   const [zoom, setZoom] = useState(1);
   const fitted = useRef<string | null>(null);
 
@@ -104,17 +145,62 @@ export function FloorPlanViewer({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-end gap-1">
-        <button type="button" className="btn btn-outline btn-sm size-9 p-0" aria-label="ย่อ" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-xl bg-line/50 p-1" role="tablist" aria-label="แบบการแสดงผัง">
+          {(
+            [
+              ["plan", "สีตามผัง", Palette],
+              ["status", "สถานะห้อง", Activity],
+            ] as const
+          ).map(([m, label, Icon]) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => writeMode(m)}
+              className={clsx(
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                mode === m ? "bg-surface shadow-sm" : "text-muted hover:text-ink",
+              )}
+            >
+              <Icon className="size-4" /> {label}
+            </button>
+          ))}
+        </div>
+        <span className="ml-auto" />
+        <button
+          type="button"
+          className="btn btn-outline btn-sm size-9 p-0"
+          aria-label="ย่อ"
+          onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}
+        >
           <Minus className="size-4" />
         </button>
         <span className="tabular w-12 text-center text-xs text-muted">{Math.round(zoom * 100)}%</span>
-        <button type="button" className="btn btn-outline btn-sm size-9 p-0" aria-label="ขยาย" onClick={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))}>
+        <button
+          type="button"
+          className="btn btn-outline btn-sm size-9 p-0"
+          aria-label="ขยาย"
+          onClick={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))}
+        >
           <Plus className="size-4" />
         </button>
         <button type="button" className="btn btn-outline btn-sm" onClick={fit}>
           <Maximize2 className="size-3.5" /> พอดีจอ
         </button>
+      </div>
+      <div className="mb-2">
+        {mode === "status" ? (
+          <FloorPlanLegend />
+        ) : (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+            <span>แสดงสีตามที่จัดผังไว้ · แตะห้องเพื่อดูรายละเอียด</span>
+            <span className="inline-flex items-center gap-1.5">
+              <OverdueBadge size={14} /> ค้างชำระเกินกำหนด
+            </span>
+          </p>
+        )}
       </div>
       <div ref={wrapRef} className="overflow-auto rounded-xl border border-line bg-surface">
         <div className="relative" style={{ width: plan.cols * cell, height: plan.rows * cell, ...gridBackground(cell) }}>
@@ -134,11 +220,20 @@ export function FloorPlanViewer({
                 className={clsx(
                   "absolute flex flex-col items-center justify-center border-2 text-center leading-snug transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
                   p.shape === "circle" ? "rounded-full" : "rounded-md",
-                  TILE_CLASS[state],
+                  mode === "status" && TILE_CLASS[state],
                 )}
-                style={{ left: p.x * cell + 1, top: p.y * cell + 1, width: p.w * cell - 2, height: p.h * cell - 2 }}
+                style={{
+                  left: p.x * cell + 1,
+                  top: p.y * cell + 1,
+                  width: p.w * cell - 2,
+                  height: p.h * cell - 2,
+                  ...(mode === "plan" ? colorStyle(p.color ?? defaultUnitColor(u.unit_type_code)) : {}),
+                }}
               >
-                <span className="max-w-full truncate px-0.5 font-bold" style={{ fontSize: Math.max(9, Math.min(16, cell * 0.55)) }}>
+                <span
+                  className="max-w-full truncate px-0.5 font-bold"
+                  style={{ fontSize: Math.max(9, Math.min(16, cell * 0.55)) }}
+                >
                   {u.code}
                 </span>
                 {!small && u.tenant_name && (

@@ -4,17 +4,16 @@ import clsx from "clsx";
 import {
   ArrowDown,
   ArrowRight,
+  Ban,
   Circle,
   Copy,
   ExternalLink,
   LayoutGrid,
   Minus,
-  MousePointerClick,
   Plus,
   Redo2,
   RotateCw,
   Save,
-  Shapes,
   Square,
   Trash2,
   Undo2,
@@ -34,14 +33,13 @@ import {
 } from "react";
 import {
   BASE_CELL,
+  colorStyle,
   defaultBox,
+  defaultUnitColor,
   findFreeSpot,
   gridBackground,
-  OBJECT_COLORS,
-  OBJECT_PRESETS,
-  objectClass,
   overlaps,
-  TILE_CLASS,
+  PLAN_COLORS,
   TILE_LABEL,
   tileState,
   type Rect,
@@ -49,39 +47,16 @@ import {
 import type { FloorPlan, Placement, PlanColor, PlanObject, PlanShape, PlanUnit, UnitType } from "@/lib/types";
 import { saveFloorPlan } from "./actions";
 
-type Box = Rect & { shape: PlanShape };
-type Obj = Box & { label: string; color: PlanColor };
+/**
+ * ทุกอย่างบนผังคือ "รูป" (สี่เหลี่ยม/วงกลม) ที่มีชื่อและสี
+ * use = รหัสประเภทห้อง → เป็นห้องเช่า/ที่จอดจริง · use = "" → ไม่ใช่ห้องเช่า (ทางเดิน ทางเข้า ป้าย)
+ */
+type Item = Rect & { shape: PlanShape; color: PlanColor; name: string; use: string };
 
-/** ทุกอย่างที่แก้ไขได้บนผัง (ใช้เก็บประวัติสำหรับ ย้อนกลับ / ทำซ้ำ) */
-type Doc = {
-  name: string;
-  cols: number;
-  rows: number;
-  /** unit id → ตำแหน่ง (ห้องเดิมหรือห้องใหม่) */
-  boxes: Record<string, Box>;
-  /** ห้องใหม่ที่วาดบนผัง ยังไม่ได้บันทึก */
-  newUnits: Record<string, { code: string; type: string }>;
-  /** ชื่อใหม่ของห้องเดิม */
-  codes: Record<string, string>;
-  objects: Record<string, Obj>;
-};
-
-type Sel = { kind: "unit" | "obj"; id: string } | null;
-type Tool =
-  | { kind: "unit"; type: string; shape: PlanShape }
-  | { kind: "obj"; label: string; color: PlanColor; shape: PlanShape; w: number; h: number }
-  | null;
+type Doc = { name: string; cols: number; rows: number; items: Record<string, Item> };
 
 type Drag =
-  | {
-      kind: "move" | "resize";
-      target: { kind: "unit" | "obj"; id: string };
-      startX: number;
-      startY: number;
-      orig: Box;
-      before: Doc;
-      moved: boolean;
-    }
+  | { kind: "move" | "resize"; id: string; startX: number; startY: number; orig: Item; before: Doc; moved: boolean }
   | {
       kind: "new";
       id: string;
@@ -92,26 +67,28 @@ type Drag =
       startX: number;
       startY: number;
       moved: boolean;
-    }
-  | { kind: "draw"; sx: number; sy: number; cx: number; cy: number; moved: boolean };
+    };
 
 const uid = () => crypto.randomUUID();
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const norm = (c: string) => c.trim().toUpperCase();
 
 function canon(d: Doc) {
-  const sort = <T,>(r: Record<string, T>) =>
-    Object.keys(r)
+  return JSON.stringify([
+    d.name,
+    d.cols,
+    d.rows,
+    Object.keys(d.items)
       .sort()
-      .map((k) => [k, r[k]]);
-  return JSON.stringify([d.name, d.cols, d.rows, sort(d.boxes), sort(d.newUnits), sort(d.codes), sort(d.objects)]);
+      .map((k) => [k, d.items[k]]),
+  ]);
 }
 
 /** รหัสถัดไปแบบ PREFIX-01 ที่ยังไม่ถูกใช้ */
 function nextCode(prefix: string, used: Set<string>) {
   const p = prefix.toUpperCase();
-  let max = 0;
   const re = new RegExp(`^${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`);
+  let max = 0;
   for (const c of used) {
     const m = re.exec(c);
     if (m) max = Math.max(max, Number(m[1]));
@@ -121,9 +98,9 @@ function nextCode(prefix: string, used: Set<string>) {
   return `${p}-${String(n).padStart(2, "0")}`;
 }
 
-/** ชื่อถัดไปจากชื่อที่ลงท้ายด้วยตัวเลข เช่น A-09 → A-10, ห้อง 3 → ห้อง 4 */
+/** ชื่อถัดไปจากชื่อที่ลงท้ายด้วยตัวเลข เช่น M1 → M2, A-09 → A-10 */
 function successor(code: string, used: Set<string>, fallback: () => string) {
-  const m = /^(.*?)(\d+)$/.exec(code);
+  const m = /^(.*?)(\d+)$/.exec(code.trim());
   if (!m) return fallback();
   let n = Number(m[2]) + 1;
   for (let i = 0; i < 2000; i++, n++) {
@@ -150,29 +127,48 @@ export function FloorPlanEditor({
   placedElsewhere: Record<string, string>;
 }) {
   const router = useRouter();
+  const unitById = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
+  const typeByCode = useMemo(() => new Map(unitTypes.map((t) => [t.code, t])), [unitTypes]);
 
   const initial = useMemo<Doc>(() => {
-    const boxes: Doc["boxes"] = {};
-    for (const p of placements) boxes[p.unit_id] = { x: p.x, y: p.y, w: p.w, h: p.h, shape: p.shape ?? "rect" };
-    const objs: Doc["objects"] = {};
-    for (const o of objects) objs[o.id] = { x: o.x, y: o.y, w: o.w, h: o.h, shape: o.shape, label: o.label, color: o.color };
-    return { name: plan.name, cols: plan.cols, rows: plan.rows, boxes, newUnits: {}, codes: {}, objects: objs };
-  }, [plan, placements, objects]);
+    const items: Doc["items"] = {};
+    for (const p of placements) {
+      const u = unitById.get(p.unit_id);
+      if (!u) continue;
+      items[p.unit_id] = {
+        x: p.x,
+        y: p.y,
+        w: p.w,
+        h: p.h,
+        shape: p.shape ?? "rect",
+        color: p.color ?? defaultUnitColor(u.unit_type_code),
+        name: u.code,
+        use: u.unit_type_code,
+      };
+    }
+    for (const o of objects)
+      items[o.id] = { x: o.x, y: o.y, w: o.w, h: o.h, shape: o.shape, color: o.color, name: o.label, use: "" };
+    return { name: plan.name, cols: plan.cols, rows: plan.rows, items };
+  }, [plan, placements, objects, unitById]);
 
   const [doc, setDocState] = useState<Doc>(initial);
   const docRef = useRef(doc);
   const [past, setPast] = useState<Doc[]>([]);
   const [future, setFuture] = useState<Doc[]>([]);
-  const [sel, setSel] = useState<Sel>(null);
-  const [tool, setTool] = useState<Tool>(null);
-  const [menu, setMenu] = useState<"unit" | "obj" | null>(null);
-  const [pending, setPending] = useState<string | null>(null); // ห้องจากแถบข้างที่รอแตะตำแหน่งวาง
+  const [sel, setSel] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null); // ห้องในระบบจากแถบข้างที่รอแตะตำแหน่งวาง
   const [drag, setDrag] = useState<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
   const [message, setMessage] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
   const [saving, startSaving] = useTransition();
   const [resync, setResync] = useState(false);
+  const [focusName, setFocusName] = useState(0);
+  // ค่าที่ใช้ล่าสุด ใช้กับรูปถัดไปที่เพิ่ม
+  const [lastUse, setLastUse] = useState(() => unitTypes.find((t) => t.kind === "storage")?.code ?? unitTypes[0]?.code ?? "");
+  const [lastColor, setLastColor] = useState<PlanColor | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   /** เปลี่ยนผังและเก็บประวัติให้ย้อนกลับได้ */
   const commit = useCallback((fn: (d: Doc) => Doc) => {
@@ -184,13 +180,9 @@ export function FloorPlanEditor({
     docRef.current = n;
     setDocState(n);
   }, []);
-  /** เปลี่ยนระหว่างลาก (ยังไม่เก็บประวัติ) */
+  /** เปลี่ยนระหว่างลาก (เก็บประวัติตอนปล่อย) */
   const live = useCallback((fn: (d: Doc) => Doc) => {
     const n = fn(docRef.current);
-    docRef.current = n;
-    setDocState(n);
-  }, []);
-  const replace = useCallback((n: Doc) => {
     docRef.current = n;
     setDocState(n);
   }, []);
@@ -210,23 +202,25 @@ export function FloorPlanEditor({
     docRef.current = doc;
   }, [doc]);
 
-  const { name, cols, rows, boxes } = doc;
+  // โฟกัสช่องชื่อทันทีหลังเพิ่มรูปใหม่ พิมพ์ชื่อได้เลย
+  useEffect(() => {
+    if (!focusName) return;
+    nameRef.current?.focus();
+    nameRef.current?.select();
+  }, [focusName]);
+
+  const { name, cols, rows, items } = doc;
   const cell = BASE_CELL * zoom;
-  const unitById = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
-  const typeByCode = useMemo(() => new Map(unitTypes.map((t) => [t.code, t])), [unitTypes]);
   const dirty = useMemo(() => canon(doc) !== canon(initial), [doc, initial]);
+  const isRental = (it: Item) => it.use !== "";
+  const isExisting = (id: string) => unitById.has(id);
 
-  const codeOf = useCallback(
-    (id: string, d: Doc = doc) => d.newUnits[id]?.code ?? d.codes[id] ?? unitById.get(id)?.code ?? "",
-    [doc, unitById],
-  );
-
-  /** ชื่อห้องทั้งหมดของสาขา (ใช้ตรวจชื่อซ้ำและรันชื่อถัดไป) */
+  /** ชื่อห้องเช่าทั้งหมดของสาขา (ห้องบนผังนี้ใช้ชื่อในผัง) */
   const usedCodes = useCallback(
     (d: Doc) => {
       const s = new Set<string>();
-      for (const u of units) s.add(norm(d.codes[u.id] ?? u.code));
-      for (const n of Object.values(d.newUnits)) s.add(norm(n.code));
+      for (const u of units) if (!d.items[u.id]) s.add(norm(u.code));
+      for (const it of Object.values(d.items)) if (it.use) s.add(norm(it.name));
       return s;
     },
     [units],
@@ -234,10 +228,10 @@ export function FloorPlanEditor({
 
   const dupCodes = useMemo(() => {
     const count = new Map<string, number>();
-    const all = [...units.map((u) => norm(doc.codes[u.id] ?? u.code)), ...Object.values(doc.newUnits).map((n) => norm(n.code))];
-    for (const c of all) count.set(c, (count.get(c) ?? 0) + 1);
+    for (const u of units) if (!items[u.id]) count.set(norm(u.code), (count.get(norm(u.code)) ?? 0) + 1);
+    for (const it of Object.values(items)) if (it.use) count.set(norm(it.name), (count.get(norm(it.name)) ?? 0) + 1);
     return new Set([...count].filter(([c, n]) => n > 1 || !c).map(([c]) => c));
-  }, [doc, units]);
+  }, [items, units]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -247,43 +241,36 @@ export function FloorPlanEditor({
   }, [dirty]);
 
   const overlapping = useMemo(() => {
-    const ids = Object.keys(boxes);
+    const rental = Object.entries(items).filter(([, it]) => it.use);
     const bad = new Set<string>();
-    for (let i = 0; i < ids.length; i++)
-      for (let j = i + 1; j < ids.length; j++)
-        if (overlaps(boxes[ids[i]], boxes[ids[j]])) {
-          bad.add(ids[i]);
-          bad.add(ids[j]);
+    for (let i = 0; i < rental.length; i++)
+      for (let j = i + 1; j < rental.length; j++)
+        if (overlaps(rental[i][1], rental[j][1])) {
+          bad.add(rental[i][0]);
+          bad.add(rental[j][0]);
         }
     return bad;
-  }, [boxes]);
+  }, [items]);
 
-  const outOfBounds = useMemo(() => {
-    const out = new Set<string>();
-    for (const [id, b] of [...Object.entries(boxes), ...Object.entries(doc.objects)])
-      if (b.x + b.w > cols || b.y + b.h > rows) out.add(id);
-    return out;
-  }, [boxes, doc.objects, cols, rows]);
+  const outOfBounds = useMemo(
+    () =>
+      new Set(
+        Object.entries(items)
+          .filter(([, b]) => b.x + b.w > cols || b.y + b.h > rows)
+          .map(([id]) => id),
+      ),
+    [items, cols, rows],
+  );
 
   const collator = useMemo(() => new Intl.Collator("th", { numeric: true }), []);
   const unplaced = useMemo(
     () =>
       units
-        .filter((u) => !boxes[u.id] && !placedElsewhere[u.id] && u.status !== "inactive")
+        .filter((u) => !items[u.id] && !placedElsewhere[u.id] && u.status !== "inactive")
         .sort((a, b) => a.type_sort - b.type_sort || collator.compare(a.code, b.code)),
-    [units, boxes, placedElsewhere, collator],
+    [units, items, placedElsewhere, collator],
   );
-  const elsewhereCount = units.filter((u) => !boxes[u.id] && placedElsewhere[u.id]).length;
-
-  const unplacedGroups = useMemo(() => {
-    const m = new Map<string, { name: string; units: PlanUnit[] }>();
-    for (const u of unplaced) {
-      const g = m.get(u.unit_type_code) ?? { name: u.unit_type_name, units: [] };
-      g.units.push(u);
-      m.set(u.unit_type_code, g);
-    }
-    return [...m.values()];
-  }, [unplaced]);
+  const elsewhereCount = units.filter((u) => !items[u.id] && placedElsewhere[u.id]).length;
 
   const cellFromClient = useCallback(
     (clientX: number, clientY: number) => {
@@ -297,7 +284,7 @@ export function FloorPlanEditor({
     [cell],
   );
 
-  const fit = useCallback(
+  const fitAt = useCallback(
     (w: number, h: number, cx: number, cy: number) => {
       const ww = clamp(w, 1, cols);
       const hh = clamp(h, 1, rows);
@@ -306,81 +293,91 @@ export function FloorPlanEditor({
     [cols, rows],
   );
 
-  /** วางห้องเดิมที่ยังไม่ได้อยู่บนผัง */
+  /** วางห้องที่มีอยู่แล้วในระบบลงบนผัง */
   const placeExisting = useCallback(
     (id: string, cx: number, cy: number) => {
       const u = unitById.get(id);
       if (!u) return;
       const { w, h } = defaultBox(u.unit_type_code);
-      commit((d) => ({ ...d, boxes: { ...d.boxes, [id]: { ...fit(w, h, cx, cy), shape: "rect" } } }));
-      setSel({ kind: "unit", id });
+      commit((d) => ({
+        ...d,
+        items: {
+          ...d.items,
+          [id]: {
+            ...fitAt(w, h, cx, cy),
+            shape: "rect",
+            color: defaultUnitColor(u.unit_type_code),
+            name: u.code,
+            use: u.unit_type_code,
+          },
+        },
+      }));
+      setSel(id);
       setPending(null);
     },
-    [unitById, commit, fit],
+    [unitById, commit, fitAt],
   );
 
-  /** วาดเสร็จ: สร้างห้องใหม่หรือสัญลักษณ์ตามเครื่องมือที่เลือก */
-  const createFromTool = useCallback(
-    (rect: Rect | null, cx: number, cy: number) => {
-      if (!tool) return;
-      if (tool.kind === "unit") {
-        const t = typeByCode.get(tool.type);
-        if (!t) return;
-        let { w, h } = defaultBox(t.code);
-        if (tool.shape === "circle") w = h = Math.max(w, h);
-        const r = rect ?? fit(w, h, cx, cy);
-        const id = uid();
-        commit((d) => ({
-          ...d,
-          boxes: { ...d.boxes, [id]: { ...r, shape: tool.shape } },
-          newUnits: { ...d.newUnits, [id]: { code: nextCode(t.code_prefix, usedCodes(d)), type: t.code } },
-        }));
-        setSel({ kind: "unit", id });
-      } else {
-        const r = rect ?? fit(tool.w, tool.h, cx, cy);
-        const id = uid();
-        commit((d) => ({
-          ...d,
-          objects: { ...d.objects, [id]: { ...r, shape: tool.shape, label: tool.label, color: tool.color } },
-        }));
-        setSel({ kind: "obj", id });
-      }
-      setTool(null);
-    },
-    [tool, typeByCode, fit, commit, usedCodes],
-  );
+  /** กดปุ่ม ▢ / ◯ : เพิ่มรูปกลางจอที่มองเห็นทันที */
+  function addShape(shape: PlanShape) {
+    const d = docRef.current;
+    const type = typeByCode.get(lastUse);
+    let { w, h } = type ? defaultBox(type.code) : { w: 3, h: 3 };
+    if (shape === "circle") w = h = Math.max(w, h);
+    const sc = scrollRef.current;
+    const cx = sc ? (sc.scrollLeft + Math.min(sc.clientWidth, d.cols * cell) / 2) / cell : d.cols / 2;
+    const cy = sc ? (sc.scrollTop + Math.min(sc.clientHeight, d.rows * cell) / 2) / cell : d.rows / 2;
+    let box = fitAt(w, h, cx, cy);
+    const rental = Object.values(d.items).filter(isRental);
+    if (type && rental.some((r) => overlaps(r, box))) {
+      box =
+        findFreeSpot(rental, box.w, box.h, d.cols, d.rows, {
+          x: Math.max(0, Math.floor(cx - w)),
+          y: Math.max(0, Math.floor(cy - h)),
+        }) ??
+        findFreeSpot(rental, box.w, box.h, d.cols, d.rows) ??
+        box;
+    }
+    const id = uid();
+    const used = usedCodes(d);
+    commit((dd) => ({
+      ...dd,
+      items: {
+        ...dd.items,
+        [id]: {
+          ...box,
+          shape,
+          color: lastColor ?? (type ? defaultUnitColor(type.code) : "gray"),
+          name: type ? nextCode(type.code_prefix, used) : "",
+          use: type?.code ?? "",
+        },
+      },
+    }));
+    setSel(id);
+    setPending(null);
+    setFocusName((n) => n + 1);
+  }
 
-  // ลาก: ย้าย / ปรับขนาด / ลากห้องจากแถบข้าง / วาดกล่องใหม่ (รองรับเมาส์และนิ้วบนแท็บเล็ต)
+  // ลาก: ย้าย / ปรับขนาด / ลากห้องจากแถบข้าง (รองรับเมาส์และนิ้วบนแท็บเล็ต)
   useEffect(() => {
     if (!drag) return;
     const onMove = (e: PointerEvent) => {
+      const moved = drag.moved || Math.abs(e.clientX - drag.startX) > 4 || Math.abs(e.clientY - drag.startY) > 4;
       if (drag.kind === "new") {
-        const moved = drag.moved || Math.abs(e.clientX - drag.startX) > 4 || Math.abs(e.clientY - drag.startY) > 4;
         setDrag({ ...drag, clientX: e.clientX, clientY: e.clientY, moved });
         return;
       }
-      if (drag.kind === "draw") {
-        const { cx, cy } = cellFromClient(e.clientX, e.clientY);
-        const x = clamp(Math.floor(cx), 0, cols - 1);
-        const y = clamp(Math.floor(cy), 0, rows - 1);
-        if (x !== drag.cx || y !== drag.cy) setDrag({ ...drag, cx: x, cy: y, moved: true });
-        return;
-      }
-      const dxPx = e.clientX - drag.startX;
-      const dyPx = e.clientY - drag.startY;
-      const moved = drag.moved || Math.abs(dxPx) > 4 || Math.abs(dyPx) > 4;
-      const dx = Math.round(dxPx / cell);
-      const dy = Math.round(dyPx / cell);
+      const dx = Math.round((e.clientX - drag.startX) / cell);
+      const dy = Math.round((e.clientY - drag.startY) / cell);
       const o = drag.orig;
       const next =
         drag.kind === "move"
-          ? { ...o, x: clamp(o.x + dx, 0, cols - o.w), y: clamp(o.y + dy, 0, rows - o.h) }
-          : { ...o, w: clamp(o.w + dx, 1, cols - o.x), h: clamp(o.h + dy, 1, rows - o.y) };
+          ? { x: clamp(o.x + dx, 0, cols - o.w), y: clamp(o.y + dy, 0, rows - o.h), w: o.w, h: o.h }
+          : { x: o.x, y: o.y, w: clamp(o.w + dx, 1, cols - o.x), h: clamp(o.h + dy, 1, rows - o.y) };
       live((d) => {
-        const key = drag.target.kind === "unit" ? "boxes" : "objects";
-        const cur = d[key][drag.target.id];
+        const cur = d.items[drag.id];
         if (!cur || (cur.x === next.x && cur.y === next.y && cur.w === next.w && cur.h === next.h)) return d;
-        return { ...d, [key]: { ...d[key], [drag.target.id]: { ...cur, x: next.x, y: next.y, w: next.w, h: next.h } } };
+        return { ...d, items: { ...d.items, [drag.id]: { ...cur, ...next } } };
       });
       if (moved !== drag.moved) setDrag({ ...drag, moved });
     };
@@ -389,16 +386,6 @@ export function FloorPlanEditor({
         const { cx, cy, inside } = cellFromClient(e.clientX, e.clientY);
         if (drag.moved && inside) placeExisting(drag.id, cx, cy);
         else if (!drag.moved) setPending((p) => (p === drag.id ? null : drag.id));
-      } else if (drag.kind === "draw") {
-        const rect = drag.moved
-          ? {
-              x: Math.min(drag.sx, drag.cx),
-              y: Math.min(drag.sy, drag.cy),
-              w: Math.abs(drag.cx - drag.sx) + 1,
-              h: Math.abs(drag.cy - drag.sy) + 1,
-            }
-          : null;
-        createFromTool(rect, drag.sx + 0.5, drag.sy + 0.5);
       } else if (drag.moved && canon(drag.before) !== canon(docRef.current)) {
         setPast((p) => [...p.slice(-79), drag.before]);
         setFuture([]);
@@ -413,179 +400,152 @@ export function FloorPlanEditor({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [drag, cell, cols, rows, cellFromClient, placeExisting, createFromTool, live]);
+  }, [drag, cell, cols, rows, cellFromClient, placeExisting, live]);
 
   function undo() {
     if (!past.length) return;
     const prev = past[past.length - 1];
     setPast((p) => p.slice(0, -1));
     setFuture((f) => [docRef.current, ...f]);
-    replace(prev);
-    setSel((s) => (s && (s.kind === "unit" ? prev.boxes[s.id] : prev.objects[s.id]) ? s : null));
+    docRef.current = prev;
+    setDocState(prev);
+    setSel((s) => (s && prev.items[s] ? s : null));
   }
   function redo() {
     if (!future.length) return;
     const next = future[0];
     setFuture((f) => f.slice(1));
     setPast((p) => [...p, docRef.current]);
-    replace(next);
-    setSel((s) => (s && (s.kind === "unit" ? next.boxes[s.id] : next.objects[s.id]) ? s : null));
+    docRef.current = next;
+    setDocState(next);
+    setSel((s) => (s && next.items[s] ? s : null));
   }
 
-  const selBox: Box | null = sel ? (sel.kind === "unit" ? (boxes[sel.id] ?? null) : (doc.objects[sel.id] ?? null)) : null;
+  const selItem = sel ? (items[sel] ?? null) : null;
+  const selUnit = sel ? unitById.get(sel) : undefined;
+  const selLocked = !!selUnit && selUnit.status === "occupied"; // มีผู้เช่า เปลี่ยนประเภทไม่ได้
 
-  function patchSel(p: Partial<Obj>) {
+  function patchSel(p: Partial<Item>) {
     if (!sel) return;
+    const id = sel;
     commit((d) => {
-      const key = sel.kind === "unit" ? "boxes" : "objects";
-      const o = d[key][sel.id];
+      const o = d.items[id];
       if (!o) return d;
       const n = { ...o, ...p };
       n.w = clamp(n.w || 1, 1, d.cols - n.x);
       n.h = clamp(n.h || 1, 1, d.rows - n.y);
-      return { ...d, [key]: { ...d[key], [sel.id]: n } };
+      return { ...d, items: { ...d.items, [id]: n } };
     });
   }
 
+  function setUse(use: string) {
+    if (!sel || !selItem) return;
+    const t = typeByCode.get(use);
+    const p: Partial<Item> = { use };
+    // เปลี่ยนจาก "ไม่ใช่ห้องเช่า" เป็นห้อง: ตั้งชื่อรหัสให้ถ้ายังไม่มีชื่อ
+    if (t && !selItem.use && !selItem.name.trim()) p.name = nextCode(t.code_prefix, usedCodes(docRef.current));
+    if (!t && selItem.color === "none") p.color = "gray";
+    patchSel(p);
+    setLastUse(use);
+  }
+
   function rotateSel() {
-    if (!selBox) return;
-    const w = Math.min(selBox.h, cols);
-    const h = Math.min(selBox.w, rows);
-    patchSel({ w, h, x: Math.min(selBox.x, cols - w), y: Math.min(selBox.y, rows - h) });
+    if (!selItem) return;
+    const w = Math.min(selItem.h, cols);
+    const h = Math.min(selItem.w, rows);
+    patchSel({ w, h, x: Math.min(selItem.x, cols - w), y: Math.min(selItem.y, rows - h) });
   }
 
   function removeSel() {
     if (!sel) return;
+    const id = sel;
     commit((d) => {
-      if (sel.kind === "obj") {
-        const objects = { ...d.objects };
-        delete objects[sel.id];
-        return { ...d, objects };
-      }
-      const b = { ...d.boxes };
-      delete b[sel.id];
-      const newUnits = { ...d.newUnits };
-      delete newUnits[sel.id];
-      return { ...d, boxes: b, newUnits };
+      const n = { ...d.items };
+      delete n[id];
+      return { ...d, items: n };
     });
     setSel(null);
   }
 
-  function renameSel(code: string) {
-    if (sel?.kind !== "unit") return;
-    const id = sel.id;
-    commit((d) => {
-      if (d.newUnits[id]) return { ...d, newUnits: { ...d.newUnits, [id]: { ...d.newUnits[id], code } } };
-      const codes = { ...d.codes };
-      if (code === unitById.get(id)?.code) delete codes[id];
-      else codes[id] = code;
-      return { ...d, codes };
-    });
+  /** สร้างสำเนาของรูปที่เลือกที่ตำแหน่ง box (ห้องเช่าจะรันชื่อต่อให้) */
+  function cloneAt(src: Item, box: Rect, used: Set<string>): Item {
+    if (!src.use) return { ...src, ...box };
+    const prefix = typeByCode.get(src.use)?.code_prefix ?? "R";
+    const code = successor(src.name, used, () => nextCode(prefix, used));
+    used.add(norm(code));
+    return { ...src, ...box, name: code };
   }
 
   /** ทำซ้ำต่อกันเป็นแถว (count ชิ้น) ไปทางขวาหรือลงล่าง */
   function repeatSel(count: number, dir: "right" | "down") {
-    if (!sel || !selBox) return;
+    if (!sel || !selItem) return;
     const d0 = docRef.current;
-    const unitRects = Object.values(d0.boxes);
-    const made: { id: string; box: Box; code?: string; type?: string }[] = [];
+    const rental = Object.values(d0.items).filter(isRental);
     const used = usedCodes(d0);
-    let lastCode = sel.kind === "unit" ? codeOf(sel.id, d0) : "";
-    const type = sel.kind === "unit" ? (d0.newUnits[sel.id]?.type ?? unitById.get(sel.id)?.unit_type_code ?? "") : "";
-    const prefix = typeByCode.get(type)?.code_prefix ?? "R";
+    const made: [string, Item][] = [];
+    let prev = selItem;
     let stopped = false;
     for (let i = 1; i <= count; i++) {
       const box = {
-        ...selBox,
-        x: dir === "right" ? selBox.x + i * selBox.w : selBox.x,
-        y: dir === "down" ? selBox.y + i * selBox.h : selBox.y,
+        x: dir === "right" ? selItem.x + i * selItem.w : selItem.x,
+        y: dir === "down" ? selItem.y + i * selItem.h : selItem.y,
+        w: selItem.w,
+        h: selItem.h,
       };
-      if (
-        box.x + box.w > d0.cols ||
-        box.y + box.h > d0.rows ||
-        (sel.kind === "unit" && unitRects.some((r) => overlaps(r, box)))
-      ) {
+      if (box.x + box.w > d0.cols || box.y + box.h > d0.rows || (selItem.use && rental.some((r) => overlaps(r, box)))) {
         stopped = true;
         break;
       }
-      if (sel.kind === "unit") {
-        const code = successor(lastCode, used, () => nextCode(prefix, used));
-        used.add(norm(code));
-        lastCode = code;
-        made.push({ id: uid(), box, code, type });
-      } else made.push({ id: uid(), box });
+      prev = cloneAt(prev, box, used);
+      made.push([uid(), prev]);
     }
     if (made.length) {
-      commit((d) => {
-        if (sel.kind === "obj") {
-          const o = d.objects[sel.id];
-          const objects = { ...d.objects };
-          for (const m of made) objects[m.id] = { ...o, ...m.box };
-          return { ...d, objects };
-        }
-        const b = { ...d.boxes };
-        const nu = { ...d.newUnits };
-        for (const m of made) {
-          b[m.id] = m.box;
-          nu[m.id] = { code: m.code!, type: m.type! };
-        }
-        return { ...d, boxes: b, newUnits: nu };
-      });
-      setSel({ kind: sel.kind, id: made[made.length - 1].id });
+      commit((d) => ({ ...d, items: { ...d.items, ...Object.fromEntries(made) } }));
+      setSel(made[made.length - 1][0]);
     }
+    const side = dir === "right" ? "ขวา" : "ล่าง";
     setMessage(
       stopped
         ? {
             tone: "bad",
-            text: made.length
-              ? `เพิ่มได้ ${made.length} ชิ้น พื้นที่ด้าน${dir === "right" ? "ขวา" : "ล่าง"}ไม่พอหรือมีห้องขวางอยู่`
-              : `ด้าน${dir === "right" ? "ขวา" : "ล่าง"}ไม่มีที่ว่างพอ ลองอีกทิศหรือขยายผัง`,
+            text: made.length ? `เพิ่มได้ ${made.length} ชิ้น พื้นที่ด้าน${side}ไม่พอหรือมีห้องขวางอยู่` : `ด้าน${side}ไม่มีที่ว่างพอ ลองอีกทิศหรือขยายผัง`,
           }
         : null,
     );
   }
 
   function duplicateSel() {
-    if (!sel || !selBox) return;
+    if (!sel || !selItem) return;
     const d0 = docRef.current;
-    const others = sel.kind === "unit" ? Object.values(d0.boxes) : [];
-    const free = (r: Rect) => r.x + r.w <= d0.cols && r.y + r.h <= d0.rows && !others.some((o) => overlaps(o, r));
+    const rental = selItem.use ? Object.values(d0.items).filter(isRental) : [];
+    const free = (r: Rect) => r.x + r.w <= d0.cols && r.y + r.h <= d0.rows && !rental.some((o) => overlaps(o, r));
     const cands = [
-      { ...selBox, x: selBox.x + selBox.w },
-      { ...selBox, y: selBox.y + selBox.h },
+      { x: selItem.x + selItem.w, y: selItem.y, w: selItem.w, h: selItem.h },
+      { x: selItem.x, y: selItem.y + selItem.h, w: selItem.w, h: selItem.h },
     ];
-    const spot = cands.find(free) ?? (sel.kind === "unit" ? findFreeSpot(others, selBox.w, selBox.h, d0.cols, d0.rows) : null);
-    if (sel.kind === "obj") {
-      const id = uid();
-      const box = spot
-        ? { ...selBox, ...spot }
-        : { ...selBox, x: Math.min(selBox.x + 1, d0.cols - selBox.w), y: Math.min(selBox.y + 1, d0.rows - selBox.h) };
-      commit((d) => ({ ...d, objects: { ...d.objects, [id]: { ...d.objects[sel.id], ...box } } }));
-      setSel({ kind: "obj", id });
-      return;
-    }
+    const spot =
+      cands.find(free) ??
+      (selItem.use
+        ? findFreeSpot(rental, selItem.w, selItem.h, d0.cols, d0.rows)
+        : {
+            x: Math.min(selItem.x + 1, d0.cols - selItem.w),
+            y: Math.min(selItem.y + 1, d0.rows - selItem.h),
+            w: selItem.w,
+            h: selItem.h,
+          });
     if (!spot) {
       setMessage({ tone: "bad", text: "ไม่มีที่ว่างบนผัง ขยายขนาดผังก่อน" });
       return;
     }
-    repeatSelAt({ ...selBox, ...spot });
-  }
-
-  function repeatSelAt(box: Box) {
-    if (sel?.kind !== "unit") return;
-    const d0 = docRef.current;
-    const used = usedCodes(d0);
-    const type = d0.newUnits[sel.id]?.type ?? unitById.get(sel.id)?.unit_type_code ?? "";
-    const prefix = typeByCode.get(type)?.code_prefix ?? "R";
-    const code = successor(codeOf(sel.id, d0), used, () => nextCode(prefix, used));
     const id = uid();
-    commit((d) => ({ ...d, boxes: { ...d.boxes, [id]: box }, newUnits: { ...d.newUnits, [id]: { code, type } } }));
-    setSel({ kind: "unit", id });
+    const item = cloneAt(selItem, spot, usedCodes(d0));
+    commit((d) => ({ ...d, items: { ...d.items, [id]: item } }));
+    setSel(id);
   }
 
   function autoArrange() {
-    const rects: Rect[] = Object.values(boxes);
-    const added: Doc["boxes"] = {};
+    const rects: Rect[] = Object.values(items).filter(isRental);
+    const added: Doc["items"] = {};
     let lastType = "";
     let cursor = { x: 0, y: 0 };
     for (const u of unplaced) {
@@ -601,10 +561,10 @@ export function FloorPlanEditor({
         setMessage({ tone: "bad", text: "พื้นที่ผังไม่พอ ขยายขนาดผังก่อน แล้วลองจัดอัตโนมัติอีกครั้ง" });
         break;
       }
-      added[u.id] = { ...spot, shape: "rect" };
+      added[u.id] = { ...spot, shape: "rect", color: defaultUnitColor(u.unit_type_code), name: u.code, use: u.unit_type_code };
       cursor = { x: spot.x + spot.w, y: spot.y };
     }
-    commit((d) => ({ ...d, boxes: { ...d.boxes, ...added } }));
+    commit((d) => ({ ...d, items: { ...d.items, ...added } }));
   }
 
   // แป้นพิมพ์
@@ -613,26 +573,25 @@ export function FloorPlanEditor({
       const t = e.target as HTMLElement;
       if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT") return;
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === "z") {
+      const k = e.key.toLowerCase();
+      if (mod && k === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
         return;
       }
-      if (mod && e.key.toLowerCase() === "y") {
+      if (mod && k === "y") {
         e.preventDefault();
         redo();
         return;
       }
       if (e.key === "Escape") {
-        setTool(null);
-        setMenu(null);
         setPending(null);
         setSel(null);
         return;
       }
-      if (!sel || !selBox) return;
-      if (mod && e.key.toLowerCase() === "d") {
+      if (!selItem) return;
+      if (mod && k === "d") {
         e.preventDefault();
         duplicateSel();
         return;
@@ -647,13 +606,13 @@ export function FloorPlanEditor({
       if (mv[e.key]) {
         e.preventDefault();
         patchSel({
-          x: clamp(selBox.x + mv[e.key][0], 0, cols - selBox.w),
-          y: clamp(selBox.y + mv[e.key][1], 0, rows - selBox.h),
+          x: clamp(selItem.x + mv[e.key][0], 0, cols - selItem.w),
+          y: clamp(selItem.y + mv[e.key][1], 0, rows - selItem.h),
         });
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         removeSel();
-      } else if (e.key === "r" || e.key === "R") {
+      } else if (k === "r") {
         rotateSel();
       }
     };
@@ -668,31 +627,38 @@ export function FloorPlanEditor({
       return;
     }
     if (outOfBounds.size) {
-      setMessage({ tone: "bad", text: "มีกล่องเกินขอบผัง กรุณาขยายขนาดผังหรือย้ายเข้ามา" });
-      return;
-    }
-    const placedCodes = Object.keys(boxes).map((id) => norm(codeOf(id)));
-    if (placedCodes.some((c) => !c)) {
-      setMessage({ tone: "bad", text: "มีห้องที่ยังไม่ได้ตั้งชื่อ" });
+      setMessage({ tone: "bad", text: "มีรูปเกินขอบผัง กรุณาขยายขนาดผังหรือย้ายเข้ามา" });
       return;
     }
     if (dupCodes.size) {
-      setMessage({ tone: "bad", text: `ชื่อห้องซ้ำกัน: ${[...dupCodes].filter(Boolean).join(", ")} กรุณาเปลี่ยนชื่อให้ไม่ซ้ำ` });
+      const names = [...dupCodes].filter(Boolean);
+      setMessage({
+        tone: "bad",
+        text: names.length ? `ชื่อห้องซ้ำกัน: ${names.join(", ")} กรุณาเปลี่ยนชื่อให้ไม่ซ้ำ` : "มีห้องที่ยังไม่ได้ตั้งชื่อ",
+      });
       return;
     }
-    const renames = Object.entries(doc.codes)
-      .filter(([id, c]) => norm(c) !== norm(unitById.get(id)?.code ?? ""))
-      .map(([id, code]) => ({ id, code: norm(code) }));
+    const entries = Object.entries(items);
+    const rental = entries.filter(([, it]) => it.use);
     startSaving(async () => {
       const res = await saveFloorPlan({
         planId: plan.id,
         name,
         cols,
         rows,
-        placements: Object.entries(boxes).map(([unit_id, b]) => ({ unit_id, x: b.x, y: b.y, w: b.w, h: b.h, shape: b.shape })),
-        objects: Object.entries(doc.objects).map(([id, o]) => ({ id, ...o, label: o.label.trim() })),
-        newUnits: Object.entries(doc.newUnits).map(([id, n]) => ({ id, code: norm(n.code), unit_type_code: n.type })),
-        renames,
+        placements: rental.map(([unit_id, b]) => ({ unit_id, x: b.x, y: b.y, w: b.w, h: b.h, shape: b.shape, color: b.color })),
+        objects: entries
+          .filter(([, it]) => !it.use)
+          .map(([id, o]) => ({ id, label: o.name.trim(), shape: o.shape, color: o.color, x: o.x, y: o.y, w: o.w, h: o.h })),
+        newUnits: rental
+          .filter(([id]) => !isExisting(id))
+          .map(([id, it]) => ({ id, code: norm(it.name), unit_type_code: it.use })),
+        renames: rental
+          .filter(([id, it]) => {
+            const u = unitById.get(id);
+            return u && (norm(it.name) !== norm(u.code) || it.use !== u.unit_type_code);
+          })
+          .map(([id, it]) => ({ id, code: norm(it.name), unit_type_code: it.use })),
       });
       if (res?.error) setMessage({ tone: "bad", text: res.error });
       else {
@@ -703,42 +669,29 @@ export function FloorPlanEditor({
     });
   }
 
-  const selUnit = sel?.kind === "unit" ? unitById.get(sel.id) : undefined;
-  const selNew = sel?.kind === "unit" ? doc.newUnits[sel.id] : undefined;
-  const selObj = sel?.kind === "obj" ? doc.objects[sel.id] : undefined;
   const ghost = drag?.kind === "new" && drag.moved ? drag : null;
   const ghostUnit = ghost ? unitById.get(ghost.id) : null;
-  const drawRect =
-    drag?.kind === "draw" && drag.moved
-      ? {
-          x: Math.min(drag.sx, drag.cx),
-          y: Math.min(drag.sy, drag.cy),
-          w: Math.abs(drag.cx - drag.sx) + 1,
-          h: Math.abs(drag.cy - drag.sy) + 1,
-        }
-      : null;
-  const newCount = Object.keys(doc.newUnits).length;
-  const toolLabel = tool ? (tool.kind === "unit" ? (typeByCode.get(tool.type)?.name ?? "") : tool.label || "สัญลักษณ์") : "";
+  const newCount = Object.entries(items).filter(([id, it]) => it.use && !isExisting(id)).length;
+  // ห้องเช่าอยู่ด้านบน รูปอื่น (ทางเดิน ป้าย) อยู่ด้านล่าง
+  const ordered = Object.entries(items).sort((a, b) => Number(!!a[1].use) - Number(!!b[1].use));
 
   return (
     <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
-      {/* แผงซ้าย: คุณสมบัติของสิ่งที่เลือก หรือ ตั้งค่าผัง + ห้องที่ยังไม่ได้วาง */}
+      {/* แผงซ้าย: รายละเอียดรูปที่เลือก หรือ ตั้งค่าผัง */}
       <aside className="card flex max-h-[75dvh] flex-col overflow-hidden lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]">
-        {sel && selBox ? (
+        {sel && selItem ? (
           <>
             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
               <div className="min-w-0">
                 <div className="truncate font-semibold">
-                  {sel.kind === "obj" ? "สัญลักษณ์" : selNew ? "ห้องใหม่" : `ห้อง ${selUnit?.code ?? ""}`}
+                  {selItem.use ? (isExisting(sel) ? "ห้องในระบบ" : "ห้องใหม่") : "รูปตกแต่ง"}
                 </div>
                 <div className="text-xs text-muted">
-                  {sel.kind === "obj"
-                    ? "ไม่ใช่ห้องเช่า ใช้บอกตำแหน่งบนผัง"
-                    : selNew
-                      ? "ยังไม่ได้บันทึก กด “บันทึกผัง” แล้วจะพร้อมทำสัญญา"
-                      : selUnit
-                        ? `${selUnit.unit_type_name} · ${selUnit.tenant_name ?? TILE_LABEL[tileState(selUnit)]}`
-                        : ""}
+                  {!selItem.use
+                    ? "ไม่ใช่ห้องเช่า เช่น ทางเดิน ทางเข้า ป้ายโซน"
+                    : selUnit
+                      ? (selUnit.tenant_name ?? TILE_LABEL[tileState(selUnit)])
+                      : "กด “บันทึกผัง” แล้วพร้อมทำสัญญาทันที"}
                 </div>
               </div>
               <button
@@ -751,100 +704,99 @@ export function FloorPlanEditor({
               </button>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {sel.kind === "unit" ? (
-                <>
-                  <label className="block">
-                    <span className="label">ชื่อห้อง (ใช้ในสัญญาและใบวางบิล)</span>
-                    <input
-                      value={codeOf(sel.id)}
-                      onChange={(e) => renameSel(e.target.value.slice(0, 20))}
-                      maxLength={20}
-                      className={clsx("input uppercase", dupCodes.has(norm(codeOf(sel.id))) && "border-bad")}
-                    />
-                    {dupCodes.has(norm(codeOf(sel.id))) && (
-                      <span className="mt-1 block text-xs text-bad">
-                        {codeOf(sel.id).trim() ? "ชื่อนี้ซ้ำกับห้องอื่น" : "กรุณาตั้งชื่อห้อง"}
-                      </span>
-                    )}
-                  </label>
-                  {selNew ? (
-                    <label className="block">
-                      <span className="label">ประเภท</span>
-                      <select
-                        value={selNew.type}
-                        onChange={(e) =>
-                          commit((d) => ({
-                            ...d,
-                            newUnits: { ...d.newUnits, [sel.id]: { ...d.newUnits[sel.id], type: e.target.value } },
-                          }))
-                        }
-                        className="input"
-                      >
-                        {unitTypes.map((t) => (
-                          <option key={t.code} value={t.code}>
-                            {t.name} · {t.default_monthly_price.toLocaleString()} บาท/เดือน
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : (
-                    selUnit && (
-                      <Link
-                        href={`/units/${selUnit.id}`}
-                        target="_blank"
-                        className="flex items-center gap-1.5 text-sm text-ink-2 underline"
-                      >
-                        <ExternalLink className="size-3.5" /> เปิดหน้าห้อง (แก้ประเภท ราคา สถานะ)
-                      </Link>
-                    )
+              <label className="block">
+                <span className="label">{selItem.use ? "ชื่อห้อง (ใช้ในสัญญาและใบวางบิล)" : "ชื่อ / ข้อความ"}</span>
+                <input
+                  ref={nameRef}
+                  value={selItem.name}
+                  onChange={(e) => patchSel({ name: e.target.value.slice(0, selItem.use ? 20 : 40) })}
+                  placeholder={selItem.use ? "เช่น M1" : "เช่น ทางเดิน, ทางเข้า, โซน A"}
+                  className={clsx(
+                    "input",
+                    selItem.use && "uppercase",
+                    selItem.use && dupCodes.has(norm(selItem.name)) && "border-bad",
                   )}
-                </>
-              ) : (
-                selObj && (
-                  <>
-                    <label className="block">
-                      <span className="label">ข้อความบนสัญลักษณ์</span>
-                      <input
-                        value={selObj.label}
-                        onChange={(e) => patchSel({ label: e.target.value.slice(0, 40) })}
-                        maxLength={40}
-                        placeholder="เช่น ทางเข้า, ลิฟต์, โซน A"
-                        className="input"
-                      />
-                    </label>
-                    <div>
-                      <span className="label">สี</span>
-                      <div className="flex flex-wrap gap-2">
-                        {OBJECT_COLORS.map((c) => (
-                          <button
-                            key={c.key}
-                            type="button"
-                            title={c.label}
-                            aria-label={c.label}
-                            onClick={() => patchSel({ color: c.key })}
-                            className={clsx(
-                              "size-8 rounded-full border-2 transition",
-                              selObj.color === c.key ? "border-ink ring-2 ring-brand ring-offset-1" : "border-line",
-                              c.key === "none" && "bg-[repeating-linear-gradient(45deg,#fff_0_4px,#e5e7eb_4px_6px)]",
-                            )}
-                            style={c.key === "none" ? undefined : { background: c.swatch }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )
-              )}
+                />
+                {selItem.use && dupCodes.has(norm(selItem.name)) && (
+                  <span className="mt-1 block text-xs text-bad">{selItem.name.trim() ? "ชื่อนี้ซ้ำกับห้องอื่น" : "กรุณาตั้งชื่อห้อง"}</span>
+                )}
+              </label>
 
-              <Segmented
-                label="รูปทรง"
-                value={selBox.shape}
-                onChange={(shape) => patchSel({ shape })}
-                options={[
-                  { value: "rect", label: "สี่เหลี่ยม", icon: <Square className="size-4" /> },
-                  { value: "circle", label: "วงกลม", icon: <Circle className="size-4" /> },
-                ]}
-              />
+              <div>
+                <span className="label">สี</span>
+                <div className="grid grid-cols-6 gap-2">
+                  {PLAN_COLORS.filter((c) => c.key !== "none" || !selItem.use).map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      title={c.label}
+                      aria-label={c.label}
+                      aria-pressed={selItem.color === c.key}
+                      onClick={() => {
+                        patchSel({ color: c.key });
+                        if (c.key !== "none") setLastColor(c.key);
+                      }}
+                      className={clsx(
+                        "aspect-square w-full rounded-full border-2 transition",
+                        selItem.color === c.key ? "ring-2 ring-ink ring-offset-2" : "hover:scale-110",
+                        c.key === "none" && "bg-[repeating-linear-gradient(45deg,#fff_0_4px,#e5e7eb_4px_6px)]",
+                      )}
+                      style={c.key === "none" ? { borderColor: "#cfcfcf" } : { background: c.fill, borderColor: c.border }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="label">ใช้เป็น</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {unitTypes.map((t) => (
+                    <Chip key={t.code} active={selItem.use === t.code} disabled={selLocked} onClick={() => setUse(t.code)}>
+                      {t.name}
+                    </Chip>
+                  ))}
+                  <Chip active={!selItem.use} disabled={isExisting(sel)} onClick={() => setUse("")}>
+                    <Ban className="size-3.5" /> ไม่ใช่ห้องเช่า
+                  </Chip>
+                </div>
+                <p className="mt-1.5 text-xs text-muted">
+                  {selLocked
+                    ? "ห้องนี้มีผู้เช่าอยู่ เปลี่ยนประเภทไม่ได้"
+                    : selItem.use
+                      ? `ราคาตั้งต้น ${typeByCode.get(selItem.use)?.default_monthly_price.toLocaleString() ?? "-"} บาท/เดือน`
+                      : "ใช้วาดทางเดิน ทางเข้า ลิฟต์ เสา หรือป้ายโซน วางทับห้องได้"}
+                </p>
+                {selUnit && (
+                  <Link
+                    href={`/units/${selUnit.id}`}
+                    target="_blank"
+                    className="mt-1 inline-flex items-center gap-1 text-xs text-ink-2 underline"
+                  >
+                    <ExternalLink className="size-3" /> เปิดหน้าห้อง (ราคา สถานะ ผู้เช่า)
+                  </Link>
+                )}
+              </div>
+
+              <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                <Segmented
+                  label="รูปทรง"
+                  value={selItem.shape}
+                  onChange={(shape) => patchSel({ shape })}
+                  options={[
+                    { value: "rect", label: "สี่เหลี่ยม", icon: <Square className="size-4" /> },
+                    { value: "circle", label: "วงกลม", icon: <Circle className="size-4" /> },
+                  ]}
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline size-11 p-0"
+                  onClick={rotateSel}
+                  title="หมุน (R)"
+                  aria-label="หมุน"
+                >
+                  <RotateCw className="size-4" />
+                </button>
+              </div>
 
               <div>
                 <span className="label">ขนาด (ช่อง) กว้าง × ยาว</span>
@@ -852,7 +804,7 @@ export function FloorPlanEditor({
                   <input
                     type="number"
                     min={1}
-                    value={selBox.w}
+                    value={selItem.w}
                     onChange={(e) => patchSel({ w: Number(e.target.value) })}
                     className="input tabular w-20"
                     aria-label="กว้าง"
@@ -861,35 +813,26 @@ export function FloorPlanEditor({
                   <input
                     type="number"
                     min={1}
-                    value={selBox.h}
+                    value={selItem.h}
                     onChange={(e) => patchSel({ h: Number(e.target.value) })}
                     className="input tabular w-20"
                     aria-label="ยาว"
                   />
-                  <button
-                    type="button"
-                    className="btn btn-outline size-11 shrink-0 p-0"
-                    onClick={rotateSel}
-                    title="หมุน (R)"
-                    aria-label="หมุน"
-                  >
-                    <RotateCw className="size-4" />
-                  </button>
                 </div>
               </div>
 
-              <RepeatBox kind={sel.kind} onRepeat={repeatSel} />
+              <RepeatBox rental={!!selItem.use} onRepeat={repeatSel} />
 
               <div className="grid grid-cols-2 gap-2 border-t border-line pt-4">
                 <button type="button" className="btn btn-outline" onClick={duplicateSel} title="Ctrl+D">
                   <Copy className="size-4" /> ทำซ้ำ
                 </button>
                 <button type="button" className="btn btn-danger" onClick={removeSel} title="Delete">
-                  <Trash2 className="size-4" /> {sel.kind === "unit" && !selNew ? "นำออกจากผัง" : "ลบ"}
+                  <Trash2 className="size-4" /> {isExisting(sel) ? "เอาออกจากผัง" : "ลบ"}
                 </button>
               </div>
-              {sel.kind === "unit" && !selNew && (
-                <p className="text-xs text-muted">นำออกจากผังเท่านั้น ห้องและสัญญายังอยู่ในระบบ ย้ายไปอยู่ในรายการ “ห้องที่ยังไม่ได้วาง”</p>
+              {isExisting(sel) && (
+                <p className="text-xs text-muted">ห้องและสัญญายังอยู่ในระบบ ย้ายไปอยู่ในรายการ “ห้องในระบบที่ยังไม่อยู่บนผัง”</p>
               )}
             </div>
           </>
@@ -930,65 +873,64 @@ export function FloorPlanEditor({
                 </label>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-3">
-              <div className="mb-2 px-1">
-                <div className="text-sm font-semibold">ห้องที่ยังไม่ได้วาง</div>
-                <p className="text-xs text-muted">ห้องที่มีอยู่แล้วในระบบ ลากลงบนผัง หรือแตะห้องแล้วแตะตำแหน่ง</p>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="rounded-xl bg-brand-soft p-3 text-sm">
+                <div className="font-semibold">วิธีใช้</div>
+                <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-ink-2">
+                  <li>
+                    กด <b>สี่เหลี่ยม</b> หรือ <b>วงกลม</b> ด้านบน
+                  </li>
+                  <li>พิมพ์ชื่อ เลือกสี และเลือกว่าใช้เป็นห้องอะไร</li>
+                  <li>ลากไปวาง ลากมุมขวาล่างเพื่อปรับขนาด</li>
+                  <li>
+                    กด <b>บันทึกผัง</b>
+                  </li>
+                </ol>
               </div>
-              {unplaced.length === 0 ? (
-                <p className="px-1 py-3 text-sm text-muted">วางครบทุกห้องแล้ว เพิ่มห้องใหม่ได้จากปุ่ม “เพิ่มห้อง / ที่จอด” ด้านบน</p>
-              ) : (
-                unplacedGroups.map((g) => (
-                  <div key={g.name} className="mb-3">
-                    <div className="mb-1.5 px-1 text-xs font-semibold text-muted">
-                      {g.name} ({g.units.length})
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {g.units.map((u) => (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onPointerDown={(e) => {
-                            if (e.button !== 0) return;
-                            const { w, h } = defaultBox(u.unit_type_code);
-                            setDrag({
-                              kind: "new",
-                              id: u.id,
-                              w,
-                              h,
-                              clientX: e.clientX,
-                              clientY: e.clientY,
-                              startX: e.clientX,
-                              startY: e.clientY,
-                              moved: false,
-                            });
-                          }}
-                          className={clsx(
-                            "rounded-lg border-2 px-2 py-1 text-xs font-bold transition select-none",
-                            pending === u.id ? "border-ink bg-brand" : "border-line bg-surface hover:border-ink/40",
-                          )}
-                          style={{ touchAction: "none" }}
-                        >
-                          {doc.codes[u.id] ?? u.code}
-                        </button>
-                      ))}
-                    </div>
+
+              {unplaced.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-sm font-semibold">ห้องในระบบที่ยังไม่อยู่บนผัง ({unplaced.length})</div>
+                  <p className="mb-2 text-xs text-muted">ลากลงบนผัง หรือแตะห้องแล้วแตะตำแหน่ง</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {unplaced.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onPointerDown={(e) => {
+                          if (e.button !== 0) return;
+                          const { w, h } = defaultBox(u.unit_type_code);
+                          setDrag({
+                            kind: "new",
+                            id: u.id,
+                            w,
+                            h,
+                            clientX: e.clientX,
+                            clientY: e.clientY,
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            moved: false,
+                          });
+                        }}
+                        className={clsx(
+                          "rounded-lg border-2 px-2 py-1 text-xs font-bold transition select-none",
+                          pending === u.id ? "border-ink bg-brand" : "border-line bg-surface hover:border-ink/40",
+                        )}
+                        style={{ touchAction: "none" }}
+                      >
+                        {u.code}
+                      </button>
+                    ))}
                   </div>
-                ))
+                  <button type="button" className="btn btn-outline btn-sm mt-3 w-full" onClick={autoArrange}>
+                    <LayoutGrid className="size-3.5" /> วางทั้งหมดอัตโนมัติ
+                  </button>
+                </div>
               )}
               {elsewhereCount > 0 && (
-                <p className="mt-3 border-t border-line px-1 pt-3 text-xs text-muted">
-                  อีก {elsewhereCount} ห้องอยู่ในชั้น/โซนอื่น ถ้าต้องการย้ายมาที่นี่ ให้นำออกจากผังเดิมก่อน
-                </p>
+                <p className="mt-4 text-xs text-muted">อีก {elsewhereCount} ห้องอยู่ในชั้น/โซนอื่น ถ้าต้องการย้ายมาที่นี่ ให้เอาออกจากผังเดิมก่อน</p>
               )}
             </div>
-            {unplaced.length > 0 && (
-              <div className="border-t border-line p-3">
-                <button type="button" className="btn btn-outline btn-sm w-full" onClick={autoArrange}>
-                  <LayoutGrid className="size-3.5" /> วางที่เหลืออัตโนมัติ
-                </button>
-              </div>
-            )}
           </>
         )}
       </aside>
@@ -996,88 +938,12 @@ export function FloorPlanEditor({
       <div className="min-w-0 space-y-3">
         {/* แถบเครื่องมือ */}
         <div className="card flex flex-wrap items-center gap-2 p-2.5">
-          <div className="relative">
-            <button
-              type="button"
-              className={clsx("btn", tool?.kind === "unit" || menu === "unit" ? "btn-brand" : "btn-primary")}
-              onClick={() => setMenu((m) => (m === "unit" ? null : "unit"))}
-              aria-expanded={menu === "unit"}
-            >
-              <Plus className="size-4" /> เพิ่มห้อง / ที่จอด
-            </button>
-            {menu === "unit" && (
-              <Popover onClose={() => setMenu(null)}>
-                <div className="px-3 pt-2 pb-1 text-xs text-muted">เลือกประเภทและรูปทรง แล้วคลิกหรือลากบนผัง</div>
-                {unitTypes.map((t) => (
-                  <div key={t.code} className="flex items-center gap-1 px-1.5">
-                    <span className="min-w-0 flex-1 truncate px-1.5 py-2 text-sm">
-                      <b>{t.name}</b> <span className="text-xs text-muted">{t.code_prefix}-xx</span>
-                    </span>
-                    {(["rect", "circle"] as const).map((shape) => (
-                      <button
-                        key={shape}
-                        type="button"
-                        className="btn btn-outline btn-sm gap-1 px-2"
-                        title={shape === "rect" ? "สี่เหลี่ยม" : "วงกลม"}
-                        aria-label={`${t.name} ${shape === "rect" ? "สี่เหลี่ยม" : "วงกลม"}`}
-                        onClick={() => {
-                          setTool({ kind: "unit", type: t.code, shape });
-                          setMenu(null);
-                          setSel(null);
-                          setPending(null);
-                        }}
-                      >
-                        {shape === "rect" ? <Square className="size-3.5" /> : <Circle className="size-3.5" />}
-                        {shape === "rect" ? "สี่เหลี่ยม" : "วงกลม"}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </Popover>
-            )}
-          </div>
-
-          <div className="relative">
-            <button
-              type="button"
-              className={clsx("btn", tool?.kind === "obj" || menu === "obj" ? "btn-brand" : "btn-outline")}
-              onClick={() => setMenu((m) => (m === "obj" ? null : "obj"))}
-              aria-expanded={menu === "obj"}
-            >
-              <Shapes className="size-4" /> สัญลักษณ์
-            </button>
-            {menu === "obj" && (
-              <Popover onClose={() => setMenu(null)}>
-                <div className="px-3 pt-2 pb-1 text-xs text-muted">ไม่ใช่ห้องเช่า ใช้บอกตำแหน่ง แก้ข้อความและสีได้ภายหลัง</div>
-                <div className="grid grid-cols-2 gap-1 p-1.5">
-                  {OBJECT_PRESETS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      className="flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-canvas"
-                      onClick={() => {
-                        setTool({ kind: "obj", ...p });
-                        setMenu(null);
-                        setSel(null);
-                        setPending(null);
-                      }}
-                    >
-                      <span
-                        className={clsx(
-                          "size-5 shrink-0 border-2",
-                          p.shape === "circle" ? "rounded-full" : "rounded",
-                          objectClass(p.color),
-                          p.color === "none" && "border-dashed !border-muted",
-                        )}
-                      />
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </Popover>
-            )}
-          </div>
-
+          <button type="button" className="btn btn-primary" onClick={() => addShape("rect")}>
+            <Square className="size-4" /> สี่เหลี่ยม
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => addShape("circle")}>
+            <Circle className="size-4" /> วงกลม
+          </button>
           <span className="mx-1 hidden h-7 w-px bg-line sm:block" />
           <button
             type="button"
@@ -1100,25 +966,23 @@ export function FloorPlanEditor({
             <Redo2 className="size-4" />
           </button>
           <span className="mx-1 hidden h-7 w-px bg-line sm:block" />
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="btn btn-ghost size-11 p-0"
-              aria-label="ย่อ"
-              onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.2).toFixed(1)))}
-            >
-              <Minus className="size-4" />
-            </button>
-            <span className="tabular w-11 text-center text-xs text-muted">{Math.round(zoom * 100)}%</span>
-            <button
-              type="button"
-              className="btn btn-ghost size-11 p-0"
-              aria-label="ขยาย"
-              onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
-            >
-              <Plus className="size-4" />
-            </button>
-          </div>
+          <button
+            type="button"
+            className="btn btn-ghost size-11 p-0"
+            aria-label="ย่อ"
+            onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.2).toFixed(1)))}
+          >
+            <Minus className="size-4" />
+          </button>
+          <span className="tabular w-10 text-center text-xs text-muted">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            className="btn btn-ghost size-11 p-0"
+            aria-label="ขยาย"
+            onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
+          >
+            <Plus className="size-4" />
+          </button>
 
           <div className="ml-auto flex items-center gap-2">
             {dirty && (
@@ -1134,7 +998,7 @@ export function FloorPlanEditor({
                 ยกเลิกที่แก้
               </button>
             )}
-            <button type="button" className="btn btn-primary" disabled={saving || resync || !dirty} onClick={save}>
+            <button type="button" className="btn btn-brand" disabled={saving || resync || !dirty} onClick={save}>
               <Save className="size-4" />
               {saving ? "กำลังบันทึก…" : dirty ? (newCount ? `บันทึกผัง (+${newCount} ห้องใหม่)` : "บันทึกผัง") : "บันทึกแล้ว"}
             </button>
@@ -1156,36 +1020,24 @@ export function FloorPlanEditor({
           </div>
         )}
 
-        {(tool || pending) && (
+        {pending && (
           <div className="flex items-center gap-2 rounded-xl bg-brand-soft px-3.5 py-2.5 text-sm">
-            <MousePointerClick className="size-4 shrink-0" />
-            {tool ? (
-              <span>
-                <b>คลิก</b>บนผังเพื่อวาง <b>{toolLabel}</b> หรือ<b>ลาก</b>เพื่อกำหนดขนาดเอง
-              </span>
-            ) : (
-              <span>
-                แตะตำแหน่งบนผังเพื่อวางห้อง <b>{pending && (doc.codes[pending] ?? unitById.get(pending)?.code)}</b>
-              </span>
-            )}
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm ml-auto"
-              onClick={() => {
-                setTool(null);
-                setPending(null);
-              }}
-            >
+            แตะตำแหน่งบนผังเพื่อวางห้อง <b>{unitById.get(pending)?.code}</b>
+            <button type="button" className="btn btn-ghost btn-sm ml-auto" onClick={() => setPending(null)}>
               ยกเลิก
             </button>
           </div>
         )}
 
         {/* ผัง */}
-        <div className="overflow-auto rounded-xl border border-line bg-surface" style={{ maxHeight: "calc(100dvh - 14rem)" }}>
+        <div
+          ref={scrollRef}
+          className="overflow-auto rounded-xl border border-line bg-surface"
+          style={{ maxHeight: "calc(100dvh - 14rem)" }}
+        >
           <div
             ref={canvasRef}
-            className={clsx("relative select-none", (pending || tool) && "cursor-crosshair")}
+            className={clsx("relative select-none", pending && "cursor-crosshair")}
             style={{ width: cols * cell, height: rows * cell, ...gridBackground(cell) }}
             onPointerDown={(e) => {
               if (e.target !== e.currentTarget) return;
@@ -1193,35 +1045,27 @@ export function FloorPlanEditor({
                 const { cx, cy } = cellFromClient(e.clientX, e.clientY);
                 placeExisting(pending, cx, cy);
               } else setSel(null);
-              setMenu(null);
             }}
           >
-            {/* สัญลักษณ์อยู่ชั้นล่าง ห้องอยู่ด้านบน */}
-            {Object.entries(doc.objects).map(([id, o]) => {
-              const isSel = sel?.kind === "obj" && sel.id === id;
+            {ordered.map(([id, it]) => {
+              const bad = overlapping.has(id) || outOfBounds.has(id) || (!!it.use && dupCodes.has(norm(it.name)));
               return (
                 <ItemBox
                   key={id}
-                  box={o}
+                  item={it}
                   cell={cell}
-                  selected={isSel}
-                  className={clsx(
-                    objectClass(o.color),
-                    o.color === "none" && "!border-dashed !border-muted/40",
-                    outOfBounds.has(id) && "!border-bad",
-                  )}
-                  fontScale={o.color === "none" ? 0.7 : 0.5}
-                  label={o.label}
+                  selected={sel === id}
+                  bad={bad}
+                  badge={it.use && !isExisting(id) ? "ใหม่" : undefined}
                   onPointerDown={(e) => {
-                    setSel({ kind: "obj", id });
+                    setSel(id);
                     setPending(null);
-                    setMenu(null);
                     setDrag({
                       kind: "move",
-                      target: { kind: "obj", id },
+                      id,
                       startX: e.clientX,
                       startY: e.clientY,
-                      orig: o,
+                      orig: it,
                       before: docRef.current,
                       moved: false,
                     });
@@ -1229,10 +1073,10 @@ export function FloorPlanEditor({
                   onResizeDown={(e) =>
                     setDrag({
                       kind: "resize",
-                      target: { kind: "obj", id },
+                      id,
                       startX: e.clientX,
                       startY: e.clientY,
-                      orig: o,
+                      orig: it,
                       before: docRef.current,
                       moved: false,
                     })
@@ -1240,82 +1084,6 @@ export function FloorPlanEditor({
                 />
               );
             })}
-            {Object.entries(boxes).map(([id, b]) => {
-              const u = unitById.get(id);
-              const isNew = !!doc.newUnits[id];
-              if (!u && !isNew) return null;
-              const bad = overlapping.has(id) || outOfBounds.has(id) || dupCodes.has(norm(codeOf(id)));
-              const isSel = sel?.kind === "unit" && sel.id === id;
-              return (
-                <ItemBox
-                  key={id}
-                  box={b}
-                  cell={cell}
-                  selected={isSel}
-                  className={clsx(
-                    "z-[1]",
-                    bad
-                      ? "border-bad bg-bad-soft text-bad"
-                      : isNew
-                        ? "border-dashed border-ink bg-surface text-ink"
-                        : TILE_CLASS[tileState(u!)],
-                  )}
-                  fontScale={0.55}
-                  label={codeOf(id)}
-                  badge={isNew ? "ใหม่" : undefined}
-                  onPointerDown={(e) => {
-                    setSel({ kind: "unit", id });
-                    setPending(null);
-                    setMenu(null);
-                    setDrag({
-                      kind: "move",
-                      target: { kind: "unit", id },
-                      startX: e.clientX,
-                      startY: e.clientY,
-                      orig: b,
-                      before: docRef.current,
-                      moved: false,
-                    });
-                  }}
-                  onResizeDown={(e) =>
-                    setDrag({
-                      kind: "resize",
-                      target: { kind: "unit", id },
-                      startX: e.clientX,
-                      startY: e.clientY,
-                      orig: b,
-                      before: docRef.current,
-                      moved: false,
-                    })
-                  }
-                />
-              );
-            })}
-
-            {drawRect && (
-              <div
-                className={clsx(
-                  "pointer-events-none absolute z-20 border-2 border-dashed border-ink bg-brand/40",
-                  tool?.shape === "circle" ? "rounded-full" : "rounded-md",
-                )}
-                style={{ left: drawRect.x * cell, top: drawRect.y * cell, width: drawRect.w * cell, height: drawRect.h * cell }}
-              />
-            )}
-
-            {/* โหมดวาด: รับคลิก/ลากทั้งผัง */}
-            {tool && (
-              <div
-                className="absolute inset-0 z-10 cursor-crosshair"
-                style={{ touchAction: "none" }}
-                onPointerDown={(e) => {
-                  if (e.button !== 0) return;
-                  const { cx, cy } = cellFromClient(e.clientX, e.clientY);
-                  const x = clamp(Math.floor(cx), 0, cols - 1);
-                  const y = clamp(Math.floor(cy), 0, rows - 1);
-                  setDrag({ kind: "draw", sx: x, sy: y, cx: x, cy: y, moved: false });
-                }}
-              />
-            )}
           </div>
         </div>
 
@@ -1334,7 +1102,7 @@ export function FloorPlanEditor({
             height: ghost.h * cell,
           }}
         >
-          {doc.codes[ghostUnit.id] ?? ghostUnit.code}
+          {ghostUnit.code}
         </div>
       )}
     </div>
@@ -1342,26 +1110,23 @@ export function FloorPlanEditor({
 }
 
 function ItemBox({
-  box,
+  item,
   cell,
   selected,
-  className,
-  label,
+  bad,
   badge,
-  fontScale,
   onPointerDown,
   onResizeDown,
 }: {
-  box: Box;
+  item: Item;
   cell: number;
   selected: boolean;
-  className: string;
-  label: string;
+  bad: boolean;
   badge?: string;
-  fontScale: number;
   onPointerDown: (e: RPointerEvent) => void;
   onResizeDown: (e: RPointerEvent) => void;
 }) {
+  const textOnly = item.color === "none";
   return (
     <div
       onPointerDown={(e) => {
@@ -1371,23 +1136,29 @@ function ItemBox({
       }}
       className={clsx(
         "absolute flex cursor-grab flex-col items-center justify-center border-2 text-center leading-tight active:cursor-grabbing",
-        box.shape === "circle" ? "rounded-full" : "rounded-md",
-        className,
-        selected && "z-[5] ring-2 ring-ink ring-offset-1",
+        item.shape === "circle" ? "rounded-full" : "rounded-md",
+        item.use ? "z-[2]" : "z-[1]",
+        textOnly && "!border-dashed !border-[#cfcfcf]",
+        bad && "!border-bad ring-2 ring-bad/40",
+        selected && "z-[5] ring-2 ring-ink ring-offset-2",
       )}
       style={{
-        left: box.x * cell + 1,
-        top: box.y * cell + 1,
-        width: box.w * cell - 2,
-        height: box.h * cell - 2,
+        ...colorStyle(item.color),
+        left: item.x * cell + 1,
+        top: item.y * cell + 1,
+        width: item.w * cell - 2,
+        height: item.h * cell - 2,
         touchAction: "none",
       }}
     >
-      <span className="max-w-full truncate px-0.5 font-bold" style={{ fontSize: Math.max(9, Math.min(16, cell * fontScale)) }}>
-        {label}
+      <span
+        className={clsx("max-w-full truncate px-0.5", item.use ? "font-bold" : "font-semibold")}
+        style={{ fontSize: Math.max(9, Math.min(textOnly ? 20 : 16, cell * (textOnly ? 0.7 : 0.55))) }}
+      >
+        {item.name || (item.use ? "" : "…")}
       </span>
-      {badge && box.h * cell >= 40 && (
-        <span className="rounded bg-brand px-1 text-[10px] leading-4 font-semibold text-ink">{badge}</span>
+      {badge && item.h * cell >= 44 && (
+        <span className="rounded bg-white/80 px-1 text-[10px] leading-4 font-semibold text-ink">{badge}</span>
       )}
       {selected && (
         <span
@@ -1396,7 +1167,7 @@ function ItemBox({
             e.stopPropagation();
             onResizeDown(e);
           }}
-          className="absolute -right-1.5 -bottom-1.5 size-4 cursor-se-resize rounded-sm border-2 border-white bg-ink"
+          className="absolute -right-2 -bottom-2 size-5 cursor-se-resize rounded-md border-2 border-white bg-ink shadow"
           style={{ touchAction: "none" }}
           aria-label="ลากเพื่อปรับขนาด"
         />
@@ -1405,23 +1176,29 @@ function ItemBox({
   );
 }
 
-function Popover({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const h = (e: PointerEvent) => {
-      const btn = ref.current?.parentElement;
-      if (btn && !btn.contains(e.target as Node)) onClose();
-    };
-    window.addEventListener("pointerdown", h);
-    return () => window.removeEventListener("pointerdown", h);
-  }, [onClose]);
+function Chip({
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div
-      ref={ref}
-      className="absolute top-full left-0 z-40 mt-1.5 w-[22rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-line bg-surface py-1 shadow-xl"
+    <button
+      type="button"
+      disabled={disabled && !active}
+      onClick={onClick}
+      className={clsx(
+        "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
+        active ? "border-ink bg-ink text-white" : "border-line bg-surface hover:border-ink/40",
+      )}
     >
       {children}
-    </div>
+    </button>
   );
 }
 
@@ -1459,14 +1236,12 @@ function Segmented<T extends string>({
 }
 
 /** ทำซ้ำเป็นแถว: ใส่จำนวนแล้วเลือกทิศ ชื่อห้องรันต่อให้อัตโนมัติ */
-function RepeatBox({ kind, onRepeat }: { kind: "unit" | "obj"; onRepeat: (n: number, dir: "right" | "down") => void }) {
+function RepeatBox({ rental, onRepeat }: { rental: boolean; onRepeat: (n: number, dir: "right" | "down") => void }) {
   const [n, setN] = useState(5);
   return (
-    <div className="rounded-xl bg-brand-soft p-3">
+    <div className="rounded-xl bg-canvas p-3">
       <div className="text-sm font-semibold">วางซ้ำต่อกันเป็นแถว</div>
-      <p className="mb-2 text-xs text-ink-2">
-        {kind === "unit" ? "เพิ่มห้องขนาดเดียวกัน ชื่อรันต่อให้อัตโนมัติ เช่น A-01 → A-02, A-03" : "เพิ่มสัญลักษณ์แบบเดียวกันต่อกัน"}
-      </p>
+      <p className="mb-2 text-xs text-muted">{rental ? "ขนาดและสีเดียวกัน ชื่อรันต่อให้ เช่น M1 → M2, M3" : "รูปแบบเดียวกันต่อกัน"}</p>
       <div className="flex items-center gap-2">
         <input
           type="number"
@@ -1477,7 +1252,7 @@ function RepeatBox({ kind, onRepeat }: { kind: "unit" | "obj"; onRepeat: (n: num
           className="input tabular w-20 bg-surface"
           aria-label="จำนวน"
         />
-        <span className="text-sm">{kind === "unit" ? "ห้อง" : "ชิ้น"}</span>
+        <span className="text-sm">{rental ? "ห้อง" : "ชิ้น"}</span>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button type="button" className="btn btn-outline btn-sm bg-surface" onClick={() => onRepeat(n, "right")}>

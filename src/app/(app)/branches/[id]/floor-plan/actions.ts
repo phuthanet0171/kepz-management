@@ -56,15 +56,15 @@ export type SavePlanInput = {
   name: string;
   cols: number;
   rows: number;
-  placements: (BoxInput & { unit_id: string })[];
+  placements: (BoxInput & { unit_id: string; color: PlanColor })[];
   objects: (BoxInput & { id: string; label: string; color: PlanColor })[];
   newUnits: { id: string; code: string; unit_type_code: string }[];
-  renames: { id: string; code: string }[];
+  renames: { id: string; code: string; unit_type_code: string }[];
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHAPES = new Set(["rect", "circle"]);
-const COLORS = new Set(["gray", "yellow", "black", "blue", "green", "red", "orange", "none"]);
+const COLORS = new Set(["yellow", "orange", "red", "pink", "purple", "blue", "teal", "green", "gray", "black", "white", "none"]);
 
 export async function saveFloorPlan(input: SavePlanInput): Promise<ActionState> {
   const denied = await ownerOnlyError();
@@ -75,6 +75,7 @@ export async function saveFloorPlan(input: SavePlanInput): Promise<ActionState> 
   const ints = [input.cols, input.rows, ...boxes.flatMap((p) => [p.x, p.y, p.w, p.h])];
   if (ints.some((n) => !Number.isInteger(n) || n < 0)) return { error: "ข้อมูลผังไม่ถูกต้อง" };
   if (boxes.some((b) => !SHAPES.has(b.shape))) return { error: "รูปทรงไม่ถูกต้อง" };
+  if (input.placements.some((p) => !COLORS.has(p.color) || p.color === "none")) return { error: "สีห้องไม่ถูกต้อง" };
   if (input.objects.some((o) => !UUID.test(o.id) || !COLORS.has(o.color) || o.label.length > 40)) {
     return { error: "ข้อมูลสัญลักษณ์ไม่ถูกต้อง" };
   }
@@ -103,7 +104,7 @@ export async function saveFloorPlan(input: SavePlanInput): Promise<ActionState> 
       const usesNew =
         input.objects.length > 0 || input.newUnits.length > 0 || input.renames.length > 0 || input.placements.some((p) => p.shape !== "rect");
       if (usesNew) {
-        return { error: "ฟีเจอร์ใหม่ของผัง (วาดห้อง สัญลักษณ์ วงกลม ตั้งชื่อ) ต้องรันไฟล์ 0010_floor_plan_shapes.sql ใน Supabase ก่อน" };
+        return { error: "ผังแบบใหม่ต้องรันไฟล์ 0010_floor_plan_shapes.sql และ 0011_plan_colors.sql ใน Supabase ก่อน" };
       }
       const old = await supabase.rpc("save_floor_plan", {
         p_plan_id: input.planId,
@@ -114,6 +115,9 @@ export async function saveFloorPlan(input: SavePlanInput): Promise<ActionState> 
       });
       if (old.error) return { error: thaiError(old.error, "บันทึกผังไม่สำเร็จ") };
     } else {
+      if (error.code === "23514" && error.message?.includes("color_check")) {
+        return { error: "สีใหม่ต้องรันไฟล์ 0011_plan_colors.sql ใน Supabase ก่อน" };
+      }
       if (error.code === "23505" && error.message?.includes("floor_plans_branch_name_key")) return { error: "มีชั้น / โซนชื่อนี้อยู่แล้ว" };
       if (error.code === "23505" && error.message?.includes("units_branch_code_key")) {
         return { error: "มีชื่อห้องซ้ำกับห้องอื่นในสาขานี้ กรุณาเปลี่ยนชื่อ" };

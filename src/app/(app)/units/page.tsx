@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { Building2, LayoutGrid, Map as MapIcon, Pencil, Plus, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FloorPlanLegend, FloorPlanViewer } from "@/components/floor-plan/viewer";
+import { FloorPlanViewer } from "@/components/floor-plan/viewer";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { groupByType, UnitGrid, UnitLegend, unitTileState } from "@/components/unit-grid";
 import { Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
@@ -246,9 +246,6 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
             </Link>
           )}
         </span>
-      </div>
-      <div className="mb-3">
-        <FloorPlanLegend />
       </div>
       <Card className="p-2 sm:p-3">
         <FloorPlanViewer

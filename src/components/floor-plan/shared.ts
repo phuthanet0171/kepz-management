@@ -1,4 +1,4 @@
-import type { PlanColor, PlanShape, PlanUnit } from "@/lib/types";
+import type { PlanColor, PlanUnit } from "@/lib/types";
 
 /** ขนาดกล่องตั้งต้น (จำนวนช่องตาราง กว้าง × สูง) ตามประเภทห้อง */
 export const DEFAULT_BOX: Record<string, { w: number; h: number }> = {
@@ -76,33 +76,31 @@ export const TILE_LABEL: Record<TileState, string> = {
   inactive: "ปิดใช้งาน",
 };
 
-/** สีของสัญลักษณ์บนผัง (ไม่ใช่ห้องเช่า) */
-export const OBJECT_COLORS: { key: PlanColor; label: string; cls: string; swatch: string }[] = [
-  { key: "gray", label: "เทา", cls: "border-[#9ca3af] bg-[#e5e7eb] text-[#374151]", swatch: "#d1d5db" },
-  { key: "yellow", label: "เหลือง", cls: "border-brand-strong bg-brand-soft text-ink", swatch: "#ffd21f" },
-  { key: "black", label: "ดำ", cls: "border-ink bg-ink text-white", swatch: "#111111" },
-  { key: "blue", label: "ฟ้า", cls: "border-info/50 bg-info-soft text-info", swatch: "#60a5fa" },
-  { key: "green", label: "เขียว", cls: "border-ok/50 bg-ok-soft text-ok", swatch: "#4ade80" },
-  { key: "red", label: "แดง", cls: "border-bad/50 bg-bad-soft text-bad", swatch: "#f87171" },
-  { key: "orange", label: "ส้ม", cls: "border-[#f59e0b] bg-[#fef3c7] text-[#92400e]", swatch: "#fb923c" },
-  { key: "none", label: "ไม่มีพื้น (ข้อความ)", cls: "border-transparent bg-transparent text-ink", swatch: "transparent" },
+/** สีที่เลือกได้บนผัง (ใช้ inline style เพื่อให้สีตรงทุกหน้าจอ) */
+export const PLAN_COLORS: { key: PlanColor; label: string; fill: string; border: string; text: string }[] = [
+  { key: "yellow", label: "เหลือง", fill: "#ffd21f", border: "#e0b400", text: "#111111" },
+  { key: "orange", label: "ส้ม", fill: "#fdba74", border: "#f97316", text: "#111111" },
+  { key: "red", label: "แดง", fill: "#fca5a5", border: "#ef4444", text: "#111111" },
+  { key: "pink", label: "ชมพู", fill: "#f9a8d4", border: "#ec4899", text: "#111111" },
+  { key: "purple", label: "ม่วง", fill: "#c4b5fd", border: "#8b5cf6", text: "#111111" },
+  { key: "blue", label: "ฟ้า", fill: "#93c5fd", border: "#3b82f6", text: "#111111" },
+  { key: "teal", label: "เขียวมิ้นต์", fill: "#99f6e4", border: "#14b8a6", text: "#111111" },
+  { key: "green", label: "เขียว", fill: "#86efac", border: "#22c55e", text: "#111111" },
+  { key: "gray", label: "เทา", fill: "#e5e7eb", border: "#9ca3af", text: "#374151" },
+  { key: "black", label: "ดำ", fill: "#1f1f1f", border: "#000000", text: "#ffffff" },
+  { key: "white", label: "ขาว", fill: "#ffffff", border: "#cfcfcf", text: "#111111" },
+  { key: "none", label: "ไม่มีพื้น (ตัวหนังสืออย่างเดียว)", fill: "transparent", border: "transparent", text: "#111111" },
 ];
 
-export function objectClass(color: PlanColor) {
-  return (OBJECT_COLORS.find((c) => c.key === color) ?? OBJECT_COLORS[0]).cls;
+export function colorStyle(key: PlanColor | null | undefined) {
+  const c = PLAN_COLORS.find((x) => x.key === key) ?? PLAN_COLORS[0];
+  return { background: c.fill, borderColor: c.border, color: c.text };
 }
 
-/** สัญลักษณ์สำเร็จรูป กดแล้ววางพร้อมชื่อและสี */
-export const OBJECT_PRESETS: { label: string; color: PlanColor; shape: PlanShape; w: number; h: number }[] = [
-  { label: "ทางเข้า", color: "green", shape: "rect", w: 4, h: 2 },
-  { label: "ลิฟต์", color: "blue", shape: "rect", w: 3, h: 3 },
-  { label: "บันได", color: "gray", shape: "rect", w: 3, h: 4 },
-  { label: "ห้องน้ำ", color: "blue", shape: "rect", w: 3, h: 3 },
-  { label: "เคาน์เตอร์", color: "yellow", shape: "rect", w: 5, h: 2 },
-  { label: "เสา", color: "black", shape: "circle", w: 1, h: 1 },
-  { label: "ทางเดิน", color: "gray", shape: "rect", w: 10, h: 2 },
-  { label: "ป้ายโซน", color: "none", shape: "rect", w: 6, h: 2 },
-];
+/** สีตั้งต้นของห้องที่ยังไม่ได้เลือกสี (ตามประเภท) */
+export function defaultUnitColor(typeCode: string): PlanColor {
+  return ({ XS: "orange", S: "yellow", M: "blue", L: "green", PARKING: "gray" } as Record<string, PlanColor>)[typeCode] ?? "yellow";
+}
 
 export function gridBackground(cell: number) {
   return {
