@@ -1,12 +1,13 @@
 "use client";
 
 import clsx from "clsx";
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Stamp, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Alert, Card, CardHeader } from "@/components/ui";
+import { Alert } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import type { DocWatermark } from "@/lib/types";
 import { saveWatermark } from "./actions";
+import { SAVE_CLASS, SaveBar, SettingsSection } from "./settings-ui";
 
 const MAX_SIDE = 1600; // px ด้านยาวสุด พอสำหรับพิมพ์ A4 ให้คม
 const MAX_DATA_URL = 2_000_000; // ตัวอักษร (≈1.5 MB)
@@ -47,7 +48,17 @@ async function prepareImage(file: File): Promise<string> {
 }
 
 /** หน้ากระดาษ A4 จำลอง ให้เห็นลายน้ำจริงก่อนบันทึก */
-function PagePreview({ image, opacity, size, enabled }: { image: string | null; opacity: number; size: number; enabled: boolean }) {
+function PagePreview({
+  image,
+  opacity,
+  size,
+  enabled,
+}: {
+  image: string | null;
+  opacity: number;
+  size: number;
+  enabled: boolean;
+}) {
   return (
     <div className="relative mx-auto aspect-[210/297] w-full max-w-[15rem] overflow-hidden rounded-md border border-line bg-white shadow-sm">
       {image && enabled && (
@@ -144,19 +155,17 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
   }
 
   return (
-    <Card>
-      <CardHeader
-        title="ลายน้ำบนเอกสาร"
-        description="รูปจางๆ กลางกระดาษ ทุกหน้าของสัญญาเช่า ใบวางบิล และใบเสร็จ ทั้งตอนพิมพ์และบันทึก PDF"
-      />
+    <SettingsSection
+      icon={Stamp}
+      title="ลายน้ำบนเอกสาร"
+      description="รูปจางๆ กลางกระดาษ ทุกหน้าของสัญญาเช่า ใบวางบิล และใบเสร็จ ทั้งตอนพิมพ์และบันทึก PDF"
+    >
       {!wm ? (
-        <div className="p-4 sm:p-5">
-          <Alert tone="warn">
-            ยังใช้ลายน้ำไม่ได้ กรุณารันไฟล์ <b>0009_doc_watermark.sql</b> ใน Supabase SQL Editor ก่อน
-          </Alert>
-        </div>
+        <Alert tone="warn">
+          ยังใช้ลายน้ำไม่ได้ กรุณารันไฟล์ <b>0009_doc_watermark.sql</b> ใน Supabase SQL Editor ก่อน
+        </Alert>
       ) : (
-        <ActionForm action={saveWatermark} resetOnSuccess={false} onSuccess={() => setChanged(false)} className="p-4 sm:p-5">
+        <ActionForm action={saveWatermark} resetOnSuccess={false} onSuccess={() => setChanged(false)}>
           <input type="hidden" name="image_changed" value={changed ? "1" : "0"} />
           {changed && <input type="hidden" name="image" value={image ?? ""} />}
           <input type="hidden" name="enabled" value={enabled ? "1" : "0"} />
@@ -243,12 +252,15 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
                   <input type="hidden" name="size" value={size} />
                 </>
               )}
-
-              <SubmitButton disabled={busy}>บันทึกลายน้ำ</SubmitButton>
             </div>
           </div>
+          <SaveBar>
+            <SubmitButton disabled={busy} className={SAVE_CLASS}>
+              บันทึกลายน้ำ
+            </SubmitButton>
+          </SaveBar>
         </ActionForm>
       )}
-    </Card>
+    </SettingsSection>
   );
 }
