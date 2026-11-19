@@ -124,13 +124,75 @@ export async function updateContractInfo(_: ActionState, fd: FormData): Promise<
   const id = reqStr(fd, "id");
   const purpose = str(fd, "purpose");
   const supabase = await createClient();
+
+  // ข้อมูลหลัก (ผู้เช่า ห้อง ค่าเช่า เงินประกัน วันที่ รอบชำระ) ส่งมาเฉพาะเมื่อยังแก้ได้ (ยังไม่มีการรับชำระ)
+  let reissued = "";
+  if (fd.has("unit_id")) {
+    const unitId = reqStr(fd, "unit_id");
+    const tenantId = reqStr(fd, "tenant_id");
+    const start = str(fd, "start_date");
+    const end = str(fd, "end_date");
+    const cycle = reqStr(fd, "billing_cycle");
+    const rent = num(fd, "monthly_rent");
+    const deposit = num(fd, "deposit_amount");
+    if (!unitId) return { error: "กรุณาเลือกห้อง" };
+    if (!tenantId) return { error: "กรุณาเลือกผู้เช่า" };
+    if (!isDate(start) || !isDate(end)) return { error: "กรุณาระบุวันเริ่มและวันสิ้นสุดสัญญา" };
+    if (end < start) return { error: "วันสิ้นสุดต้องไม่ก่อนวันเริ่มสัญญา" };
+    if (!CYCLES.includes(cycle)) return { error: "กรุณาเลือกรอบการชำระ" };
+    if (!isMoney(rent, { allowZero: false })) return { error: "ค่าเช่าต่อเดือนต้องมากกว่า 0" };
+    if (deposit === null) return { error: "กรุณากรอกเงินประกัน (ถ้าไม่เก็บเงินประกัน ใส่ 0)" };
+    if (!isMoney(deposit)) return { error: "ยอดเงินประกันไม่ถูกต้อง" };
+
+    const { data: cur } = await supabase
+      .from("contracts")
+      .select("unit_id, tenant_id, start_date, end_date, billing_cycle, monthly_rent, deposit_amount")
+      .eq("id", id)
+      .single();
+    const changed =
+      !cur ||
+      cur.unit_id !== unitId ||
+      cur.tenant_id !== tenantId ||
+      cur.start_date !== start ||
+      cur.end_date !== end ||
+      cur.billing_cycle !== cycle ||
+      Number(cur.monthly_rent) !== rent ||
+      Number(cur.deposit_amount) !== deposit;
+    if (changed) {
+      const { error: coreErr } = await supabase.rpc("update_contract_core", {
+        p_contract_id: id,
+        p_unit_id: unitId,
+        p_tenant_id: tenantId,
+        p_start_date: start,
+        p_end_date: end,
+        p_billing_cycle: cycle,
+        p_monthly_rent: rent,
+        p_deposit_amount: deposit,
+      });
+      if (coreErr) {
+        if (coreErr.code === "PGRST202" || coreErr.message?.includes("schema cache")) {
+          return { error: "การแก้ไขผู้เช่า ห้อง หรือยอดเงิน ต้องรันไฟล์ 0015_edit_contract.sql ใน Supabase ก่อน" };
+        }
+        return { error: thaiError(coreErr, "แก้ไขสัญญาไม่สำเร็จ") };
+      }
+      reissued = await createFirstInvoice(supabase, id, unitId, deposit!);
+    }
+  }
+
   const { error } = await supabase
     .from("contracts")
     .update({ purpose: purpose ? purpose.slice(0, 200) : null, note: str(fd, "note") })
     .eq("id", id);
   if (error) return { error: thaiError(error, "บันทึกไม่สำเร็จ") };
   revalidatePath("/", "layout");
-  return { ok: true };
+  if (!reissued) return { ok: true, message: "บันทึกแล้ว" };
+  return {
+    ok: true,
+    message:
+      reissued === "ok"
+        ? "แก้ไขสัญญาแล้ว ยกเลิกใบวางบิลเดิมและออกใบวางบิลแรกใหม่ตามข้อมูลที่แก้ให้แล้ว"
+        : "แก้ไขสัญญาแล้ว แต่ออกใบวางบิลใหม่ไม่สำเร็จ กรุณากด “ออกบิลรอบถัดไป” เพื่อออกเอง",
+  };
 }
 
 export async function renewContract(_: ActionState, fd: FormData): Promise<ActionState> {

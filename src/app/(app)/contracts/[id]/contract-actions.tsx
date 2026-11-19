@@ -33,7 +33,12 @@ function RenewForm({ contract, onDone }: { contract: ContractView; onDone: () =>
       <input type="hidden" name="id" value={contract.id} />
       <div className="flex flex-wrap gap-2">
         {[3, 6, 12].map((m) => (
-          <button key={m} type="button" className="btn btn-outline btn-sm" onClick={() => setEnd(addDays(addMonths(base, m), -1))}>
+          <button
+            key={m}
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setEnd(addDays(addMonths(base, m), -1))}
+          >
             +{m < 12 ? `${m} เดือน` : "1 ปี"}
           </button>
         ))}
@@ -87,9 +92,7 @@ export function EndContractButton({ contract, today }: { contract: ContractView;
             <Alert tone="bad">ยังมียอดค้างชำระ {money(contract.outstanding)} บาท ใบวางบิลจะยังคงค้างอยู่หลังสิ้นสุดสัญญา</Alert>
           )}
           {Number(contract.deposit_balance) > 0 && (
-            <Alert tone="warn">
-              ยังมีเงินประกันคงเหลือ {money(contract.deposit_balance)} บาท อย่าลืมบันทึกคืนหรือหักเงินประกัน
-            </Alert>
+            <Alert tone="warn">ยังมีเงินประกันคงเหลือ {money(contract.deposit_balance)} บาท อย่าลืมบันทึกคืนหรือหักเงินประกัน</Alert>
           )}
           <Field label="ประเภท" required>
             <select name="status" className="input" defaultValue="ended">
@@ -208,21 +211,32 @@ function DepositForm({
   );
 }
 
+export type EditUnitOption = { id: string; code: string; branch_name: string; unit_type_name: string; effective_price: number };
+export type EditTenantOption = { id: string; full_name: string; phone: string };
+
 export function EditContractInfoButton({
-  id,
+  contract,
   purpose,
-  note,
   isParking,
+  canEditCore,
+  units = [],
+  tenants = [],
+  openBills = [],
 }: {
-  id: string;
+  contract: ContractView;
   purpose: string | null;
-  note: string | null;
   isParking: boolean;
+  /** ยังไม่มีการรับชำระ แก้ผู้เช่า ห้อง ยอดเงิน วันที่ได้ */
+  canEditCore: boolean;
+  units?: EditUnitOption[];
+  tenants?: EditTenantOption[];
+  /** เลขใบวางบิลที่ยังไม่ชำระ (จะถูกยกเลิกและออกใหม่เมื่อแก้ข้อมูลหลัก) */
+  openBills?: string[];
 }) {
   return (
     <Sheet
       title="แก้ไขรายละเอียดสัญญา"
-      description="ข้อความที่พิมพ์ลงในสัญญา"
+      description={`${contract.contract_no} · แก้แล้วสัญญาที่พิมพ์ใหม่จะใช้ข้อมูลล่าสุด`}
       triggerClassName="btn btn-outline"
       trigger={
         <>
@@ -231,17 +245,175 @@ export function EditContractInfoButton({
       }
     >
       {(close) => (
-        <ActionForm action={updateContractInfo} onSuccess={close} resetOnSuccess={false}>
-          <input type="hidden" name="id" value={id} />
-          <Field label={isParking ? "ทะเบียนรถ" : "เพื่อใช้เก็บ"}>
-            <input name="purpose" maxLength={200} defaultValue={purpose ?? ""} className="input" />
-          </Field>
-          <Field label="หมายเหตุ / เงื่อนไขเพิ่มเติม">
-            <textarea name="note" rows={3} defaultValue={note ?? ""} className="input min-h-0" />
-          </Field>
-          <SubmitButton className="btn btn-primary w-full">บันทึก</SubmitButton>
-        </ActionForm>
+        <EditContractForm
+          contract={contract}
+          purpose={purpose}
+          isParking={isParking}
+          canEditCore={canEditCore}
+          units={units}
+          tenants={tenants}
+          openBills={openBills}
+          onDone={close}
+        />
       )}
     </Sheet>
+  );
+}
+
+function EditContractForm({
+  contract: c,
+  purpose,
+  isParking,
+  canEditCore,
+  units,
+  tenants,
+  openBills,
+  onDone,
+}: {
+  contract: ContractView;
+  purpose: string | null;
+  isParking: boolean;
+  canEditCore: boolean;
+  units: EditUnitOption[];
+  tenants: EditTenantOption[];
+  openBills: string[];
+  onDone: () => void;
+}) {
+  const [unitId, setUnitId] = useState(c.unit_id);
+  const [tenantId, setTenantId] = useState(c.tenant_id);
+  const [rent, setRent] = useState(String(Number(c.monthly_rent)));
+  const [deposit, setDeposit] = useState(String(Number(c.deposit_amount)));
+  const [start, setStart] = useState(c.start_date);
+  const [end, setEnd] = useState(c.end_date);
+  const [cycle, setCycle] = useState<string>(c.billing_cycle);
+  const changed =
+    unitId !== c.unit_id ||
+    tenantId !== c.tenant_id ||
+    Number(rent) !== Number(c.monthly_rent) ||
+    Number(deposit) !== Number(c.deposit_amount) ||
+    start !== c.start_date ||
+    end !== c.end_date ||
+    cycle !== c.billing_cycle;
+
+  // ห้องปัจจุบัน + ห้องว่าง จัดกลุ่มตามสาขา
+  const branches = [...new Set(units.map((u) => u.branch_name))];
+
+  return (
+    <ActionForm action={updateContractInfo} onSuccess={onDone} resetOnSuccess={false}>
+      <input type="hidden" name="id" value={c.id} />
+      {canEditCore ? (
+        <>
+          <Field label="ผู้เช่า" required>
+            <select name="tenant_id" required value={tenantId} onChange={(e) => setTenantId(e.target.value)} className="input">
+              {tenants.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name} · {t.phone}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="ห้อง / ที่จอด" required hint="แสดงเฉพาะห้องว่างและห้องปัจจุบัน">
+            <select
+              name="unit_id"
+              required
+              value={unitId}
+              onChange={(e) => {
+                setUnitId(e.target.value);
+                const u = units.find((x) => x.id === e.target.value);
+                if (u && e.target.value !== c.unit_id) setRent(String(u.effective_price));
+              }}
+              className="input"
+            >
+              {branches.map((b) => (
+                <optgroup key={b} label={b}>
+                  {units
+                    .filter((u) => u.branch_name === b)
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.code} · {u.unit_type_name}
+                        {u.id === c.unit_id ? " (ห้องปัจจุบัน)" : ` · ${money(u.effective_price)}/เดือน`}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="ค่าเช่าต่อเดือน (บาท)" required>
+              <input
+                name="monthly_rent"
+                type="number"
+                inputMode="decimal"
+                min={0.01}
+                step="0.01"
+                required
+                value={rent}
+                onChange={(e) => setRent(e.target.value)}
+                className="input tabular"
+              />
+            </Field>
+            <Field label="เงินประกัน (บาท)" required hint="ไม่เก็บ ใส่ 0">
+              <input
+                name="deposit_amount"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.01"
+                required
+                value={deposit}
+                onChange={(e) => setDeposit(e.target.value)}
+                className="input tabular"
+              />
+            </Field>
+            <Field label="วันเริ่มสัญญา" required>
+              <input
+                name="start_date"
+                type="date"
+                required
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                className="input"
+              />
+            </Field>
+            <Field label="วันสิ้นสุดสัญญา" required>
+              <input
+                name="end_date"
+                type="date"
+                required
+                min={start}
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+                className="input"
+              />
+            </Field>
+          </div>
+          <Field label="รอบการชำระ" required>
+            <select name="billing_cycle" required value={cycle} onChange={(e) => setCycle(e.target.value)} className="input">
+              <option value="monthly">รายเดือน</option>
+              <option value="semiannual">ราย 6 เดือน</option>
+              <option value="annual">รายปี</option>
+            </select>
+          </Field>
+          {changed && (
+            <Alert tone="warn">
+              {openBills.length
+                ? `ใบวางบิลที่ยังไม่ชำระ (${openBills.join(", ")}) จะถูกยกเลิก แล้วระบบออกใบวางบิลแรกใหม่ตามข้อมูลที่แก้ให้`
+                : "ระบบจะออกใบวางบิลแรกใหม่ตามข้อมูลที่แก้ให้"}
+            </Alert>
+          )}
+        </>
+      ) : (
+        <Alert tone="info">
+          สัญญานี้รับชำระแล้ว แก้ได้เฉพาะข้อความด้านล่าง ถ้าผู้เช่า ห้อง หรือยอดเงินผิด ให้ยกเลิกใบเสร็จที่หน้าใบวางบิลก่อน แล้วกลับมาแก้ที่นี่
+        </Alert>
+      )}
+      <Field label={isParking ? "ทะเบียนรถ" : "เพื่อใช้เก็บ"}>
+        <input name="purpose" maxLength={200} defaultValue={purpose ?? ""} className="input" />
+      </Field>
+      <Field label="หมายเหตุ / เงื่อนไขเพิ่มเติม">
+        <textarea name="note" rows={3} defaultValue={c.note ?? ""} className="input min-h-0" />
+      </Field>
+      <SubmitButton className="btn btn-primary w-full">{changed ? "บันทึกและออกใบวางบิลใหม่" : "บันทึกการแก้ไข"}</SubmitButton>
+    </ActionForm>
   );
 }

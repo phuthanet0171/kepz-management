@@ -5,9 +5,17 @@ import { notFound } from "next/navigation";
 import { ContractStatusBadge, InvoiceStatusBadge } from "@/components/status";
 import { Alert, Card, CardHeader, DefinitionList, PageHeader } from "@/components/ui";
 import { BILLING_CYCLE_LABEL, daysBetween, money, thDate, thDateTime, todayTH } from "@/lib/format";
+import { fetchAll } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import type { BillingDue, ContractRenewal, ContractView, InvoiceView } from "@/lib/types";
-import { DepositButton, EditContractInfoButton, EndContractButton, RenewContractButton } from "./contract-actions";
+import {
+  DepositButton,
+  EditContractInfoButton,
+  EndContractButton,
+  RenewContractButton,
+  type EditTenantOption,
+  type EditUnitOption,
+} from "./contract-actions";
 
 export const metadata: Metadata = { title: "สัญญาเช่า" };
 
@@ -43,6 +51,25 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
   const openBills = invoices.filter((i) => i.status === "unpaid" || i.status === "partial");
   const billTarget = openBills[openBills.length - 1] ?? invoices.find((i) => i.status !== "void") ?? null;
   const depositReceived = Number(c.deposit_balance);
+  // ยังไม่มีการรับชำระ = แก้ผู้เช่า ห้อง ยอดเงิน วันที่ ได้
+  const canEditCore = active && !invoices.some((i) => i.status !== "void" && Number(i.paid_amount) > 0);
+  const [editUnits, editTenants] = canEditCore
+    ? await Promise.all([
+        fetchAll<EditUnitOption & { status: string; type_sort: number }>((from, to) =>
+          supabase
+            .from("v_units")
+            .select("id, code, branch_name, unit_type_name, effective_price, status, type_sort")
+            .or(`status.eq.available,id.eq.${c.unit_id}`)
+            .order("branch_name")
+            .order("type_sort")
+            .order("code")
+            .range(from, to),
+        ),
+        fetchAll<EditTenantOption>((from, to) =>
+          supabase.from("tenants").select("id, full_name, phone").order("full_name").range(from, to),
+        ),
+      ])
+    : [[], []];
   const depositAmount = Number(c.deposit_amount);
 
   return (
@@ -168,7 +195,15 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
               )}
               {active && (
                 <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
-                  <EditContractInfoButton id={c.id} purpose={purpose} note={c.note} isParking={isParking} />
+                  <EditContractInfoButton
+                    contract={c}
+                    purpose={purpose}
+                    isParking={isParking}
+                    canEditCore={canEditCore}
+                    units={editUnits}
+                    tenants={editTenants}
+                    openBills={openBills.map((i) => i.invoice_no)}
+                  />
                   <RenewContractButton contract={c} />
                   <EndContractButton contract={c} today={today} />
                 </div>
