@@ -107,25 +107,3 @@ export async function updateBranch(_: ActionState, fd: FormData): Promise<Action
   return { ok: true };
 }
 
-export async function addUnits(_: ActionState, fd: FormData): Promise<ActionState> {
-  const denied = await ownerOnlyError();
-  if (denied) return { error: denied };
-  const branchId = reqStr(fd, "branch_id");
-  const typeCode = reqStr(fd, "unit_type_code");
-  const count = num(fd, "count");
-  if (!typeCode) return { error: "กรุณาเลือกประเภท" };
-  if (count === null || !Number.isInteger(count) || count < 1 || count > 500) {
-    return { error: "จำนวนต้องเป็นจำนวนเต็ม 1–500" };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("add_units", {
-    p_branch_id: branchId,
-    p_unit_type_code: typeCode,
-    p_count: count,
-  });
-  if (error) return { error: thaiError(error, "เพิ่มห้องไม่สำเร็จ") };
-
-  revalidatePath("/", "layout");
-  return { ok: true };
-}

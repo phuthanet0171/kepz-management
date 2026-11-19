@@ -9,7 +9,6 @@ import { getUnitTypes } from "@/lib/data";
 import { getBranchPlanData } from "@/lib/floor-plans";
 import { createClient } from "@/lib/supabase/server";
 import { FloorPlanEditor } from "./editor";
-import { AddUnitsButton } from "../branch-actions";
 import { AddPlanButton, DeletePlanButton, FirstPlanForm } from "./plan-actions";
 
 export const metadata: Metadata = { title: "จัดผังสถานที่" };
@@ -30,7 +29,6 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
       back={{ href: `/units?branch=${id}`, label: `ห้องและที่จอด · ${branch.name}` }}
       title="จัดผังสถานที่"
       subtitle="วาดห้อง ที่จอด และสัญลักษณ์ให้เหมือนสถานที่จริง ห้องที่วาดใหม่พร้อมทำสัญญาทันทีหลังบันทึก"
-      actions={<AddUnitsButton branchId={id} unitTypes={unitTypes} />}
     />
   );
 
