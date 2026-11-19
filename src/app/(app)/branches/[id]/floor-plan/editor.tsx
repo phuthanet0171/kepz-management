@@ -2,8 +2,6 @@
 
 import clsx from "clsx";
 import {
-  ArrowDown,
-  ArrowRight,
   Ban,
   Circle,
   Copy,
@@ -476,44 +474,6 @@ export function FloorPlanEditor({
     return { ...src, ...box, name: code };
   }
 
-  /** ทำซ้ำต่อกันเป็นแถว (count ชิ้น) ไปทางขวาหรือลงล่าง */
-  function repeatSel(count: number, dir: "right" | "down") {
-    if (!sel || !selItem) return;
-    const d0 = docRef.current;
-    const rental = Object.values(d0.items).filter(isRental);
-    const used = usedCodes(d0);
-    const made: [string, Item][] = [];
-    let prev = selItem;
-    let stopped = false;
-    for (let i = 1; i <= count; i++) {
-      const box = {
-        x: dir === "right" ? selItem.x + i * selItem.w : selItem.x,
-        y: dir === "down" ? selItem.y + i * selItem.h : selItem.y,
-        w: selItem.w,
-        h: selItem.h,
-      };
-      if (box.x + box.w > d0.cols || box.y + box.h > d0.rows || (selItem.use && rental.some((r) => overlaps(r, box)))) {
-        stopped = true;
-        break;
-      }
-      prev = cloneAt(prev, box, used);
-      made.push([uid(), prev]);
-    }
-    if (made.length) {
-      commit((d) => ({ ...d, items: { ...d.items, ...Object.fromEntries(made) } }));
-      setSel(made[made.length - 1][0]);
-    }
-    const side = dir === "right" ? "ขวา" : "ล่าง";
-    setMessage(
-      stopped
-        ? {
-            tone: "bad",
-            text: made.length ? `เพิ่มได้ ${made.length} ชิ้น พื้นที่ด้าน${side}ไม่พอหรือมีห้องขวางอยู่` : `ด้าน${side}ไม่มีที่ว่างพอ ลองอีกทิศหรือขยายผัง`,
-          }
-        : null,
-    );
-  }
-
   function duplicateSel() {
     if (!sel || !selItem) return;
     const d0 = docRef.current;
@@ -797,31 +757,6 @@ export function FloorPlanEditor({
                   <RotateCw className="size-4" />
                 </button>
               </div>
-
-              <div>
-                <span className="label">ขนาด (ช่อง) กว้าง × ยาว</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    value={selItem.w}
-                    onChange={(e) => patchSel({ w: Number(e.target.value) })}
-                    className="input tabular w-20"
-                    aria-label="กว้าง"
-                  />
-                  ×
-                  <input
-                    type="number"
-                    min={1}
-                    value={selItem.h}
-                    onChange={(e) => patchSel({ h: Number(e.target.value) })}
-                    className="input tabular w-20"
-                    aria-label="ยาว"
-                  />
-                </div>
-              </div>
-
-              <RepeatBox rental={!!selItem.use} onRepeat={repeatSel} />
 
               <div className="grid grid-cols-2 gap-2 border-t border-line pt-4">
                 <button type="button" className="btn btn-outline" onClick={duplicateSel} title="Ctrl+D">
@@ -1230,37 +1165,6 @@ function Segmented<T extends string>({
             {o.icon} {o.label}
           </button>
         ))}
-      </div>
-    </div>
-  );
-}
-
-/** ทำซ้ำเป็นแถว: ใส่จำนวนแล้วเลือกทิศ ชื่อห้องรันต่อให้อัตโนมัติ */
-function RepeatBox({ rental, onRepeat }: { rental: boolean; onRepeat: (n: number, dir: "right" | "down") => void }) {
-  const [n, setN] = useState(5);
-  return (
-    <div className="rounded-xl bg-canvas p-3">
-      <div className="text-sm font-semibold">วางซ้ำต่อกันเป็นแถว</div>
-      <p className="mb-2 text-xs text-muted">{rental ? "ขนาดและสีเดียวกัน ชื่อรันต่อให้ เช่น M1 → M2, M3" : "รูปแบบเดียวกันต่อกัน"}</p>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min={1}
-          max={100}
-          value={n}
-          onChange={(e) => setN(clamp(Math.round(Number(e.target.value) || 1), 1, 100))}
-          className="input tabular w-20 bg-surface"
-          aria-label="จำนวน"
-        />
-        <span className="text-sm">{rental ? "ห้อง" : "ชิ้น"}</span>
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <button type="button" className="btn btn-outline btn-sm bg-surface" onClick={() => onRepeat(n, "right")}>
-          <ArrowRight className="size-3.5" /> ทางขวา
-        </button>
-        <button type="button" className="btn btn-outline btn-sm bg-surface" onClick={() => onRepeat(n, "down")}>
-          <ArrowDown className="size-3.5" /> ด้านล่าง
-        </button>
       </div>
     </div>
   );
