@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { Activity, Maximize2, Minus, Palette, Plus } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { FloorPlan, Placement, PlanObject, PlanUnit } from "@/lib/types";
 import {
   BASE_CELL,
@@ -42,21 +42,26 @@ export function FloorPlanLegend() {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
       {TILE_LEGEND.map((l) => (
-        <span key={l.state} className="inline-flex items-center gap-1.5">
-          <span
-            className={clsx(
-              "flex size-3.5 items-center justify-center rounded border-2 text-[10px] leading-none font-black",
-              TILE_CLASS[l.state],
-            )}
-          >
-            {l.state === "overdue" && "!"}
+        <Fragment key={l.state}>
+          {/* รอชำระ อยู่ก่อน ค้างชำระเกินกำหนด */}
+          {l.state === "overdue" && (
+            <span className="inline-flex items-center gap-1.5">
+              <PendingBadge size={14} /> รอชำระ
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className={clsx(
+                "flex size-3.5 items-center justify-center rounded border-2 text-[10px] leading-none font-black",
+                TILE_CLASS[l.state],
+              )}
+            >
+              {l.state === "overdue" && "!"}
+            </span>
+            {l.label}
           </span>
-          {l.label}
-        </span>
+        </Fragment>
       ))}
-      <span className="inline-flex items-center gap-1.5">
-        <PendingBadge size={14} /> รอชำระ
-      </span>
     </div>
   );
 }
@@ -86,9 +91,9 @@ export function PendingBadge({ size = 18, className }: { size?: number; classNam
         "inline-flex shrink-0 items-center justify-center rounded-full bg-[#f97316] leading-none font-black text-white ring-2 ring-white",
         className,
       )}
-      style={{ width: size, height: size, fontSize: size * 0.62 }}
+      style={{ width: size, height: size, fontSize: size * 0.7 }}
     >
-      ฿
+      !
     </span>
   );
 }
@@ -230,10 +235,10 @@ export function FloorPlanViewer({
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
             <span>แสดงสีตามที่จัดผังไว้ · แตะห้องเพื่อดูรายละเอียด</span>
             <span className="inline-flex items-center gap-1.5">
-              <OverdueBadge size={14} /> ค้างชำระเกินกำหนด
+              <PendingBadge size={14} /> รอชำระ
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <PendingBadge size={14} /> รอชำระ
+              <OverdueBadge size={14} /> ค้างชำระเกินกำหนด
             </span>
           </p>
         )}
@@ -257,6 +262,8 @@ export function FloorPlanViewer({
                   "absolute flex flex-col items-center justify-center border-2 text-center leading-snug transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
                   p.shape === "circle" ? "rounded-full" : "rounded-md",
                   mode === "status" && TILE_CLASS[state],
+                  // รอชำระ: กรอบส้มรอบกล่องตามรูปทรง
+                  state !== "overdue" && u.has_unpaid && u.status === "occupied" && "ring-[3px] ring-[#f97316] ring-offset-1",
                 )}
                 style={{
                   left: (p.x - offX) * cell + 1,

@@ -35,6 +35,7 @@ export function UnitTile({ unit, overdue, pending }: { unit: UnitView; overdue?:
       className={clsx(
         "relative flex min-h-[4.25rem] flex-col justify-between rounded-xl border-2 px-2.5 py-2 transition active:scale-[0.97]",
         tileClass[state],
+        state !== "overdue" && pending && unit.status === "occupied" && "ring-[3px] ring-[#f97316] ring-offset-1",
       )}
       title={`${unit.tenant_name ?? subLabel[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : pending ? " · รอชำระ" : ""}`}
     >
@@ -77,15 +78,15 @@ export function UnitLegend({ withOverdue = false }: { withOverdue?: boolean }) {
       ))}
       {withOverdue && (
         <span className="inline-flex items-center gap-1.5">
-          <span className="flex size-3.5 items-center justify-center rounded bg-bad text-[10px] leading-none font-black text-white">
-            !
-          </span>
-          ค้างชำระเกินกำหนด
+          <PendingBadge size={14} /> รอชำระ
         </span>
       )}
       {withOverdue && (
         <span className="inline-flex items-center gap-1.5">
-          <PendingBadge size={14} /> รอชำระ
+          <span className="flex size-3.5 items-center justify-center rounded bg-bad text-[10px] leading-none font-black text-white">
+            !
+          </span>
+          ค้างชำระเกินกำหนด
         </span>
       )}
     </div>
