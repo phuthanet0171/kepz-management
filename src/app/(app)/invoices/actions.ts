@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { thaiError } from "@/lib/errors";
 import { isDate, isMoney, num, reqStr, str } from "@/lib/form";
 import { thDate, todayTH } from "@/lib/format";
+import { rentDueDate } from "@/lib/due-date";
+import { rentDueDayFor } from "@/lib/due-day";
 import { createClient } from "@/lib/supabase/server";
 import type { TaxChoice } from "@/lib/tax";
 import type { ActionState, BillingDue, ItemType } from "@/lib/types";
@@ -118,6 +120,7 @@ export async function createInvoicesBulk(_: ActionState, fd: FormData): Promise<
   const today = todayTH();
   const failed: string[] = [];
   let created = 0;
+  const dueDays = await rentDueDayFor(supabase, ((data ?? []) as BillingDue[]).map((b) => b.contract_id));
 
   for (const b of (data ?? []) as BillingDue[]) {
     if (b.is_partial) {
@@ -129,7 +132,7 @@ export async function createInvoicesBulk(_: ActionState, fd: FormData): Promise<
       p_period_start: b.period_start,
       p_period_end: b.period_end,
       p_issue_date: today,
-      p_due_date: b.period_start > today ? b.period_start : today,
+      p_due_date: rentDueDate(b.period_start, dueDays.get(b.contract_id), today),
       p_items: [
         {
           item_type: "rent",

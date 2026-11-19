@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { getSettings } from "@/lib/data";
+import { rentDueDayFor } from "@/lib/due-day";
 import { money, todayTH } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { BillingDue, ContractView } from "@/lib/types";
@@ -60,6 +61,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
   ]);
   if (!cData) notFound();
   const c = cData as ContractView;
+  const dueDay = (await rentDueDayFor(supabase, [c.id])).get(c.id) ?? null;
   const next = due as BillingDue | null;
   const hasRentCycle = Boolean(next && c.status === "active");
   const openInvoices = (openData ?? []) as {
@@ -100,6 +102,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
             </Card>
           )}
           <InvoiceForm
+            rentDueDay={dueDay}
             contractId={c.id}
             unitCode={c.unit_code}
             monthlyRent={Number(c.monthly_rent)}

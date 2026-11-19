@@ -6,6 +6,7 @@ import { TaxPicker, TaxSummary } from "@/components/tax-picker";
 import { Alert, Card, CardHeader, Field } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import { ITEM_TYPE_LABEL, money, thDate } from "@/lib/format";
+import { rentDueDate } from "@/lib/due-date";
 import { computeTax, type TaxChoice } from "@/lib/tax";
 import type { ItemType } from "@/lib/types";
 import { createInvoice } from "../actions";
@@ -22,6 +23,7 @@ export function InvoiceForm({
   today,
   defaultTax,
   hasTaxId,
+  rentDueDay,
 }: {
   contractId: string;
   unitCode: string;
@@ -32,12 +34,14 @@ export function InvoiceForm({
   today: string;
   defaultTax: TaxChoice;
   hasTaxId: boolean;
+  /** ชำระภายในวันที่ … ของเดือน (ของสาขาหรือค่ากลาง) */
+  rentDueDay?: number | null;
 }) {
   const [hasPeriod, setHasPeriod] = useState(Boolean(nextPeriod));
   const [periodStart, setPeriodStart] = useState(nextPeriod?.start ?? "");
   const [periodEnd, setPeriodEnd] = useState(nextPeriod?.end ?? "");
   const [issue, setIssue] = useState(today);
-  const defaultDue = nextPeriod && nextPeriod.start > today ? nextPeriod.start : today;
+  const defaultDue = nextPeriod ? rentDueDate(nextPeriod.start, rentDueDay, today) : today;
   const [due, setDue] = useState(defaultDue);
   const [seq, setSeq] = useState(2);
   const [tax, setTax] = useState<TaxChoice>(defaultTax);
