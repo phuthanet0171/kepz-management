@@ -55,15 +55,22 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
     fetchAll<UnitView>((from, to) =>
       supabase.from("v_units").select("*").eq("branch_id", branchId).neq("status", "inactive").order("id").range(from, to),
     ),
-    fetchAll<{ unit_id: string }>((from, to) =>
-      supabase.from("v_invoices").select("unit_id").eq("branch_id", branchId).eq("is_overdue", true).order("id").range(from, to),
+    fetchAll<{ unit_id: string; is_overdue: boolean }>((from, to) =>
+      supabase
+        .from("v_invoices")
+        .select("unit_id, is_overdue")
+        .eq("branch_id", branchId)
+        .in("status", ["unpaid", "partial"])
+        .order("id")
+        .range(from, to),
     ),
     supabase.from("floor_plans").select("id", { count: "exact", head: true }).eq("branch_id", branchId),
     isOwner(),
   ]);
   // เปิดมาเห็นผังก่อน (ถ้าสาขานี้จัดผังไว้แล้ว) ยกเว้นมาจากการค้นหา/กรองสถานะ ซึ่งใช้กับแบบรายการ
   const view = sp.view === "plan" || sp.view === "list" ? sp.view : sp.status || sp.q || !planCount ? "list" : "plan";
-  const overdue = new Set(overdueRows.map((r) => r.unit_id));
+  const overdue = new Set(overdueRows.filter((r) => r.is_overdue).map((r) => r.unit_id));
+  const pending = new Set(overdueRows.map((r) => r.unit_id));
 
   const counts: Record<string, number> = { all: all.length, available: 0, occupied: 0, expiring: 0, maintenance: 0 };
   for (const u of all) {
@@ -194,7 +201,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
                 <Card key={g.code}>
                   <CardHeader title={g.name} description={`${g.units.length} ห้อง`} />
                   <div className="p-3 sm:p-4">
-                    <UnitGrid units={g.units} overdue={overdue} />
+                    <UnitGrid units={g.units} overdue={overdue} pending={pending} />
                   </div>
                 </Card>
               ))}

@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import type { UnitView } from "@/lib/types";
-import { OverdueBadge } from "./floor-plan/viewer";
+import { OverdueBadge, PendingBadge } from "./floor-plan/viewer";
 
 export function unitTileState(u: Pick<UnitView, "status" | "is_expiring">) {
   if (u.status === "occupied" && u.is_expiring) return "expiring" as const;
@@ -26,7 +26,7 @@ const subLabel = {
   inactive: "ปิดใช้งาน",
 };
 
-export function UnitTile({ unit, overdue }: { unit: UnitView; overdue?: boolean }) {
+export function UnitTile({ unit, overdue, pending }: { unit: UnitView; overdue?: boolean; pending?: boolean }) {
   const base = unitTileState(unit);
   const state = overdue && unit.status === "occupied" ? "overdue" : base;
   return (
@@ -36,9 +36,12 @@ export function UnitTile({ unit, overdue }: { unit: UnitView; overdue?: boolean 
         "relative flex min-h-[4.25rem] flex-col justify-between rounded-xl border-2 px-2.5 py-2 transition active:scale-[0.97]",
         tileClass[state],
       )}
-      title={`${unit.tenant_name ?? subLabel[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : ""}`}
+      title={`${unit.tenant_name ?? subLabel[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : pending ? " · รอชำระ" : ""}`}
     >
       {state === "overdue" && <OverdueBadge size={20} className="absolute -top-2 -right-2" />}
+      {state !== "overdue" && pending && unit.status === "occupied" && (
+        <PendingBadge size={20} className="absolute -top-2 -right-2" />
+      )}
       <span className="text-sm leading-snug font-bold">{unit.code}</span>
       <span className={clsx("truncate text-[11px] leading-snug", state === "available" && "text-ok")}>
         {state === "occupied" || state === "expiring" || state === "overdue" ? (unit.tenant_name ?? "") : subLabel[state]}
@@ -47,11 +50,11 @@ export function UnitTile({ unit, overdue }: { unit: UnitView; overdue?: boolean 
   );
 }
 
-export function UnitGrid({ units, overdue }: { units: UnitView[]; overdue?: Set<string> }) {
+export function UnitGrid({ units, overdue, pending }: { units: UnitView[]; overdue?: Set<string>; pending?: Set<string> }) {
   return (
     <div className="grid grid-cols-3 gap-2 min-[420px]:grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
       {units.map((u) => (
-        <UnitTile key={u.id} unit={u} overdue={overdue?.has(u.id)} />
+        <UnitTile key={u.id} unit={u} overdue={overdue?.has(u.id)} pending={pending?.has(u.id)} />
       ))}
     </div>
   );
@@ -74,8 +77,15 @@ export function UnitLegend({ withOverdue = false }: { withOverdue?: boolean }) {
       ))}
       {withOverdue && (
         <span className="inline-flex items-center gap-1.5">
-          <span className="flex size-3.5 items-center justify-center rounded bg-bad text-[10px] leading-none font-black text-white">!</span>
+          <span className="flex size-3.5 items-center justify-center rounded bg-bad text-[10px] leading-none font-black text-white">
+            !
+          </span>
           ค้างชำระเกินกำหนด
+        </span>
+      )}
+      {withOverdue && (
+        <span className="inline-flex items-center gap-1.5">
+          <PendingBadge size={14} /> รอชำระ
         </span>
       )}
     </div>

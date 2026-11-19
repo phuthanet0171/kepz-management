@@ -306,4 +306,6 @@ export interface PlanUnit {
   is_expiring: boolean;
   tenant_name: string | null;
   has_overdue: boolean;
+  /** มีบิลที่ยังไม่ชำระครบ (รวมที่ยังไม่ถึงกำหนด) */
+  has_unpaid?: boolean;
 }

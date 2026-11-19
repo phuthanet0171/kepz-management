@@ -54,6 +54,9 @@ export function FloorPlanLegend() {
           {l.label}
         </span>
       ))}
+      <span className="inline-flex items-center gap-1.5">
+        <PendingBadge size={14} /> รอชำระ
+      </span>
     </div>
   );
 }
@@ -70,6 +73,22 @@ export function OverdueBadge({ size = 18, className }: { size?: number; classNam
       style={{ width: size, height: size, fontSize: size * 0.7 }}
     >
       !
+    </span>
+  );
+}
+
+/** ป้ายสีส้ม มุมขวาบนของห้องที่มีบิลรอชำระ (ยังไม่เลยกำหนด) */
+export function PendingBadge({ size = 18, className }: { size?: number; className?: string }) {
+  return (
+    <span
+      aria-label="รอชำระ"
+      className={clsx(
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-[#f97316] leading-none font-black text-white ring-2 ring-white",
+        className,
+      )}
+      style={{ width: size, height: size, fontSize: size * 0.62 }}
+    >
+      ฿
     </span>
   );
 }
@@ -213,6 +232,9 @@ export function FloorPlanViewer({
             <span className="inline-flex items-center gap-1.5">
               <OverdueBadge size={14} /> ค้างชำระเกินกำหนด
             </span>
+            <span className="inline-flex items-center gap-1.5">
+              <PendingBadge size={14} /> รอชำระ
+            </span>
           </p>
         )}
       </div>
@@ -230,7 +252,7 @@ export function FloorPlanViewer({
               <Link
                 key={p.unit_id}
                 href={`/units/${u.id}`}
-                title={`${u.code} · ${u.tenant_name ?? TILE_LABEL[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : ""}`}
+                title={`${u.code} · ${u.tenant_name ?? TILE_LABEL[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : u.has_unpaid ? " · รอชำระ" : ""}`}
                 className={clsx(
                   "absolute flex flex-col items-center justify-center border-2 text-center leading-snug transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
                   p.shape === "circle" ? "rounded-full" : "rounded-md",
@@ -258,6 +280,12 @@ export function FloorPlanViewer({
                   <span className="w-full truncate px-1" style={{ fontSize: Math.max(8, Math.min(12, cell * 0.4)) }}>
                     {u.tenant_name}
                   </span>
+                )}
+                {state !== "overdue" && u.has_unpaid && u.status === "occupied" && (
+                  <PendingBadge
+                    size={Math.max(14, Math.min(22, cell * 0.8))}
+                    className={clsx("absolute", p.shape === "circle" ? "top-[8%] right-[8%]" : "-top-1.5 -right-1.5")}
+                  />
                 )}
                 {state === "overdue" && (
                   <OverdueBadge
