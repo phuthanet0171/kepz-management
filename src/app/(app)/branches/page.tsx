@@ -55,12 +55,12 @@ export default async function BranchesPage() {
           />
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {branches.map((b) => {
             const s = stats.get(b.id) ?? { total: 0, occupied: 0, available: 0, parking: 0 };
             const rate = s.total ? Math.round((s.occupied / s.total) * 100) : 0;
             return (
-              <Link key={b.id} href={`/branches/${b.id}`} className="card group block p-4 transition hover:border-ink/25 sm:p-5">
+              <Link key={b.id} href={`/branches/${b.id}`} className="card group block min-w-0 p-4 transition hover:border-ink/25 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -68,8 +68,8 @@ export default async function BranchesPage() {
                       {!b.is_active && <Badge>ปิดใช้งาน</Badge>}
                     </div>
                     {b.address && (
-                      <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-muted">
-                        <MapPin className="size-3.5 shrink-0" /> {b.address}
+                      <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-muted">
+                        <MapPin className="size-3.5 shrink-0" /> <span className="min-w-0 truncate">{b.address}</span>
                       </p>
                     )}
                     {b.phone && (

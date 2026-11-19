@@ -60,7 +60,7 @@ export function InvoiceTaxPanel({
         <TaxSummary t={t} choice={tax} className="rounded-xl bg-canvas px-3.5 py-3" />
 
         {dirty ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <SubmitButton className="btn btn-primary w-full" pendingText="กำลังบันทึก…">
               บันทึกภาษี
             </SubmitButton>

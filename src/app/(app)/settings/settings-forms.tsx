@@ -12,7 +12,7 @@ export function BusinessForm({ s, bare }: { s: Settings; bare?: boolean }) {
   return (
     <Section bare={bare} icon={Building2} title="ข้อมูลกิจการ" description="แสดงบนหัวใบวางบิล ใบเสร็จ และสัญญา">
       <ActionForm action={saveBusiness} resetOnSuccess={false}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="ชื่อกิจการ / บริษัท" required className="sm:col-span-2">
             <input name="business_name" required defaultValue={s.business_name} className="input" />
           </Field>
@@ -72,7 +72,7 @@ export function AlertsForm({ s, bare }: { s: Settings; bare?: boolean }) {
   return (
     <Section bare={bare} icon={BellRing} title="การแจ้งเตือน" description="ใช้ในหน้าภาพรวม และรายการถึงรอบออกใบวางบิล">
       <ActionForm action={saveAlerts} resetOnSuccess={false}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="แสดงสัญญาที่ถึงรอบออกบิลล่วงหน้า (วัน)">
             <input name="due_soon_days" type="number" min={0} max={90} defaultValue={s.due_soon_days} className="input tabular" />
           </Field>
@@ -114,7 +114,7 @@ export function ContractTermsFields({
 }) {
   const ph = (k: string) => placeholders?.[k];
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field label="ชื่อผู้ให้เช่า (ลงนามในสัญญา)" className="sm:col-span-2">
         <input
           name="lessor_name"

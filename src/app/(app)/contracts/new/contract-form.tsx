@@ -164,7 +164,7 @@ export function ContractForm({
       <Card>
         <CardHeader title="3. ระยะสัญญาและรอบชำระ" />
         <div className="space-y-4 p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="วันเริ่มสัญญา" required>
               <input
                 name="start_date"
@@ -254,7 +254,7 @@ export function ContractForm({
       <Card>
         <CardHeader title="4. ค่าเช่าและเงินประกัน" />
         <div className="space-y-4 p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
               label="ค่าเช่าต่อเดือน (บาท)"
               required

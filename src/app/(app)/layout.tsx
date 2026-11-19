@@ -82,7 +82,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </div>
       </header>
 
-      <main className="pb-nav mx-auto max-w-6xl px-4 pt-5 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
+      <main className="pb-nav mx-auto max-w-6xl overflow-x-clip px-4 pt-5 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
       <Suspense fallback={<BottomNavView pathname="" />}>
         <BottomNav />
       </Suspense>

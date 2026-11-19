@@ -18,7 +18,7 @@ export type UserRow = {
 function RolePicker({ defaultRole, disabled }: { defaultRole: "owner" | "staff"; disabled?: boolean }) {
   return (
     <Field label="สิทธิ์">
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {(
           [
             ["staff", "Staff", "ผู้เช่า สัญญา ออกบิล รับชำระ สถานะห้อง ทุกสาขา (ไม่เห็นรายได้รวม รายงาน ตั้งค่า)"],

@@ -64,7 +64,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
     return (
       <div className="mx-auto max-w-5xl">
         <SettingsHero icon={SettingsIcon} title="ตั้งค่า" />
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {SECTIONS.map(({ key, label, desc, icon: Icon, status }) => {
             const items = status(s, wm);
             const missing = items.filter((i) => i.missing).length;

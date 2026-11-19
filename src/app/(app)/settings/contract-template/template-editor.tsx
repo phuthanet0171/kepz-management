@@ -85,7 +85,7 @@ export function TemplateEditor({
         </button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className={clsx("space-y-4", mobileView !== "edit" && "max-lg:hidden")}>
           <Card className="p-4 sm:p-5">
             <ActionForm action={saveContractTemplate} resetOnSuccess={false} onSuccess={() => setSaved((s) => ({ ...s, [kind]: value }))}>

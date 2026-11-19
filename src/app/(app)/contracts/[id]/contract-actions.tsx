@@ -168,7 +168,7 @@ function DepositForm({
           </option>
         </select>
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="จำนวนเงิน (บาท)" required hint={`ไม่เกิน ${money(max)} บาท`}>
           <input
             key={type}
@@ -188,7 +188,7 @@ function DepositForm({
         </Field>
       </div>
       {type !== "deduct" && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="ช่องทาง" required>
             <select name="method" className="input" defaultValue="transfer">
               <option value="transfer">โอนเงิน / พร้อมเพย์</option>

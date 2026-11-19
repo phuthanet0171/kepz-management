@@ -210,7 +210,7 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
             </>
           )}
 
-          <div className="grid gap-5 sm:grid-cols-[15rem_1fr]">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-[15rem_1fr]">
             <div>
               <PagePreview image={image} opacity={opacity} size={size} enabled={enabled} pos={pos} onMove={setPos} />
               <p className="mt-1.5 text-center text-xs text-muted">

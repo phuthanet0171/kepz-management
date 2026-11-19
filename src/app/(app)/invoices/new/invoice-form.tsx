@@ -118,7 +118,7 @@ export function InvoiceForm({
             <span className="text-sm font-medium">เป็นบิลค่าเช่าตามรอบ</span>
           </label>
           {hasPeriod && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="รอบบิลตั้งแต่" required>
                 <input
                   name="period_start"
@@ -151,7 +151,7 @@ export function InvoiceForm({
               </Field>
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="วันที่ออกบิล" required>
               <input name="issue_date" type="date" required value={issue} onChange={(e) => setIssue(e.target.value)} className="input" />
             </Field>

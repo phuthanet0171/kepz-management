@@ -636,7 +636,7 @@ export function FloorPlanEditor({
   const ordered = Object.entries(items).sort((a, b) => Number(!!a[1].use) - Number(!!b[1].use));
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr]">
       {/* แผงซ้าย: รายละเอียดรูปที่เลือก หรือ ตั้งค่าผัง */}
       <aside className="card flex max-h-[75dvh] flex-col overflow-hidden lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]">
         {sel && selItem ? (

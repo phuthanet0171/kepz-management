@@ -26,7 +26,7 @@ export function PasswordForm() {
       <CardHeader title="เปลี่ยนรหัสผ่าน" />
       <div className="p-4 sm:p-5">
         <ActionForm action={changePassword}>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="รหัสผ่านใหม่" hint="อย่างน้อย 8 ตัวอักษร">
               <input name="password" type="password" autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} minLength={8} required className="input" />
             </Field>
