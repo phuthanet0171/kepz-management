@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Activity, Maximize2, Minus, Palette, Plus } from "lucide-react";
+import { BadgeCheck, Maximize2, Minus, Palette, Plus } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { FloorPlan, Placement, PlanObject, PlanUnit } from "@/lib/types";
@@ -187,7 +187,7 @@ export function FloorPlanViewer({
           {(
             [
               ["plan", "สีตามผัง", Palette],
-              ["status", "สถานะห้อง", Activity],
+              ["status", "สถานะห้อง", BadgeCheck],
             ] as const
           ).map(([m, label, Icon]) => (
             <button
