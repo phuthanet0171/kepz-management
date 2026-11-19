@@ -1,6 +1,6 @@
 import { requireOwner } from "@/lib/auth";
 import clsx from "clsx";
-import { Eye, Map as MapIcon, MonitorSmartphone } from "lucide-react";
+import { Map as MapIcon, MonitorSmartphone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,7 @@ import { getUnitTypes } from "@/lib/data";
 import { getBranchPlanData } from "@/lib/floor-plans";
 import { createClient } from "@/lib/supabase/server";
 import { FloorPlanEditor } from "./editor";
+import { AddUnitsButton } from "../branch-actions";
 import { AddPlanButton, DeletePlanButton, FirstPlanForm } from "./plan-actions";
 
 export const metadata: Metadata = { title: "จัดผังสถานที่" };
@@ -26,16 +27,10 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
 
   const header = (
     <PageHeader
-      back={{ href: `/branches/${id}`, label: branch.name }}
+      back={{ href: `/units?branch=${id}`, label: `ห้องและที่จอด · ${branch.name}` }}
       title="จัดผังสถานที่"
       subtitle="วาดห้อง ที่จอด และสัญลักษณ์ให้เหมือนสถานที่จริง ห้องที่วาดใหม่พร้อมทำสัญญาทันทีหลังบันทึก"
-      actions={
-        plan && (
-          <Link href={`/units?branch=${id}&view=plan&plan=${plan.id}`} className="btn btn-outline">
-            <Eye className="size-4" /> ดูผังเรียลไทม์
-          </Link>
-        )
-      }
+      actions={<AddUnitsButton branchId={id} unitTypes={unitTypes} />}
     />
   );
 

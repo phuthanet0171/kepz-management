@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "เมนู" };
 
 const ITEMS = [
   { href: "/contracts", label: "สัญญาเช่า", desc: "สัญญาที่ใช้งาน ใกล้หมด และสิ้นสุด", icon: FileSignature },
-  { href: "/payments", label: "รับชำระ", desc: "ใบเสร็จรับเงินรายเดือน", icon: Wallet, ownerOnly: true },
+  { href: "/payments", label: "ใบเสร็จ", desc: "ใบเสร็จรับเงินทั้งหมด แยกตามเดือน", icon: Wallet, ownerOnly: true },
   { href: "/reports", label: "รายงาน", desc: "รายได้ ยอดค้าง อัตราการเช่า ส่งออก CSV", icon: BarChart3, ownerOnly: true },
   { href: "/branches", label: "สาขา", desc: "เพิ่มสาขา จัดการห้องและผังสถานที่", icon: Building2, ownerOnly: true },
   { href: "/users", label: "ผู้ใช้งาน", desc: "เพิ่มบัญชี กำหนดสิทธิ์ ปิดการใช้งาน", icon: UserCog, ownerOnly: true },

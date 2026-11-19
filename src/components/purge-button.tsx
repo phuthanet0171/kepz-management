@@ -30,7 +30,7 @@ export function PurgeButton({
   const label = kind === "tenant" ? "ผู้เช่า" : "สาขา";
   const hasHistory = preview.contracts > 0;
   const rows = [
-    kind === "branch" && { label: "ห้องและที่จอด", value: `${preview.units} หน่วย` },
+    kind === "branch" && { label: "ห้องและที่จอด", value: `${preview.units} ห้อง` },
     { label: "สัญญาเช่า", value: `${preview.contracts} สัญญา${preview.active_contracts ? ` (ใช้งานอยู่ ${preview.active_contracts})` : ""}` },
     { label: "ใบวางบิล", value: `${preview.invoices} ใบ` },
     { label: "ใบเสร็จ / การรับชำระ", value: `${preview.payments} ใบ · ${money(preview.paid_total)} บาท` },

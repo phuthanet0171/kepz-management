@@ -8,7 +8,7 @@ import { money, PAYMENT_METHOD_LABEL, thDate, thMonth, todayTH } from "@/lib/for
 import { createClient } from "@/lib/supabase/server";
 import type { Payment, PaymentMethod } from "@/lib/types";
 
-export const metadata: Metadata = { title: "รับชำระ" };
+export const metadata: Metadata = { title: "ใบเสร็จ" };
 
 type Row = Payment & {
   invoices: { invoice_no: string; contracts: { units: { code: string }; tenants: { full_name: string } } };
@@ -44,7 +44,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/payment
   return (
     <>
       <PageHeader
-        title="รับชำระ"
+        title="ใบเสร็จ"
         subtitle={`ใบเสร็จเดือน ${thMonth(month)}`}
         actions={
           <form className="flex gap-2" action="/payments">

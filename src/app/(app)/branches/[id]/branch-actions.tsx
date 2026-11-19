@@ -70,12 +70,12 @@ export function EditBranchButton({ branch }: { branch: Branch }) {
 export function AddUnitsButton({ branchId, unitTypes }: { branchId: string; unitTypes: UnitType[] }) {
   return (
     <Sheet
-      title="เพิ่มห้อง / ที่จอด"
-      description="รหัสจะรันต่อจากรหัสล่าสุดของประเภทนั้นในสาขานี้"
-      triggerClassName="btn btn-primary"
+      title="เพิ่มหลายห้องตามจำนวน"
+      description="รหัสรันต่อจากรหัสล่าสุดของประเภทนั้น ห้องที่เพิ่มจะอยู่ในรายการ “ห้องในระบบที่ยังไม่อยู่บนผัง” กด “วางทั้งหมดอัตโนมัติ” ได้"
+      triggerClassName="btn btn-outline"
       trigger={
         <>
-          <Plus className="size-4" /> เพิ่มห้อง
+          <Plus className="size-4" /> เพิ่มหลายห้อง
         </>
       }
     >

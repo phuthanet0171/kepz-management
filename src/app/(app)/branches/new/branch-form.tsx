@@ -78,7 +78,7 @@ export function NewBranchForm({ unitTypes }: { unitTypes: UnitType[] }) {
         </div>
         <div className="flex items-center justify-between rounded-b-card border-t border-line bg-canvas/60 px-4 py-3 text-sm sm:px-5">
           <span className="text-muted">
-            รวม <b className="tabular text-ink">{total}</b> หน่วย
+            รวม <b className="tabular text-ink">{total}</b> ห้อง
           </span>
           <span className="text-muted">
             รายได้เต็มศักยภาพ <b className="tabular text-ink">{baht(monthly)}</b>/เดือน
@@ -88,7 +88,7 @@ export function NewBranchForm({ unitTypes }: { unitTypes: UnitType[] }) {
 
       <div className="flex justify-end">
         <SubmitButton pendingText="กำลังสร้างสาขา…" className="btn btn-primary w-full sm:w-auto">
-          สร้างสาขา {total > 0 && `(${total} หน่วย)`}
+          สร้างสาขา {total > 0 && `(${total} ห้อง)`}
         </SubmitButton>
       </div>
     </ActionForm>

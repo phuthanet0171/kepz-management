@@ -38,7 +38,7 @@ export function BulkBilling({ rows, today }: { rows: BillingDue[]; today: string
           />
           เลือกทั้งหมด
         </label>
-        <span className="text-xs text-muted">ออกบิลวันที่ {thDate(today)}</span>
+        <span className="text-xs text-muted">ออกใบวางบิลวันที่ {thDate(today)}</span>
       </div>
 
       <ul className="divide-y divide-line">

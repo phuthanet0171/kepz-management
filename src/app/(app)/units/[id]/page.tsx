@@ -48,7 +48,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
   return (
     <>
       <PageHeader
-        back={{ href: `/units?branch=${unit.branch_id}`, label: "ผังห้อง" }}
+        back={{ href: `/units?branch=${unit.branch_id}`, label: "ห้องและที่จอด" }}
         title={
           <span className="flex flex-wrap items-center gap-2">
             {unit.code} <UnitStatusBadge status={unit.status} expiring={unit.is_expiring} />

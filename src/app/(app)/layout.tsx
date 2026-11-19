@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { signOut } from "@/app/actions";
 import { Logo } from "@/components/shell/logo";
 import { BottomNav, BottomNavView, SidebarNav, SidebarNavView } from "@/components/shell/nav";
+import { QuickActions } from "@/components/shell/quick-actions";
 import { getCurrentUser, ROLE_LABEL } from "@/lib/auth";
 
 async function SidebarMenu() {
@@ -57,6 +58,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       <main className="pb-nav mx-auto max-w-6xl px-4 pt-5 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
       <Suspense fallback={<BottomNavView pathname="" />}>
         <BottomNav />
+      </Suspense>
+      <Suspense fallback={null}>
+        <QuickActions />
       </Suspense>
     </div>
   );

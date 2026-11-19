@@ -35,10 +35,11 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
             title="ยังไม่มีสาขา"
             description="เพิ่มสาขาและระบุจำนวนห้องก่อน แล้วผังห้องจะแสดงที่นี่"
             action={
-              (await isOwner()) &&
-              <Link href="/branches/new" className="btn btn-primary">
-                <Plus className="size-4" /> เพิ่มสาขา
-              </Link>
+              (await isOwner()) && (
+                <Link href="/branches/new" className="btn btn-primary">
+                  <Plus className="size-4" /> เพิ่มสาขา
+                </Link>
+              )
             }
           />
         </Card>
@@ -49,17 +50,19 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
   const branchId = typeof sp.branch === "string" && branches.some((b) => b.id === sp.branch) ? sp.branch : branches[0].id;
   const status = typeof sp.status === "string" ? sp.status : "all";
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
-  const view = sp.view === "plan" ? "plan" : "list";
-
   const supabase = await createClient();
-  const [all, overdueRows] = await Promise.all([
+  const [all, overdueRows, { count: planCount }, owner] = await Promise.all([
     fetchAll<UnitView>((from, to) =>
       supabase.from("v_units").select("*").eq("branch_id", branchId).neq("status", "inactive").order("id").range(from, to),
     ),
     fetchAll<{ unit_id: string }>((from, to) =>
       supabase.from("v_invoices").select("unit_id").eq("branch_id", branchId).eq("is_overdue", true).order("id").range(from, to),
     ),
+    supabase.from("floor_plans").select("id", { count: "exact", head: true }).eq("branch_id", branchId),
+    isOwner(),
   ]);
+  // เปิดมาเห็นผังก่อน (ถ้าสาขานี้จัดผังไว้แล้ว) ยกเว้นมาจากการค้นหา/กรองสถานะ ซึ่งใช้กับแบบรายการ
+  const view = sp.view === "plan" || sp.view === "list" ? sp.view : sp.status || sp.q || !planCount ? "list" : "plan";
   const overdue = new Set(overdueRows.map((r) => r.unit_id));
 
   const counts: Record<string, number> = { all: all.length, available: 0, occupied: 0, expiring: 0, maintenance: 0 };
@@ -82,7 +85,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
   });
 
   const link = (patch: Record<string, string>) => {
-    const params = new URLSearchParams({ branch: branchId, status, ...(q ? { q } : {}), ...patch });
+    const params = new URLSearchParams({ branch: branchId, view: "list", status, ...(q ? { q } : {}), ...patch });
     if (params.get("status") === "all") params.delete("status");
     return `/units?${params}`;
   };
@@ -93,25 +96,11 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
         title="ห้องและที่จอด"
         subtitle="แตะที่ห้องเพื่อดูผู้เช่า ค่าเช่า และสถานะการชำระ"
         actions={
-          <div className="inline-flex rounded-xl bg-line/50 p-1">
-            {(
-              [
-                ["list", "รายการ", LayoutGrid],
-                ["plan", "ผังสถานที่", MapIcon],
-              ] as const
-            ).map(([v, label, Icon]) => (
-              <Link
-                key={v}
-                href={`/units?branch=${branchId}${v === "plan" ? "&view=plan" : ""}`}
-                className={clsx(
-                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition",
-                  view === v ? "bg-surface shadow-sm" : "text-muted hover:text-ink",
-                )}
-              >
-                <Icon className="size-4" /> {label}
-              </Link>
-            ))}
-          </div>
+          owner && (
+            <Link href={`/branches/${branchId}/floor-plan`} className="btn btn-brand">
+              <Pencil className="size-4" /> จัดผัง / เพิ่มห้อง
+            </Link>
+          )
         }
       />
 
@@ -121,7 +110,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
             {branches.map((b) => (
               <Link
                 key={b.id}
-                href={`/units?branch=${b.id}${view === "plan" ? "&view=plan" : ""}`}
+                href={`/units?branch=${b.id}`}
                 className={clsx(
                   "rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition",
                   b.id === branchId ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink-2 hover:border-ink/30",
@@ -134,62 +123,83 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
         </div>
       )}
 
+      <div className="mb-3 inline-flex rounded-xl bg-line/50 p-1">
+        {(
+          [
+            ["plan", "ผังสถานที่", MapIcon],
+            ["list", "รายการ", LayoutGrid],
+          ] as const
+        ).map(([v, label, Icon]) => (
+          <Link
+            key={v}
+            href={`/units?branch=${branchId}&view=${v}`}
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition",
+              view === v ? "bg-surface shadow-sm" : "text-muted hover:text-ink",
+            )}
+          >
+            <Icon className="size-4" /> {label}
+          </Link>
+        ))}
+      </div>
+
       {view === "plan" ? (
         <PlanView branchId={branchId} planId={typeof sp.plan === "string" ? sp.plan : null} />
       ) : (
         <>
-      <form className="relative mb-3" action="/units">
-        <input type="hidden" name="branch" value={branchId} />
-        {status !== "all" && <input type="hidden" name="status" value={status} />}
-        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted" />
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="ค้นหารหัสห้อง หรือชื่อผู้เช่า"
-          className="input pl-10"
-          type="search"
-          enterKeyHint="search"
-        />
-      </form>
+          <form className="relative mb-3" action="/units">
+            <input type="hidden" name="branch" value={branchId} />
+            <input type="hidden" name="view" value="list" />
+            {status !== "all" && <input type="hidden" name="status" value={status} />}
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted" />
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="ค้นหารหัสห้อง หรือชื่อผู้เช่า"
+              className="input pl-10"
+              type="search"
+              enterKeyHint="search"
+            />
+          </form>
 
-      <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1.5">
-          {STATUS_FILTERS.map((f) => (
-            <Link
-              key={f.key}
-              href={link({ status: f.key })}
-              className={clsx(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
-                status === f.key ? "bg-brand text-ink" : "bg-surface text-muted ring-1 ring-line hover:text-ink",
-              )}
-            >
-              {f.label}
-              <span className="tabular text-xs opacity-70">{counts[f.key] ?? 0}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+          <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-1.5">
+              {STATUS_FILTERS.map((f) => (
+                <Link
+                  key={f.key}
+                  href={link({ status: f.key })}
+                  className={clsx(
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition",
+                    status === f.key ? "bg-brand text-ink" : "bg-surface text-muted ring-1 ring-line hover:text-ink",
+                  )}
+                >
+                  {f.label}
+                  <span className="tabular text-xs opacity-70">{counts[f.key] ?? 0}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
 
-      <div className="mb-3">
-        <UnitLegend withOverdue />
-      </div>
+          <div className="mb-3">
+            <UnitLegend withOverdue />
+          </div>
 
-      {units.length === 0 ? (
-        <Card>
-          <EmptyState title="ไม่พบห้องตามเงื่อนไข" description="ลองเปลี่ยนตัวกรองหรือคำค้นหา" />
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {groupByType(units).map((g) => (
-            <Card key={g.code}>
-              <CardHeader title={g.name} description={`${g.units.length} หน่วย`} />
-              <div className="p-3 sm:p-4">
-                <UnitGrid units={g.units} overdue={overdue} />
-              </div>
+          {units.length === 0 ? (
+            <Card>
+              <EmptyState title="ไม่พบห้องตามเงื่อนไข" description="ลองเปลี่ยนตัวกรองหรือคำค้นหา" />
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="space-y-4">
+              {groupByType(units).map((g) => (
+                <Card key={g.code}>
+                  <CardHeader title={g.name} description={`${g.units.length} ห้อง`} />
+                  <div className="p-3 sm:p-4">
+                    <UnitGrid units={g.units} overdue={overdue} />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </>
       )}
     </>
@@ -209,9 +219,9 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
           description="สร้างผังแต่ละชั้นหรือโซน แล้วลากห้องไปวางตามตำแหน่งจริง ผังจะแสดงสถานะห้องแบบเรียลไทม์"
           action={
             owner && (
-            <Link href={`/branches/${branchId}/floor-plan`} className="btn btn-primary">
-              <Pencil className="size-4" /> เริ่มจัดผัง
-            </Link>
+              <Link href={`/branches/${branchId}/floor-plan`} className="btn btn-primary">
+                <Pencil className="size-4" /> เริ่มจัดผัง
+              </Link>
             )
           }
         />
@@ -238,13 +248,8 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
             {p.name}
           </Link>
         ))}
-        <span className="ml-auto flex items-center gap-3">
+        <span className="ml-auto">
           <RealtimeRefresh />
-          {owner && (
-            <Link href={`/branches/${branchId}/floor-plan?plan=${plan.id}`} className="btn btn-outline btn-sm hidden md:inline-flex">
-              <Pencil className="size-3.5" /> จัดผัง
-            </Link>
-          )}
         </span>
       </div>
       <Card className="p-2 sm:p-3">

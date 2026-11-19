@@ -23,7 +23,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
           <EmptyState
             icon={<FileSignature className="size-6" />}
             title="เลือกสัญญาที่ต้องการออกบิล"
-            description="ออกบิลได้จากรายการ “ถึงรอบออกบิล” หรือจากหน้าสัญญาเช่า"
+            description="ออกใบวางบิลได้จากรายการ “ถึงรอบออกบิล” หรือจากหน้าสัญญาเช่า"
             action={
               <Link href="/invoices?tab=due" className="btn btn-primary">
                 ดูสัญญาที่ถึงรอบ

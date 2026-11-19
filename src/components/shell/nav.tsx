@@ -18,27 +18,29 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type NavItem = { href: string; label: string; icon: LucideIcon; ownerOnly?: boolean };
+type NavItem = { href: string; label: string; icon: LucideIcon; ownerOnly?: boolean; group: "daily" | "manage" };
 type Role = "owner" | "staff";
 
 export const NAV_ITEMS: NavItem[] = [
+  { href: "/", label: "ภาพรวม", icon: LayoutDashboard, group: "daily" },
+  { href: "/units", label: "ห้องและที่จอด", icon: Warehouse, group: "daily" },
+  { href: "/tenants", label: "ผู้เช่า", icon: Users, group: "daily" },
+  { href: "/contracts", label: "สัญญาเช่า", icon: FileSignature, group: "daily" },
+  { href: "/invoices", label: "ใบวางบิล", icon: ReceiptText, group: "daily" },
+  { href: "/payments", label: "ใบเสร็จ", icon: Wallet, ownerOnly: true, group: "daily" },
+  { href: "/reports", label: "รายงาน", icon: BarChart3, ownerOnly: true, group: "manage" },
+  { href: "/branches", label: "สาขา", icon: Building2, ownerOnly: true, group: "manage" },
+  { href: "/users", label: "ผู้ใช้งาน", icon: UserCog, ownerOnly: true, group: "manage" },
+  { href: "/settings", label: "ตั้งค่า", icon: Settings, ownerOnly: true, group: "manage" },
+];
+
+const GROUP_LABEL = { daily: "งานประจำวัน", manage: "จัดการ" } as const;
+
+const MOBILE_ITEMS: Omit<NavItem, "group">[] = [
   { href: "/", label: "ภาพรวม", icon: LayoutDashboard },
   { href: "/units", label: "ห้องและที่จอด", icon: Warehouse },
   { href: "/tenants", label: "ผู้เช่า", icon: Users },
-  { href: "/contracts", label: "สัญญาเช่า", icon: FileSignature },
   { href: "/invoices", label: "ใบวางบิล", icon: ReceiptText },
-  { href: "/payments", label: "รับชำระ", icon: Wallet, ownerOnly: true },
-  { href: "/reports", label: "รายงาน", icon: BarChart3, ownerOnly: true },
-  { href: "/branches", label: "สาขา", icon: Building2, ownerOnly: true },
-  { href: "/users", label: "ผู้ใช้งาน", icon: UserCog, ownerOnly: true },
-  { href: "/settings", label: "ตั้งค่า", icon: Settings, ownerOnly: true },
-];
-
-const MOBILE_ITEMS: NavItem[] = [
-  { href: "/", label: "ภาพรวม", icon: LayoutDashboard },
-  { href: "/units", label: "ห้อง", icon: Warehouse },
-  { href: "/tenants", label: "ผู้เช่า", icon: Users },
-  { href: "/invoices", label: "บิล", icon: ReceiptText },
   { href: "/menu", label: "เมนู", icon: Menu },
 ];
 
@@ -56,22 +58,34 @@ export function SidebarNav({ role }: { role: Role }) {
 
 /** แสดงเมนูโดยไม่ต้องรู้ path (ใช้เป็น fallback ระหว่างรอ Suspense) */
 export function SidebarNavView({ pathname, role }: { pathname: string; role: Role }) {
+  const items = NAV_ITEMS.filter((i) => role === "owner" || !i.ownerOnly);
   return (
-    <nav className="space-y-0.5">
-      {NAV_ITEMS.filter((i) => role === "owner" || !i.ownerOnly).map(({ href, label, icon: Icon }) => {
-        const active = isActive(pathname, href);
+    <nav className="space-y-5">
+      {(["daily", "manage"] as const).map((g) => {
+        const list = items.filter((i) => i.group === g);
+        if (!list.length) return null;
         return (
-          <Link
-            key={href}
-            href={href}
-            className={clsx(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-              active ? "bg-brand text-ink" : "text-white/70 hover:bg-white/10 hover:text-white",
-            )}
-          >
-            <Icon className="size-[18px]" strokeWidth={2} />
-            {label}
-          </Link>
+          <div key={g}>
+            <div className="mb-1.5 px-3 text-[11px] font-semibold tracking-wide text-white/40">{GROUP_LABEL[g]}</div>
+            <div className="space-y-0.5">
+              {list.map(({ href, label, icon: Icon }) => {
+                const active = isActive(pathname, href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={clsx(
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                      active ? "bg-brand text-ink" : "text-white/70 hover:bg-white/10 hover:text-white",
+                    )}
+                  >
+                    <Icon className="size-[18px]" strokeWidth={2} />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         );
       })}
     </nav>
@@ -93,16 +107,11 @@ export function BottomNavView({ pathname }: { pathname: string }) {
               key={href}
               href={href}
               className={clsx(
-                "flex flex-col items-center gap-1 py-2 text-[11px] font-medium transition",
+                "flex flex-col items-center gap-1 py-2 text-[10.5px] font-medium whitespace-nowrap transition",
                 active ? "text-ink" : "text-muted",
               )}
             >
-              <span
-                className={clsx(
-                  "grid h-7 w-12 place-items-center rounded-full transition",
-                  active && "bg-brand",
-                )}
-              >
+              <span className={clsx("grid h-7 w-12 place-items-center rounded-full transition", active && "bg-brand")}>
                 <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} />
               </span>
               {label}
