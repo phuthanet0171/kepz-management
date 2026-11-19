@@ -102,6 +102,23 @@ export function defaultUnitColor(typeCode: string): PlanColor {
   return ({ XS: "orange", S: "yellow", M: "blue", L: "green", PARKING: "gray" } as Record<string, PlanColor>)[typeCode] ?? "yellow";
 }
 
+/**
+ * ชื่อบนกล่อง: ตัดขึ้นบรรทัดใหม่ตามความสูงของกล่อง (ยืดกล่องลง = เห็นข้อความต่อด้านล่าง)
+ * reserve = พื้นที่ที่เผื่อไว้ให้ข้อความอื่นในกล่อง (px)
+ */
+export function labelStyle(fontSize: number, boxHeight: number, reserve = 0) {
+  const lines = Math.max(1, Math.floor((boxHeight - 6 - reserve) / (fontSize * 1.2)));
+  return {
+    fontSize,
+    lineHeight: 1.2,
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical" as const,
+    WebkitLineClamp: lines,
+    overflow: "hidden",
+    overflowWrap: "anywhere" as const,
+  };
+}
+
 export function gridBackground(cell: number) {
   return {
     backgroundImage:

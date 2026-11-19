@@ -11,6 +11,7 @@ import {
   defaultUnitColor,
   gridBackground,
   TILE_CLASS,
+  labelStyle,
   TILE_LABEL,
   TILE_LEGEND,
   tileState,
@@ -243,8 +244,12 @@ export function FloorPlanViewer({
                 }}
               >
                 <span
-                  className="max-w-full truncate px-0.5 font-bold"
-                  style={{ fontSize: Math.max(9, Math.min(16, cell * 0.55)) }}
+                  className="max-w-full px-0.5 font-bold"
+                  style={labelStyle(
+                    Math.max(9, Math.min(16, cell * 0.55)),
+                    p.h * cell - 2,
+                    !small && u.tenant_name ? Math.max(8, Math.min(12, cell * 0.4)) * 1.4 : 0,
+                  )}
                 >
                   {u.code}
                 </span>

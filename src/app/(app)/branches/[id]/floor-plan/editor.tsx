@@ -38,6 +38,7 @@ import {
   findFreeSpot,
   gridBackground,
   overlaps,
+  labelStyle,
   PLAN_COLORS,
   TILE_LABEL,
   tileState,
@@ -1105,8 +1106,12 @@ function ItemBox({
       }}
     >
       <span
-        className={clsx("max-w-full truncate px-0.5", item.use ? "font-bold" : "font-semibold")}
-        style={{ fontSize: Math.max(9, Math.min(textOnly ? 20 : 16, cell * (textOnly ? 0.7 : 0.55))) }}
+        className={clsx("max-w-full px-0.5", item.use ? "font-bold" : "font-semibold")}
+        style={labelStyle(
+          Math.max(9, Math.min(textOnly ? 20 : 16, cell * (textOnly ? 0.7 : 0.55))),
+          item.h * cell - 2,
+          badge && item.h * cell >= 44 ? 18 : 0,
+        )}
       >
         {item.name || (item.use ? "" : "…")}
       </span>
