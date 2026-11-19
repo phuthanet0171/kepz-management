@@ -59,9 +59,10 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+        {/* มือถือ: ข้อมูลห้องขึ้นก่อน แล้วค่อยผู้เช่า/ทำสัญญา และประวัติ */}
+        <div className="space-y-4 max-lg:contents lg:col-span-2">
           {current ? (
-            <Card>
+            <Card className="max-lg:order-2">
               <CardHeader
                 title="ผู้เช่าปัจจุบัน"
                 action={<ContractStatusBadge status={current.status} expiring={current.is_expiring} />}
@@ -124,7 +125,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
               </div>
             </Card>
           ) : (
-            <Card>
+            <Card className="max-lg:order-2">
               <EmptyState
                 icon={<FileSignature className="size-6" />}
                 title={unit.status === "available" ? "ห้องว่าง พร้อมให้เช่า" : "ห้องนี้ยังไม่พร้อมให้เช่า"}
@@ -146,7 +147,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
             </Card>
           )}
 
-          <Card>
+          <Card className="max-lg:order-3">
             <CardHeader title="ประวัติการเช่า" description={`${contracts.length} สัญญา`} />
             {contracts.length === 0 ? (
               <p className="px-5 py-6 text-sm text-muted">ยังไม่เคยมีสัญญาเช่า</p>
@@ -170,8 +171,8 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
           </Card>
         </div>
 
-        <div className="space-y-4">
-          <Card>
+        <div className="space-y-4 max-lg:contents">
+          <Card className="max-lg:order-1">
             <CardHeader title="ข้อมูลห้อง" />
             <div className="p-4 sm:p-5">
               <DefinitionList
@@ -194,7 +195,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
             </div>
           </Card>
           {current && current.outstanding > 0 && (
-            <Alert tone="bad">
+            <Alert tone="bad" className="max-lg:order-1">
               <ReceiptText className="mr-1 inline size-4" />
               มียอดค้างชำระ {money(current.outstanding)} บาท{" "}
               <Link href={`/contracts/${current.id}`} className="font-semibold underline">
@@ -203,7 +204,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
             </Alert>
           )}
           {owner && contracts.length === 0 && (
-            <div className="flex justify-end">
+            <div className="flex justify-end max-lg:order-4">
               <DeleteUnitButton unit={unit} />
             </div>
           )}
