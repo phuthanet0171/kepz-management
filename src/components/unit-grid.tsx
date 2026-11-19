@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import type { UnitView } from "@/lib/types";
+import { OverdueBadge } from "./floor-plan/viewer";
 
 export function unitTileState(u: Pick<UnitView, "status" | "is_expiring">) {
   if (u.status === "occupied" && u.is_expiring) return "expiring" as const;
@@ -8,11 +9,10 @@ export function unitTileState(u: Pick<UnitView, "status" | "is_expiring">) {
 }
 
 const tileClass = {
-  available: "border-ok/35 bg-surface text-ink hover:border-ok",
-  occupied: "border-ink bg-ink text-white hover:bg-ink-2",
+  available: "border-ok bg-ok-soft text-ink hover:brightness-95",
+  occupied: "border-bad bg-bad text-white hover:brightness-95",
   expiring: "border-brand-strong bg-brand text-ink hover:bg-brand-strong",
-  maintenance:
-    "border-line bg-[repeating-linear-gradient(135deg,var(--color-canvas)_0_6px,var(--color-line)_6px_8px)] text-muted",
+  maintenance: "border-muted/40 bg-line text-muted",
   inactive: "border-dashed border-line bg-surface text-muted/70",
 };
 
@@ -24,17 +24,18 @@ const subLabel = {
   inactive: "ปิดใช้งาน",
 };
 
-export function UnitTile({ unit }: { unit: UnitView }) {
+export function UnitTile({ unit, overdue }: { unit: UnitView; overdue?: boolean }) {
   const state = unitTileState(unit);
   return (
     <Link
       href={`/units/${unit.id}`}
       className={clsx(
-        "flex min-h-[4.25rem] flex-col justify-between rounded-xl border-2 px-2.5 py-2 transition active:scale-[0.97]",
+        "relative flex min-h-[4.25rem] flex-col justify-between rounded-xl border-2 px-2.5 py-2 transition active:scale-[0.97]",
         tileClass[state],
       )}
-      title={unit.tenant_name ?? subLabel[state]}
+      title={`${unit.tenant_name ?? subLabel[state]}${overdue ? " · ค้างชำระเกินกำหนด" : ""}`}
     >
+      {overdue && <OverdueBadge size={20} className="absolute -top-2 -right-2" />}
       <span className="text-sm leading-snug font-bold">{unit.code}</span>
       <span className={clsx("truncate text-[11px] leading-snug", state === "available" && "text-ok")}>
         {state === "occupied" || state === "expiring" ? (unit.tenant_name ?? "") : subLabel[state]}
@@ -43,22 +44,22 @@ export function UnitTile({ unit }: { unit: UnitView }) {
   );
 }
 
-export function UnitGrid({ units }: { units: UnitView[] }) {
+export function UnitGrid({ units, overdue }: { units: UnitView[]; overdue?: Set<string> }) {
   return (
     <div className="grid grid-cols-3 gap-2 min-[420px]:grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
       {units.map((u) => (
-        <UnitTile key={u.id} unit={u} />
+        <UnitTile key={u.id} unit={u} overdue={overdue?.has(u.id)} />
       ))}
     </div>
   );
 }
 
-export function UnitLegend() {
+export function UnitLegend({ withOverdue = false }: { withOverdue?: boolean }) {
   const items = [
-    { cls: "border-ok/50 bg-surface", label: "ว่าง" },
-    { cls: "border-ink bg-ink", label: "มีผู้เช่า" },
+    { cls: "border-ok bg-ok-soft", label: "ว่าง" },
+    { cls: "border-bad bg-bad", label: "มีผู้เช่า" },
     { cls: "border-brand-strong bg-brand", label: "ใกล้หมดสัญญา" },
-    { cls: "border-line bg-line", label: "ปิดปรับปรุง" },
+    { cls: "border-muted/40 bg-line", label: "ปิดปรับปรุง" },
   ];
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
@@ -68,6 +69,12 @@ export function UnitLegend() {
           {i.label}
         </span>
       ))}
+      {withOverdue && (
+        <span className="inline-flex items-center gap-1.5">
+          <OverdueBadge size={14} />
+          ค้างชำระเกินกำหนด
+        </span>
+      )}
     </div>
   );
 }

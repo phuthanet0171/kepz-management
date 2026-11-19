@@ -1,4 +1,4 @@
-import type { PlanUnit } from "@/lib/types";
+import type { PlanColor, PlanShape, PlanUnit } from "@/lib/types";
 
 /** ขนาดกล่องตั้งต้น (จำนวนช่องตาราง กว้าง × สูง) ตามประเภทห้อง */
 export const DEFAULT_BOX: Record<string, { w: number; h: number }> = {
@@ -40,21 +40,20 @@ export function findFreeSpot(
   return null;
 }
 
-export type TileState = "available" | "occupied" | "expiring" | "overdue" | "maintenance" | "inactive";
+export type TileState = "available" | "occupied" | "expiring" | "maintenance" | "inactive";
 
-export function tileState(u: PlanUnit): TileState {
-  if (u.status === "occupied" && u.has_overdue) return "overdue";
+/** สีของห้องตามสถานะ (ค้างชำระแสดงเป็นป้าย ! แยกต่างหาก ดู OverdueBadge) */
+export function tileState(u: Pick<PlanUnit, "status" | "is_expiring">): TileState {
   if (u.status === "occupied" && u.is_expiring) return "expiring";
   return u.status;
 }
 
+/** ว่าง = เขียว · มีผู้เช่า = แดง · ใกล้หมดสัญญา = เหลือง · ปิดปรับปรุง = เทา */
 export const TILE_CLASS: Record<TileState, string> = {
   available: "border-ok bg-ok-soft text-ok",
-  occupied: "border-ink bg-ink text-white",
+  occupied: "border-bad bg-bad text-white",
   expiring: "border-brand-strong bg-brand text-ink",
-  overdue: "border-bad bg-bad text-white",
-  maintenance:
-    "border-line text-muted bg-[repeating-linear-gradient(135deg,var(--color-canvas)_0_6px,var(--color-line)_6px_8px)]",
+  maintenance: "border-muted/40 bg-line text-muted",
   inactive: "border-dashed border-line bg-surface text-muted/60",
 };
 
@@ -62,8 +61,43 @@ export const TILE_LEGEND: { state: TileState; label: string }[] = [
   { state: "available", label: "ว่าง" },
   { state: "occupied", label: "มีผู้เช่า" },
   { state: "expiring", label: "ใกล้หมดสัญญา" },
-  { state: "overdue", label: "ค้างชำระเกินกำหนด" },
   { state: "maintenance", label: "ปิดปรับปรุง" },
+];
+
+export const TILE_LABEL: Record<TileState, string> = {
+  available: "ว่าง",
+  occupied: "มีผู้เช่า",
+  expiring: "ใกล้หมดสัญญา",
+  maintenance: "ปิดปรับปรุง",
+  inactive: "ปิดใช้งาน",
+};
+
+/** สีของสัญลักษณ์บนผัง (ไม่ใช่ห้องเช่า) */
+export const OBJECT_COLORS: { key: PlanColor; label: string; cls: string; swatch: string }[] = [
+  { key: "gray", label: "เทา", cls: "border-[#9ca3af] bg-[#e5e7eb] text-[#374151]", swatch: "#d1d5db" },
+  { key: "yellow", label: "เหลือง", cls: "border-brand-strong bg-brand-soft text-ink", swatch: "#ffd21f" },
+  { key: "black", label: "ดำ", cls: "border-ink bg-ink text-white", swatch: "#111111" },
+  { key: "blue", label: "ฟ้า", cls: "border-info/50 bg-info-soft text-info", swatch: "#60a5fa" },
+  { key: "green", label: "เขียว", cls: "border-ok/50 bg-ok-soft text-ok", swatch: "#4ade80" },
+  { key: "red", label: "แดง", cls: "border-bad/50 bg-bad-soft text-bad", swatch: "#f87171" },
+  { key: "orange", label: "ส้ม", cls: "border-[#f59e0b] bg-[#fef3c7] text-[#92400e]", swatch: "#fb923c" },
+  { key: "none", label: "ไม่มีพื้น (ข้อความ)", cls: "border-transparent bg-transparent text-ink", swatch: "transparent" },
+];
+
+export function objectClass(color: PlanColor) {
+  return (OBJECT_COLORS.find((c) => c.key === color) ?? OBJECT_COLORS[0]).cls;
+}
+
+/** สัญลักษณ์สำเร็จรูป กดแล้ววางพร้อมชื่อและสี */
+export const OBJECT_PRESETS: { label: string; color: PlanColor; shape: PlanShape; w: number; h: number }[] = [
+  { label: "ทางเข้า", color: "green", shape: "rect", w: 4, h: 2 },
+  { label: "ลิฟต์", color: "blue", shape: "rect", w: 3, h: 3 },
+  { label: "บันได", color: "gray", shape: "rect", w: 3, h: 4 },
+  { label: "ห้องน้ำ", color: "blue", shape: "rect", w: 3, h: 3 },
+  { label: "เคาน์เตอร์", color: "yellow", shape: "rect", w: 5, h: 2 },
+  { label: "เสา", color: "black", shape: "circle", w: 1, h: 1 },
+  { label: "ทางเดิน", color: "gray", shape: "rect", w: 10, h: 2 },
+  { label: "ป้ายโซน", color: "none", shape: "rect", w: 6, h: 2 },
 ];
 
 export function gridBackground(cell: number) {

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { getUnitTypes } from "@/lib/data";
 import { getBranchPlanData } from "@/lib/floor-plans";
 import { createClient } from "@/lib/supabase/server";
 import { FloorPlanEditor } from "./editor";
@@ -20,14 +21,14 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
   const { data: branch } = await supabase.from("branches").select("id, name").eq("id", id).maybeSingle();
   if (!branch) notFound();
 
-  const { plans, placements, units } = await getBranchPlanData(id);
+  const [{ plans, placements, objects, units }, unitTypes] = await Promise.all([getBranchPlanData(id), getUnitTypes()]);
   const plan = plans.find((p) => p.id === sp.plan) ?? plans[0];
 
   const header = (
     <PageHeader
       back={{ href: `/branches/${id}`, label: branch.name }}
       title="จัดผังสถานที่"
-      subtitle="ลากกล่องห้องจัดวางให้เหมือนสถานที่จริง"
+      subtitle="วาดห้อง ที่จอด และสัญลักษณ์ให้เหมือนสถานที่จริง ห้องที่วาดใหม่พร้อมทำสัญญาทันทีหลังบันทึก"
       actions={
         plan && (
           <Link href={`/units?branch=${id}&view=plan&plan=${plan.id}`} className="btn btn-outline">
@@ -46,7 +47,7 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
           <EmptyState
             icon={<MapIcon className="size-6" />}
             title="ยังไม่มีผังของสาขานี้"
-            description="สร้างผังสำหรับแต่ละชั้นหรือโซน แล้วลากห้องลงไปวางตามตำแหน่งจริง"
+            description="สร้างผังสำหรับแต่ละชั้นหรือโซน แล้ววาดห้อง ที่จอด และสัญลักษณ์ลงไปตามตำแหน่งจริง"
             action={<FirstPlanForm branchId={id} />}
           />
         </Card>
@@ -91,7 +92,9 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
         key={plan.id}
         plan={plan}
         placements={placements.filter((p) => p.floor_plan_id === plan.id)}
+        objects={objects.filter((o) => o.floor_plan_id === plan.id)}
         units={units}
+        unitTypes={unitTypes}
         placedElsewhere={placedElsewhere}
       />
     </>

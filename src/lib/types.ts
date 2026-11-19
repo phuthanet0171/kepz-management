@@ -258,6 +258,24 @@ export interface Placement {
   y: number;
   w: number;
   h: number;
+  /** ไม่มีค่าถ้ายังไม่ได้รัน 0010 */
+  shape?: PlanShape;
+}
+
+export type PlanShape = "rect" | "circle";
+export type PlanColor = "gray" | "yellow" | "black" | "blue" | "green" | "red" | "orange" | "none";
+
+/** สัญลักษณ์บนผังที่ไม่ใช่ห้องเช่า เช่น ทางเข้า ลิฟต์ เสา ป้ายโซน */
+export interface PlanObject {
+  id: string;
+  floor_plan_id: string;
+  label: string;
+  shape: PlanShape;
+  color: PlanColor;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 /** ข้อมูลห้องที่ใช้แสดงบนผัง */

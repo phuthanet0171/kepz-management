@@ -1,7 +1,7 @@
 import "server-only";
 import { fetchAll } from "./data";
 import { createClient } from "./supabase/server";
-import type { FloorPlan, Placement, PlanUnit, UnitView } from "./types";
+import type { FloorPlan, Placement, PlanObject, PlanUnit, UnitView } from "./types";
 
 /** โหลดผังทั้งหมดของสาขา พร้อมตำแหน่งห้องและสถานะห้องล่าสุด */
 export async function getBranchPlanData(branchId: string) {
@@ -22,19 +22,25 @@ export async function getBranchPlanData(branchId: string) {
   ]);
   const plans = (planData ?? []) as FloorPlan[];
 
-  const placements = plans.length
-    ? await fetchAll<Placement>((a, b) =>
+  const planIds = plans.map((p) => p.id);
+  const [placements, objects] = plans.length
+    ? await Promise.all([
+        fetchAll<Placement>((a, b) =>
         supabase
           .from("unit_placements")
           .select("*")
-          .in(
-            "floor_plan_id",
-            plans.map((p) => p.id),
-          )
+          .in("floor_plan_id", planIds)
           .order("unit_id")
           .range(a, b),
-      )
-    : [];
+        ),
+        // ยังไม่ได้รัน 0010 = ยังไม่มีตารางสัญลักษณ์ ให้แสดงผังได้ตามปกติ
+        supabase
+          .from("plan_objects")
+          .select("*")
+          .in("floor_plan_id", planIds)
+          .then(({ data, error }) => (error ? [] : ((data ?? []) as PlanObject[]))),
+      ])
+    : [[] as Placement[], [] as PlanObject[]];
 
   const overdueUnits = new Set(overdue.map((o) => o.unit_id));
   const planUnits: PlanUnit[] = units.map((u) => ({
@@ -49,5 +55,5 @@ export async function getBranchPlanData(branchId: string) {
     has_overdue: overdueUnits.has(u.id),
   }));
 
-  return { plans, placements, units: planUnits };
+  return { plans, placements, objects, units: planUnits };
 }

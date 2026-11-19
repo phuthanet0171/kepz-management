@@ -52,9 +52,15 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
   const view = sp.view === "plan" ? "plan" : "list";
 
   const supabase = await createClient();
-  const all = await fetchAll<UnitView>((from, to) =>
-    supabase.from("v_units").select("*").eq("branch_id", branchId).neq("status", "inactive").order("id").range(from, to),
-  );
+  const [all, overdueRows] = await Promise.all([
+    fetchAll<UnitView>((from, to) =>
+      supabase.from("v_units").select("*").eq("branch_id", branchId).neq("status", "inactive").order("id").range(from, to),
+    ),
+    fetchAll<{ unit_id: string }>((from, to) =>
+      supabase.from("v_invoices").select("unit_id").eq("branch_id", branchId).eq("is_overdue", true).order("id").range(from, to),
+    ),
+  ]);
+  const overdue = new Set(overdueRows.map((r) => r.unit_id));
 
   const counts: Record<string, number> = { all: all.length, available: 0, occupied: 0, expiring: 0, maintenance: 0 };
   for (const u of all) {
@@ -165,7 +171,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
       </div>
 
       <div className="mb-3">
-        <UnitLegend />
+        <UnitLegend withOverdue />
       </div>
 
       {units.length === 0 ? (
@@ -178,7 +184,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
             <Card key={g.code}>
               <CardHeader title={g.name} description={`${g.units.length} หน่วย`} />
               <div className="p-3 sm:p-4">
-                <UnitGrid units={g.units} />
+                <UnitGrid units={g.units} overdue={overdue} />
               </div>
             </Card>
           ))}
@@ -191,7 +197,7 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
 }
 
 async function PlanView({ branchId, planId }: { branchId: string; planId: string | null }) {
-  const [{ plans, placements, units }, owner] = await Promise.all([getBranchPlanData(branchId), isOwner()]);
+  const [{ plans, placements, objects, units }, owner] = await Promise.all([getBranchPlanData(branchId), isOwner()]);
   const plan = plans.find((p) => p.id === planId) ?? plans[0];
 
   if (!plan) {
@@ -245,7 +251,12 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
         <FloorPlanLegend />
       </div>
       <Card className="p-2 sm:p-3">
-        <FloorPlanViewer plan={plan} placements={placements.filter((p) => p.floor_plan_id === plan.id)} units={unitMap} />
+        <FloorPlanViewer
+          plan={plan}
+          placements={placements.filter((p) => p.floor_plan_id === plan.id)}
+          objects={objects.filter((o) => o.floor_plan_id === plan.id)}
+          units={unitMap}
+        />
       </Card>
       {owner && unplacedCount > 0 && (
         <p className="mt-2 text-xs text-muted">
