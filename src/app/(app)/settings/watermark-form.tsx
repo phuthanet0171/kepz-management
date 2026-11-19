@@ -213,7 +213,9 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
           <div className="grid gap-5 sm:grid-cols-[15rem_1fr]">
             <div>
               <PagePreview image={image} opacity={opacity} size={size} enabled={enabled} pos={pos} onMove={setPos} />
-              <p className="mt-1.5 text-center text-xs text-muted">ตัวอย่างหน้ากระดาษ A4</p>
+              <p className="mt-1.5 text-center text-xs text-muted">
+                {image && enabled ? "ลากบนหน้ากระดาษเพื่อย้ายตำแหน่งลายน้ำ" : "ตัวอย่างหน้ากระดาษ A4"}
+              </p>
             </div>
 
             <div className="space-y-4">
@@ -282,34 +284,6 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
                     right="เต็มหน้า"
                     disabled={!enabled}
                   />
-                  <div className={clsx(!enabled && "opacity-50")}>
-                    <span className="label flex justify-between">
-                      ตำแหน่ง
-                      <span className="text-xs font-normal text-muted">ลากบนหน้ากระดาษตัวอย่าง หรือกดเลือก</span>
-                    </span>
-                    <div className="grid w-fit grid-cols-3 gap-1 rounded-xl bg-line/50 p-1">
-                      {[15, 50, 85].flatMap((y) =>
-                        [20, 50, 80].map((x) => {
-                          const on = pos.x === x && pos.y === y;
-                          return (
-                            <button
-                              key={`${x}-${y}`}
-                              type="button"
-                              disabled={!enabled}
-                              onClick={() => setPos({ x, y })}
-                              aria-label={`วางลายน้ำ ${y === 15 ? "บน" : y === 50 ? "กลาง" : "ล่าง"}${x === 20 ? "ซ้าย" : x === 50 ? "" : "ขวา"}`}
-                              className={clsx(
-                                "grid size-9 place-items-center rounded-lg transition",
-                                on ? "bg-ink" : "bg-surface hover:bg-brand-soft",
-                              )}
-                            >
-                              <span className={clsx("size-2.5 rounded-full", on ? "bg-brand" : "bg-ink/25")} />
-                            </button>
-                          );
-                        }),
-                      )}
-                    </div>
-                  </div>
                 </>
               )}
               {/* ค่าเดิมเมื่อยังไม่มีรูป (slider ไม่แสดง) */}
