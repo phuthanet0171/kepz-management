@@ -47,7 +47,7 @@ export function BusinessForm({ s, bare }: { s: Settings; bare?: boolean }) {
 
 export function DocumentsForm({ s }: { s: Settings }) {
   return (
-    <Section icon={Hash} title="เลขเอกสารและช่องทางชำระเงิน" description="เลขเอกสารรันใหม่ทุกปี เช่น INV2569-0001">
+    <Section icon={Hash} title="เลขเอกสาร" description="เลขเอกสารรันใหม่ทุกปี เช่น INV2569-0001">
       <ActionForm action={saveDocuments} resetOnSuccess={false}>
         <div className="grid grid-cols-3 gap-3">
           <Field label="ใบวางบิล">
@@ -60,9 +60,6 @@ export function DocumentsForm({ s }: { s: Settings }) {
             <input name="contract_prefix" required defaultValue={s.contract_prefix} className="input uppercase" />
           </Field>
         </div>
-        <Field label="ช่องทางการชำระเงิน (พิมพ์ในใบวางบิล)" hint="เช่น ชื่อธนาคาร เลขบัญชี ชื่อบัญชี หรือเลขพร้อมเพย์">
-          <textarea name="payment_instructions" rows={3} defaultValue={s.payment_instructions ?? ""} className="input" />
-        </Field>
         <SaveBar>
           <SubmitButton className={SAVE_CLASS}>บันทึกเลขเอกสาร</SubmitButton>
         </SaveBar>
@@ -126,7 +123,7 @@ export function ContractTermsFields({
           className="input"
         />
       </Field>
-      <Field label="บัญชีธนาคารสำหรับรับชำระ" className="sm:col-span-2">
+      <Field label="บัญชีธนาคารสำหรับรับชำระ" hint="พิมพ์ในสัญญาเช่าและใบวางบิล" className="sm:col-span-2">
         <input
           name="bank_account"
           defaultValue={values.bank_account ?? ""}

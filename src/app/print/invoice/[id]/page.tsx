@@ -32,7 +32,8 @@ export default async function PrintInvoicePage({ params }: PageProps<"/print/inv
   const vat = Number(inv.vat_rate) > 0;
   const wht = Number(inv.wht_rate) > 0;
   const paid = Number(inv.paid_amount) > 0 && inv.status !== "void";
-  const payTo = settings.payment_instructions || terms.bank_account;
+  // บัญชีรับชำระของสาขา (หรือค่ากลาง) ช่องเดียวกับในสัญญา · ข้อความเก่าในช่องทางชำระเงินใช้เมื่อยังไม่ได้ใส่บัญชี
+  const payTo = terms.bank_account || settings.payment_instructions;
 
   // แถวสรุปใต้ตาราง: แสดงเฉพาะเมื่อมีภาษี/มีการชำระแล้ว (ยอดที่ต้องจ่ายอยู่ในแถบเหลืองด้านบนที่เดียว)
   const foot: FootRow[] = [];

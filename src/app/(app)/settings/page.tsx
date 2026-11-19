@@ -33,11 +33,13 @@ const SECTIONS: {
   {
     key: "documents",
     label: "สัญญาเช่าและเอกสาร",
-    desc: "เงื่อนไขสัญญา แม่แบบสัญญา เลขเอกสาร ช่องทางชำระเงิน และลายน้ำบนเอกสาร",
+    desc: "เงื่อนไขสัญญา บัญชีรับชำระ แม่แบบสัญญา เลขเอกสาร และลายน้ำบนเอกสาร",
     icon: FileText,
     status: (s, wm) => [
       s.lessor_name ? { text: `ผู้ให้เช่า ${s.lessor_name}` } : { text: "ยังไม่ได้ใส่ชื่อผู้ให้เช่า", missing: true },
-      s.payment_instructions ? { text: "มีช่องทางชำระเงินแล้ว" } : { text: "ยังไม่ได้ใส่ช่องทางชำระเงิน", missing: true },
+      s.bank_account || s.payment_instructions
+        ? { text: "มีบัญชีรับชำระแล้ว" }
+        : { text: "ยังไม่ได้ใส่บัญชีธนาคารสำหรับรับชำระ", missing: true },
       { text: wm?.image && wm.enabled ? "ลายน้ำ: เปิดอยู่" : "ลายน้ำ: ยังไม่ใช้" },
     ],
   },

@@ -44,7 +44,6 @@ export async function saveDocuments(_: ActionState, fd: FormData): Promise<Actio
     invoice_prefix: prefixes[0],
     receipt_prefix: prefixes[1],
     contract_prefix: prefixes[2],
-    payment_instructions: str(fd, "payment_instructions"),
   });
 }
 
