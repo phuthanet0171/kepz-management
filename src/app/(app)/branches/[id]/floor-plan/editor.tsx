@@ -219,10 +219,36 @@ export function FloorPlanEditor({
 
   // โฟกัสช่องชื่อทันทีหลังเพิ่มรูปใหม่ พิมพ์ชื่อได้เลย
   useEffect(() => {
-    if (!focusName) return;
+    // มือถือไม่เปิดคีย์บอร์ดเอง (จะบังผัง) แตะช่องชื่อเมื่อต้องการแก้
+    if (!focusName || window.innerWidth < 1024) return;
     nameRef.current?.focus();
     nameRef.current?.select();
   }, [focusName]);
+
+  // มือถือ: แผงแก้ไขเด้งจากด้านล่าง เลื่อนจอให้รูปที่เลือกอยู่ระหว่างแถบเครื่องมือกับแผง
+  useEffect(() => {
+    if (!sel || window.innerWidth >= 1024) return;
+    const id = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-item="${sel}"]`);
+      const sc = scrollRef.current;
+      if (!el || !sc) return;
+      // แถบเครื่องมือติดด้านบนจอเมื่อเลื่อน: ใช้ตำแหน่งตอนติดแล้ว
+      const tb = document.querySelector<HTMLElement>("[data-plan-toolbar]");
+      const toolbarBottom = tb ? (parseFloat(getComputedStyle(tb).top) || 58) + tb.offsetHeight : 120;
+      const sheetTop = document.querySelector("aside")?.getBoundingClientRect().top ?? window.innerHeight * 0.45;
+      const room = sheetTop - toolbarBottom; // พื้นที่ที่มองเห็นผังได้
+      // เลื่อนผังข้างใน (ถ้าเลื่อนได้) ให้รูปอยู่กลางพื้นที่ที่มองเห็น
+      const er = el.getBoundingClientRect();
+      const sr = sc.getBoundingClientRect();
+      sc.scrollLeft += er.left + er.width / 2 - (sr.left + sr.width / 2);
+      sc.scrollTop += er.top - sr.top - Math.max(8, (Math.min(room, sr.height) - er.height) / 2);
+      // แล้วเลื่อนทั้งหน้าให้รูปอยู่ใต้แถบเครื่องมือ เหนือแผง
+      const r2 = el.getBoundingClientRect();
+      const target = toolbarBottom + Math.max(12, (room - r2.height) / 2);
+      window.scrollBy({ top: r2.top - target });
+    }, 60);
+    return () => clearTimeout(id);
+  }, [sel]);
 
   const { name, cols, rows, items } = doc;
   const cell = BASE_CELL * zoom;
@@ -656,9 +682,18 @@ export function FloorPlanEditor({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr]">
       {/* แผงซ้าย: รายละเอียดรูปที่เลือก หรือ ตั้งค่าผัง */}
       {/* มือถือ: แถบเครื่องมือ + ผังขึ้นก่อน แผงรายละเอียดอยู่ใต้ผัง */}
-      <aside className="card flex flex-col overflow-hidden max-lg:order-2 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]">
+      <aside
+        className={clsx(
+          "card flex flex-col overflow-hidden max-lg:order-2 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]",
+          // มือถือ: เลือกรูปแล้วแผงนี้กลายเป็นแผงเด้งจากด้านล่างจอ
+          sel &&
+            selItem &&
+            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:max-h-[48dvh] max-lg:rounded-none max-lg:rounded-t-3xl max-lg:border-0 max-lg:border-t-2 max-lg:border-brand max-lg:pb-[env(safe-area-inset-bottom)] max-lg:shadow-[0_-12px_40px_rgb(0_0_0/0.25)]",
+        )}
+      >
         {sel && selItem ? (
           <>
+            <span aria-hidden className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-line lg:hidden" />
             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
               <div className="min-w-0">
                 <div className="truncate font-semibold">
@@ -672,9 +707,12 @@ export function FloorPlanEditor({
                       : "กด “บันทึกผัง” แล้วพร้อมทำสัญญาทันที"}
                 </div>
               </div>
+              <button type="button" className="btn btn-brand btn-sm shrink-0 lg:hidden" onClick={() => setSel(null)}>
+                เสร็จ
+              </button>
               <button
                 type="button"
-                className="btn btn-ghost size-9 min-h-0 shrink-0 p-0"
+                className="btn btn-ghost size-9 min-h-0 shrink-0 p-0 max-lg:hidden"
                 onClick={() => setSel(null)}
                 aria-label="ปิด"
               >
@@ -887,10 +925,14 @@ export function FloorPlanEditor({
           </>
         )}
       </aside>
+      {/* มือถือ: เว้นที่ด้านล่างให้เลื่อนผังพ้นแผงแก้ไขได้ */}
+      {sel && selItem && <div aria-hidden className="h-[60dvh] max-lg:order-3 lg:hidden" style={{ overflowAnchor: "none" }} />}
 
       <div className="min-w-0 space-y-3 max-lg:order-1">
         {/* แถบเครื่องมือ */}
-        <div className="card z-20 flex flex-wrap items-center gap-2 p-2.5 max-lg:sticky max-lg:top-[calc(3.6rem+env(safe-area-inset-top))] max-lg:shadow-md">
+        <div
+          data-plan-toolbar
+          className="card z-20 flex flex-wrap items-center gap-2 p-2.5 max-lg:sticky max-lg:top-[calc(3.6rem+env(safe-area-inset-top))] max-lg:shadow-md">
           <button type="button" className="btn btn-primary max-sm:flex-1" onClick={() => addShape("rect")}>
             <Square className="size-4" /> สี่เหลี่ยม
           </button>
@@ -941,7 +983,7 @@ export function FloorPlanEditor({
             {dirty && (
               <button
                 type="button"
-                className="btn btn-ghost"
+                className="btn btn-ghost max-sm:hidden"
                 onClick={() => {
                   commit(() => initial);
                   setSel(null);
@@ -1005,6 +1047,7 @@ export function FloorPlanEditor({
               return (
                 <ItemBox
                   key={id}
+                  id={id}
                   item={it}
                   cell={cell}
                   selected={sel === id}
@@ -1064,6 +1107,7 @@ export function FloorPlanEditor({
 }
 
 function ItemBox({
+  id,
   item,
   cell,
   selected,
@@ -1072,6 +1116,7 @@ function ItemBox({
   onPointerDown,
   onResizeDown,
 }: {
+  id: string;
   item: Item;
   cell: number;
   selected: boolean;
@@ -1083,6 +1128,7 @@ function ItemBox({
   const textOnly = item.color === "none";
   return (
     <div
+      data-item={id}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.stopPropagation();
@@ -1125,7 +1171,7 @@ function ItemBox({
             e.stopPropagation();
             onResizeDown(e);
           }}
-          className="absolute -right-2 -bottom-2 size-5 cursor-se-resize rounded-md border-2 border-white bg-ink shadow"
+          className="absolute -right-3 -bottom-3 size-7 cursor-se-resize rounded-lg border-2 border-white bg-ink shadow lg:-right-2 lg:-bottom-2 lg:size-5 lg:rounded-md"
           style={{ touchAction: "none" }}
           aria-label="ลากเพื่อปรับขนาด"
         />
