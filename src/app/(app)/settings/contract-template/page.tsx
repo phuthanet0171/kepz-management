@@ -106,7 +106,7 @@ export default async function ContractTemplatePage() {
       <PageHeader
         title="แม่แบบสัญญาเช่า"
         subtitle="แก้เนื้อหาได้เอง ช่องในวงเล็บปีกกา เช่น {ชื่อผู้เช่า} ระบบจะเติมข้อมูลจริงให้ตอนพิมพ์"
-        back={{ href: "/settings", label: "ตั้งค่า" }}
+        back={{ href: "/settings?section=documents", label: "สัญญาเช่าและเอกสาร" }}
       />
       <TemplateEditor
         initial={{ storage: s.contract_template_storage, parking: s.contract_template_parking }}

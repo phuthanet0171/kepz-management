@@ -65,7 +65,7 @@ export default async function DashboardPage() {
                 <Link href="/branches/new" className="btn btn-primary">
                   เพิ่มสาขาแรก
                 </Link>
-                <Link href="/settings" className="btn btn-outline">
+                <Link href="/settings?section=business" className="btn btn-outline">
                   ตั้งค่ากิจการ
                 </Link>
               </div>
