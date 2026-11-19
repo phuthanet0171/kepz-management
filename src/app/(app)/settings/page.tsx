@@ -62,24 +62,6 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader back={{ href: "/settings", label: "ตั้งค่า" }} title={section.label} />
-      {/* สลับหัวข้อได้โดยไม่ต้องย้อนกลับ */}
-      <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div className="inline-flex gap-1 rounded-xl bg-line/50 p-1">
-          {SECTIONS.map(({ key, label, icon: Icon }) => (
-            <Link
-              key={key}
-              href={`/settings?section=${key}`}
-              className={
-                key === section.key
-                  ? "inline-flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-sm font-medium whitespace-nowrap shadow-sm"
-                  : "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap text-muted hover:text-ink"
-              }
-            >
-              <Icon className="size-4" /> {label}
-            </Link>
-          ))}
-        </div>
-      </div>
       <div className="space-y-4">
         {section.key === "business" && <BusinessForm s={s} />}
         {section.key === "documents" && (
