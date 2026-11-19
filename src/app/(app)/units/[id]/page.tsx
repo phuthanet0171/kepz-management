@@ -55,7 +55,7 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
           </span>
         }
         subtitle={`${unit.unit_type_name} · ${unit.branch_name}`}
-        actions={<EditUnitButton unit={unit} unitTypes={unitTypes} />}
+        actions={<EditUnitButton unit={unit} unitTypes={unitTypes} triggerClassName="btn btn-outline max-lg:hidden" />}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -192,6 +192,10 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
                   ...(unit.note ? [{ label: "หมายเหตุ", value: unit.note, full: true }] : []),
                 ]}
               />
+              {/* มือถือ: ปุ่มแก้ไขอยู่ใต้ข้อมูลห้อง (คอมอยู่มุมขวาบน) */}
+              <div className="mt-4 lg:hidden">
+                <EditUnitButton unit={unit} unitTypes={unitTypes} triggerClassName="btn btn-outline w-full" />
+              </div>
             </div>
           </Card>
           {current && current.outstanding > 0 && (

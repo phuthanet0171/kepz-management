@@ -7,14 +7,23 @@ import { baht } from "@/lib/format";
 import type { UnitType, UnitView } from "@/lib/types";
 import { deleteUnit, updateUnit } from "../actions";
 
-export function EditUnitButton({ unit, unitTypes }: { unit: UnitView; unitTypes: UnitType[] }) {
+export function EditUnitButton({
+  unit,
+  unitTypes,
+  triggerClassName = "btn btn-outline",
+}: {
+  unit: UnitView;
+  unitTypes: UnitType[];
+  triggerClassName?: string;
+}) {
   const occupied = unit.status === "occupied";
   return (
     <Sheet
-      title={`แก้ไขห้อง ${unit.code}`}
+      title={`แก้ไขข้อมูลห้อง ${unit.code}`}
+      triggerClassName={triggerClassName}
       trigger={
         <>
-          <Pencil className="size-4" /> แก้ไขห้อง
+          <Pencil className="size-4" /> แก้ไขข้อมูลห้อง
         </>
       }
     >
