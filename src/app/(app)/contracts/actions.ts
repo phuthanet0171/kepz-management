@@ -4,8 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { thaiError } from "@/lib/errors";
 import { bool, isDate, isMoney, num, reqStr, str } from "@/lib/form";
-import { rentDueDate } from "@/lib/due-date";
-import { rentDueDayFor } from "@/lib/due-day";
 import { createClient } from "@/lib/supabase/server";
 import { thDate, todayTH } from "@/lib/format";
 import type { ActionState } from "@/lib/types";
@@ -109,13 +107,13 @@ async function createFirstInvoice(
   if (!items.length) return p?.is_partial ? "partial" : "fail";
 
   const today = todayTH();
-  const dueDay = (await rentDueDayFor(supabase, [contractId])).get(contractId);
   const { error } = await supabase.rpc("create_invoice", {
     p_contract_id: contractId,
     p_period_start: rentOk ? p.period_start : null,
     p_period_end: rentOk ? p.period_end : null,
     p_issue_date: today,
-    p_due_date: rentOk ? rentDueDate(p.period_start, dueDay, today) : today,
+    // บิลแรก (ค่าเช่างวดแรก + เงินประกัน) ครบกำหนดวันทำสัญญา หรือวันเริ่มสัญญาถ้าเริ่มในอนาคต
+    p_due_date: rentOk && p.period_start > today ? p.period_start : today,
     p_items: items,
     p_note: deposit > 0 ? "ค่าเช่าล่วงหน้างวดแรกและเงินประกัน" : "ค่าเช่าล่วงหน้างวดแรก",
   });
