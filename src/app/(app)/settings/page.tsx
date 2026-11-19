@@ -29,7 +29,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   if (!section) {
     return (
       <div className="mx-auto max-w-3xl">
-        <PageHeader title="ตั้งค่า" subtitle="เลือกหัวข้อที่ต้องการตั้งค่า" />
+        <PageHeader title="ตั้งค่า" />
         <Card>
           <ul className="divide-y divide-line">
             {SECTIONS.map(({ key, label, desc, icon: Icon }, i) => (
@@ -53,13 +53,6 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             ))}
           </ul>
         </Card>
-        <p className="mt-4 text-sm text-muted">
-          ราคาและขนาดห้องตั้งแยกแต่ละสาขา ที่เมนู{" "}
-          <Link href="/branches" className="underline">
-            สาขา
-          </Link>{" "}
-          → เลือกสาขา → แก้ไข
-        </p>
       </div>
     );
   }
