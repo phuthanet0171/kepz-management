@@ -118,7 +118,7 @@ export function EndContractButton({ contract, today }: { contract: ContractView;
   );
 }
 
-export function DepositButton({ contract, today }: { contract: ContractView; today: string }) {
+export function DepositButton({ contract, today, label = "บันทึก" }: { contract: ContractView; today: string; label?: string }) {
   const received = Number(contract.deposit_balance);
   const toReceive = Math.max(0, Number(contract.deposit_amount) - received);
   return (
@@ -128,7 +128,7 @@ export function DepositButton({ contract, today }: { contract: ContractView; tod
       triggerClassName="btn btn-outline btn-sm"
       trigger={
         <>
-          <PiggyBank className="size-3.5" /> บันทึก
+          <PiggyBank className="size-3.5" /> {label}
         </>
       }
     >

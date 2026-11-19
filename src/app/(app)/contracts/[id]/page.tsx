@@ -1,21 +1,12 @@
-import { FilePlus2, Phone, Printer } from "lucide-react";
+import { FilePlus2, Phone, Printer, ReceiptText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContractStatusBadge, InvoiceStatusBadge } from "@/components/status";
 import { Alert, Card, CardHeader, DefinitionList, PageHeader } from "@/components/ui";
-import {
-  BILLING_CYCLE_LABEL,
-  daysBetween,
-  DEPOSIT_TXN_LABEL,
-  money,
-  PAYMENT_METHOD_LABEL,
-  thDate,
-  thDateTime,
-  todayTH,
-} from "@/lib/format";
+import { BILLING_CYCLE_LABEL, daysBetween, money, thDate, thDateTime, todayTH } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import type { BillingDue, ContractRenewal, ContractView, DepositTxn, InvoiceView } from "@/lib/types";
+import type { BillingDue, ContractRenewal, ContractView, InvoiceView } from "@/lib/types";
 import { DepositButton, EditContractInfoButton, EndContractButton, RenewContractButton } from "./contract-actions";
 
 export const metadata: Metadata = { title: "สัญญาเช่า" };
@@ -25,40 +16,34 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: cData }, { data: invData }, { data: depData }, { data: renData }, { data: dueData }, { data: extra }] =
-    await Promise.all([
-      supabase.from("v_contracts").select("*").eq("id", id).maybeSingle(),
-      supabase
-        .from("v_invoices")
-        .select("*")
-        .eq("contract_id", id)
-        .order("issue_date", { ascending: false })
-        .order("created_at", { ascending: false }),
-      supabase.from("deposit_transactions").select("*").eq("contract_id", id).order("txn_date").order("created_at"),
-      supabase.from("contract_renewals").select("*").eq("contract_id", id).order("created_at", { ascending: false }),
-      supabase.from("v_billing_due").select("*").eq("contract_id", id).maybeSingle(),
-      supabase.from("contracts").select("purpose, unit:units(unit_type:unit_types(kind))").eq("id", id).maybeSingle(),
-    ]);
+  const [{ data: cData }, { data: invData }, { data: renData }, { data: dueData }, { data: extra }] = await Promise.all([
+    supabase.from("v_contracts").select("*").eq("id", id).maybeSingle(),
+    supabase
+      .from("v_invoices")
+      .select("*")
+      .eq("contract_id", id)
+      .order("issue_date", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase.from("contract_renewals").select("*").eq("contract_id", id).order("created_at", { ascending: false }),
+    supabase.from("v_billing_due").select("*").eq("contract_id", id).maybeSingle(),
+    supabase.from("contracts").select("purpose, unit:units(unit_type:unit_types(kind))").eq("id", id).maybeSingle(),
+  ]);
   if (!cData) notFound();
   const c = cData as ContractView;
   const invoices = (invData ?? []) as InvoiceView[];
-  const deposits = (depData ?? []) as DepositTxn[];
   const renewals = (renData ?? []) as ContractRenewal[];
   const nextBill = dueData as BillingDue | null;
   const today = todayTH();
   const daysLeft = daysBetween(today, c.end_date);
   const active = c.status === "active";
   const purpose = (extra?.purpose as string | null) ?? null;
-  // ใบวางบิลที่ยังไม่ชำระครบและมีรายการเงินประกัน (เงินประกันจะบันทึกรับให้เองเมื่อบิลชำระครบ)
-  const openIds = invoices.filter((i) => i.status === "unpaid" || i.status === "partial").map((i) => i.id);
-  const { data: depItems } = openIds.length
-    ? await supabase.from("invoice_items").select("invoice_id, amount").eq("item_type", "deposit").in("invoice_id", openIds)
-    : { data: [] as { invoice_id: string; amount: number }[] };
-  const depositBill = depItems?.length ? invoices.find((i) => i.id === depItems[0].invoice_id) : undefined;
   const unitRel = extra?.unit as unknown as { unit_type: { kind: string } | null } | null;
   const isParking = unitRel?.unit_type?.kind === "parking";
-  // ใบวางบิลที่ยังไม่ได้ชำระล่าสุด (ไว้ให้กดไปพิมพ์ได้ทันทีเมื่อออกบิลค่าเช่าครบทุกรอบแล้ว)
-  const openInv = invoices.find((i) => i.status === "unpaid" || i.status === "partial") ?? null;
+  // "ออกบิลสัญญานี้" → หน้าใบวางบิลที่พิมพ์ใบวางบิล/รับชำระ/พิมพ์ใบเสร็จได้: บิลค้างที่เก่าที่สุด ถ้าไม่มีค้างใช้บิลล่าสุด
+  const openBills = invoices.filter((i) => i.status === "unpaid" || i.status === "partial");
+  const billTarget = openBills[openBills.length - 1] ?? invoices.find((i) => i.status !== "void") ?? null;
+  const depositReceived = Number(c.deposit_balance);
+  const depositAmount = Number(c.deposit_amount);
 
   return (
     <>
@@ -75,16 +60,15 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
             <Link href={`/print/contract/${c.id}`} target="_blank" className="btn btn-outline">
               <Printer className="size-4" /> พิมพ์สัญญา
             </Link>
-            {nextBill ? (
-              <Link href={`/invoices/new?contract=${c.id}`} className="btn btn-primary">
-                <FilePlus2 className="size-4" /> ออกใบวางบิล
+            {billTarget && (
+              <Link href={`/invoices/${billTarget.id}`} className="btn btn-primary">
+                <ReceiptText className="size-4" /> ออกบิลสัญญานี้
               </Link>
-            ) : (
-              openInv && (
-                <Link href={`/invoices/${openInv.id}`} className="btn btn-primary">
-                  <Printer className="size-4" /> พิมพ์ใบวางบิล {openInv.invoice_no}
-                </Link>
-              )
+            )}
+            {active && nextBill && (
+              <Link href={`/invoices/new?contract=${c.id}`} className={billTarget ? "btn btn-outline" : "btn btn-primary"}>
+                <FilePlus2 className="size-4" /> ออกบิลรอบถัดไป
+              </Link>
             )}
           </>
         }
@@ -135,6 +119,19 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
                   },
                   { label: isParking ? "ทะเบียนรถ" : "เพื่อใช้เก็บ", value: purpose ?? "-" },
                   { label: "ค่าเช่าต่อเดือน", value: `${money(c.monthly_rent)} บาท` },
+                  {
+                    label: "เงินประกัน",
+                    value: (
+                      <>
+                        {money(depositAmount)} บาท
+                        {depositAmount > 0 && (
+                          <span className={`block text-xs ${depositReceived > 0 ? "text-ok" : "text-muted"}`}>
+                            {depositReceived > 0 ? `รับแล้ว · ถือไว้ ${money(depositReceived)} บาท` : "ยังไม่ได้รับ · รับพร้อมใบวางบิลแรก"}
+                          </span>
+                        )}
+                      </>
+                    ),
+                  },
                   { label: "วันเริ่มสัญญา", value: thDate(c.start_date) },
                   {
                     label: "วันสิ้นสุดสัญญา",
@@ -163,6 +160,12 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
                   ...(c.note ? [{ label: "หมายเหตุ", value: c.note, full: true }] : []),
                 ]}
               />
+              {!active && depositReceived > 0 && (
+                <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+                  <span className="text-sm text-warn">ยังถือเงินประกันไว้ {money(depositReceived)} บาท</span>
+                  <DepositButton contract={c} today={today} label="คืน / หักเงินประกัน" />
+                </div>
+              )}
               {active && (
                 <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
                   <EditContractInfoButton id={c.id} purpose={purpose} note={c.note} isParking={isParking} />
@@ -184,11 +187,7 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
                     : undefined
               }
               action={
-                nextBill ? (
-                  <Link href={`/invoices/new?contract=${c.id}`} className="btn btn-outline btn-sm">
-                    <FilePlus2 className="size-3.5" /> ออกบิลรอบถัดไป
-                  </Link>
-                ) : (
+                nextBill ? undefined : (
                   <Link
                     href={`/invoices/new?contract=${c.id}`}
                     className="btn btn-outline btn-sm"
@@ -231,59 +230,6 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
         </div>
 
         <div className="space-y-4">
-          <Card>
-            <CardHeader
-              title="เงินประกัน"
-              action={
-                (Number(c.deposit_amount) > 0 || Number(c.deposit_balance) > 0) && <DepositButton contract={c} today={today} />
-              }
-            />
-            <div className="p-4 sm:p-5">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl bg-canvas p-3">
-                  <div className="text-xs text-muted">ตามสัญญา</div>
-                  <div className="tabular font-bold">{money(c.deposit_amount)}</div>
-                </div>
-                <div className="rounded-xl bg-brand-soft p-3">
-                  <div className="text-xs text-muted">คงเหลือที่ถือไว้</div>
-                  <div className="tabular font-bold">{money(c.deposit_balance)}</div>
-                </div>
-              </div>
-              {depositBill && (
-                <Link
-                  href={`/invoices/${depositBill.id}`}
-                  className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-brand bg-brand-soft/60 px-3 py-2.5 text-sm"
-                >
-                  <span>
-                    รอรับพร้อมใบวางบิล <b>{depositBill.invoice_no}</b>
-                    <span className="block text-xs text-muted">ชำระบิลครบแล้ว ระบบบันทึกรับเงินประกันให้เอง</span>
-                  </span>
-                  <span className="shrink-0 font-semibold">ไปรับชำระ →</span>
-                </Link>
-              )}
-              {deposits.length > 0 && (
-                <ul className="mt-4 space-y-2.5 text-sm">
-                  {deposits.map((d) => (
-                    <li key={d.id} className="flex justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-medium">{DEPOSIT_TXN_LABEL[d.txn_type]}</div>
-                        <div className="truncate text-xs text-muted">
-                          {thDate(d.txn_date)}
-                          {d.method && ` · ${PAYMENT_METHOD_LABEL[d.method]}`}
-                          {d.note && ` · ${d.note}`}
-                        </div>
-                      </div>
-                      <span className={`tabular shrink-0 font-medium ${d.txn_type === "receive" ? "text-ok" : "text-bad"}`}>
-                        {d.txn_type === "receive" ? "+" : "−"}
-                        {money(d.amount)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Card>
-
           {renewals.length > 0 && (
             <Card>
               <CardHeader title="ประวัติการต่อสัญญา" />
