@@ -22,7 +22,7 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
   const { data: branch } = await supabase.from("branches").select("id, name").eq("id", id).maybeSingle();
   if (!branch) notFound();
 
-  const [{ plans, placements, objects, units }, unitTypes] = await Promise.all([getBranchPlanData(id), getUnitTypes()]);
+  const [{ plans, placements, objects, units }, unitTypes] = await Promise.all([getBranchPlanData(id), getUnitTypes(id)]);
   const plan = plans.find((p) => p.id === sp.plan) ?? plans[0];
 
   const header = (

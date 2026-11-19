@@ -21,10 +21,17 @@ export default async function PrintContractPage({ params }: PageProps<"/print/co
   if (!cData) notFound();
   const c = cData as ContractView;
 
-  const [{ data: tenantData }, { data: unitType }, { data: branchData }] = await Promise.all([
+  const [{ data: tenantData }, { data: unitType }, { data: branchData }, { data: branchType }] = await Promise.all([
     supabase.from("tenants").select("*").eq("id", c.tenant_id).single(),
     supabase.from("unit_types").select("kind, size_label").eq("code", c.unit_type_code).single(),
     supabase.from("branches").select("*").eq("id", c.branch_id).single(),
+    // ขนาดห้องของสาขานี้ (ไม่มีตาราง = ยังไม่ได้รัน 0012 ใช้ขนาดของประเภท)
+    supabase
+      .from("branch_unit_types")
+      .select("size_label")
+      .eq("branch_id", c.branch_id)
+      .eq("unit_type_code", c.unit_type_code)
+      .maybeSingle(),
   ]);
   const t = tenantData as Tenant;
   const branch = branchData as Branch | null;
@@ -46,7 +53,7 @@ export default async function PrintContractPage({ params }: PageProps<"/print/co
     branch_address: branch?.address ?? null,
     unit_code: c.unit_code,
     unit_type_name: c.unit_type_name,
-    size_label: unitType?.size_label ?? null,
+    size_label: branchType ? branchType.size_label : (unitType?.size_label ?? null),
     tenant: t,
     terms,
   });

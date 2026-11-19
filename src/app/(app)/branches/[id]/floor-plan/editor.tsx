@@ -763,7 +763,7 @@ export function FloorPlanEditor({
                   {selLocked
                     ? "ห้องนี้มีผู้เช่าอยู่ เปลี่ยนประเภทไม่ได้"
                     : selItem.use
-                      ? `ราคาตั้งต้น ${typeByCode.get(selItem.use)?.default_monthly_price.toLocaleString() ?? "-"} บาท/เดือน`
+                      ? `ราคาของสาขานี้ ${typeByCode.get(selItem.use)?.default_monthly_price.toLocaleString() ?? "-"} บาท/เดือน`
                       : "ใช้วาดทางเดิน ทางเข้า ลิฟต์ เสา หรือป้ายโซน วางทับห้องได้"}
                 </p>
                 {selUnit && (

@@ -4,8 +4,8 @@ import { FileText } from "lucide-react";
 import Link from "next/link";
 import { Card, CardHeader, Field } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
-import type { Settings, UnitType } from "@/lib/types";
-import { saveAlerts, saveBusiness, saveContractSettings, saveDocuments, saveUnitTypes } from "./actions";
+import type { Settings } from "@/lib/types";
+import { saveAlerts, saveBusiness, saveContractSettings, saveDocuments } from "./actions";
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -38,41 +38,6 @@ export function BusinessForm({ s }: { s: Settings }) {
           </Field>
         </div>
         <SubmitButton>บันทึก</SubmitButton>
-      </ActionForm>
-    </Section>
-  );
-}
-
-export function UnitTypesForm({ types }: { types: UnitType[] }) {
-  return (
-    <Section title="ประเภทห้องและราคาตั้งต้น" description="ราคาใหม่ใช้กับสัญญาที่ทำหลังจากนี้ ห้องที่ตั้งราคาเฉพาะไว้จะใช้ราคาของห้องนั้น">
-      <ActionForm action={saveUnitTypes} resetOnSuccess={false}>
-        <div className="space-y-3">
-          {types.map((t) => (
-            <div key={t.code} className="grid grid-cols-2 gap-2 rounded-xl border border-line p-3 sm:grid-cols-[1fr_1fr_9rem]">
-              <input type="hidden" name="code" value={t.code} />
-              <Field label={`ชื่อ (รหัส ${t.code_prefix}-xx)`}>
-                <input name={`name_${t.code}`} required defaultValue={t.name} className="input" />
-              </Field>
-              <Field label="ขนาด / รายละเอียด">
-                <input name={`size_${t.code}`} defaultValue={t.size_label ?? ""} placeholder="เช่น 1.5 × 1 ม." className="input" />
-              </Field>
-              <Field label="บาท/เดือน" className="col-span-2 sm:col-span-1">
-                <input
-                  name={`price_${t.code}`}
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  required
-                  defaultValue={t.default_monthly_price}
-                  className="input tabular"
-                />
-              </Field>
-            </div>
-          ))}
-        </div>
-        <SubmitButton>บันทึกราคา</SubmitButton>
       </ActionForm>
     </Section>
   );

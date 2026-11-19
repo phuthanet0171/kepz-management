@@ -1,12 +1,12 @@
 "use client";
 
-import { Car, Package } from "lucide-react";
 import { useState } from "react";
 import { Card, CardHeader, Field } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/ui/client";
 import { baht } from "@/lib/format";
 import type { UnitType } from "@/lib/types";
 import { createBranch } from "../actions";
+import { BranchPriceFields } from "../branch-price-fields";
 
 function codeRange(prefix: string, n: number) {
   if (n <= 0) return null;
@@ -17,7 +17,10 @@ function codeRange(prefix: string, n: number) {
 export function NewBranchForm({ unitTypes }: { unitTypes: UnitType[] }) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const total = Object.values(counts).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
-  const monthly = unitTypes.reduce((a, t) => a + (counts[t.code] || 0) * Number(t.default_monthly_price), 0);
+  const [prices, setPrices] = useState<Record<string, number>>(() =>
+    Object.fromEntries(unitTypes.map((t) => [t.code, Number(t.default_monthly_price)])),
+  );
+  const monthly = unitTypes.reduce((a, t) => a + (counts[t.code] || 0) * (prices[t.code] ?? 0), 0);
 
   return (
     <ActionForm action={createBranch} className="space-y-5">
@@ -41,41 +44,15 @@ export function NewBranchForm({ unitTypes }: { unitTypes: UnitType[] }) {
 
       <Card>
         <CardHeader
-          title="จำนวนห้องและที่จอด"
-          description="ระบบจะสร้างรหัสให้อัตโนมัติ และแก้ไขรหัสแต่ละห้องให้ตรงป้ายจริงได้ภายหลัง"
+          title="ราคา ขนาด และจำนวนห้อง"
+          description="ราคาและขนาดใช้เฉพาะสาขานี้ แก้ภายหลังได้ที่หน้าสาขา → แก้ไข · ระบบสร้างรหัสห้องให้อัตโนมัติ ปรับชื่อห้องได้ในหน้าจัดผัง"
         />
-        <div className="divide-y divide-line">
-          {unitTypes.map((t) => {
-            const n = counts[t.code] || 0;
-            const Icon = t.kind === "parking" ? Car : Package;
-            return (
-              <div key={t.code} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft">
-                  <Icon className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{t.name}</div>
-                  <div className="truncate text-xs text-muted">
-                    {baht(t.default_monthly_price)}/เดือน
-                    {n > 0 && <> · {codeRange(t.code_prefix, n)}</>}
-                  </div>
-                </div>
-                <input
-                  name={`count_${t.code}`}
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={500}
-                  step={1}
-                  placeholder="0"
-                  aria-label={`จำนวน${t.name}`}
-                  className="input tabular w-24 text-right"
-                  onChange={(e) => setCounts((c) => ({ ...c, [t.code]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
-                />
-              </div>
-            );
-          })}
-        </div>
+        <BranchPriceFields
+          unitTypes={unitTypes}
+          onPrice={(code, v) => setPrices((p) => ({ ...p, [code]: v }))}
+          onCount={(code, n) => setCounts((c) => ({ ...c, [code]: n }))}
+          codeHint={(t) => codeRange(t.code_prefix, counts[t.code] || 0)}
+        />
         <div className="flex items-center justify-between rounded-b-card border-t border-line bg-canvas/60 px-4 py-3 text-sm sm:px-5">
           <span className="text-muted">
             รวม <b className="tabular text-ink">{total}</b> ห้อง

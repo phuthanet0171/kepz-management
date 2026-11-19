@@ -4,7 +4,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui";
-import { fetchAll } from "@/lib/data";
+import { fetchAll, getUnitTypes } from "@/lib/data";
+import { baht } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { Branch, UnitView } from "@/lib/types";
 import { PurgeButton, type PurgePreview } from "@/components/purge-button";
@@ -17,10 +18,11 @@ export default async function BranchPage({ params }: PageProps<"/branches/[id]">
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: branch }, units, { data: preview }] = await Promise.all([
+  const [{ data: branch }, units, { data: preview }, unitTypes] = await Promise.all([
     supabase.from("branches").select("*").eq("id", id).maybeSingle(),
     fetchAll<UnitView>((from, to) => supabase.from("v_units").select("*").eq("branch_id", id).order("id").range(from, to)),
     supabase.rpc("purge_preview", { p_kind: "branch", p_id: id }).single<PurgePreview>(),
+    getUnitTypes(id),
   ]);
   if (!branch) notFound();
   const b = branch as Branch;
@@ -59,7 +61,7 @@ export default async function BranchPage({ params }: PageProps<"/branches/[id]">
             )}
           </span>
         }
-        actions={<EditBranchButton branch={b} />}
+        actions={<EditBranchButton branch={b} unitTypes={unitTypes} />}
       />
 
       <Card className="mb-4 p-4 sm:p-5">
@@ -80,6 +82,21 @@ export default async function BranchPage({ params }: PageProps<"/branches/[id]">
             <div className="h-full rounded-full bg-brand" style={{ width: `${rate}%` }} />
           </div>
         </div>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader title="ราคาและขนาดห้อง" description="ของสาขานี้ · แก้ได้ที่ปุ่ม “แก้ไข” ด้านบน" />
+        <ul className="divide-y divide-line">
+          {unitTypes.map((t) => (
+            <li key={t.code} className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+              <span className="min-w-0">
+                <span className="font-medium">{t.name}</span>
+                {t.size_label && <span className="ml-2 text-sm text-muted">{t.size_label}</span>}
+              </span>
+              <span className="tabular shrink-0 font-semibold">{baht(t.default_monthly_price)}/เดือน</span>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       <Card>

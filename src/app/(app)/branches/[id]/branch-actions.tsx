@@ -6,6 +6,7 @@ import { ActionForm, Sheet, SubmitButton } from "@/components/ui/client";
 import type { Branch, UnitType } from "@/lib/types";
 import { addUnits, updateBranch } from "../actions";
 import { ContractTermsFields } from "../../settings/settings-forms";
+import { BranchPriceFields } from "../branch-price-fields";
 
 function hasOverrides(b: Branch) {
   return [b.lessor_name, b.bank_account, b.rent_due_day, b.late_fee_per_day, b.reclaim_day, b.overstay_fee_per_day].some(
@@ -13,7 +14,7 @@ function hasOverrides(b: Branch) {
   );
 }
 
-export function EditBranchButton({ branch }: { branch: Branch }) {
+export function EditBranchButton({ branch, unitTypes }: { branch: Branch; unitTypes: UnitType[] }) {
   return (
     <Sheet
       title="แก้ไขข้อมูลสาขา"
@@ -38,6 +39,13 @@ export function EditBranchButton({ branch }: { branch: Branch }) {
           <Field label="หมายเหตุ">
             <input name="note" defaultValue={branch.note ?? ""} className="input" />
           </Field>
+          <div className="overflow-hidden rounded-xl border border-line">
+            <div className="border-b border-line bg-canvas/60 px-4 py-2.5">
+              <div className="text-sm font-semibold">ราคาและขนาดห้องของสาขานี้</div>
+              <div className="text-xs text-muted">ราคาใหม่ใช้กับสัญญาที่ทำหลังจากนี้ ห้องที่ตั้งราคาเฉพาะไว้ยังใช้ราคาของห้องนั้น</div>
+            </div>
+            <BranchPriceFields unitTypes={unitTypes} />
+          </div>
           <details className="group rounded-xl border border-line p-3" open={hasOverrides(branch)}>
             <summary className="cursor-pointer text-sm font-medium">ข้อมูลในสัญญาเฉพาะสาขานี้</summary>
             <p className="mt-1 mb-3 text-xs text-muted">เว้นว่างช่องไหน = ใช้ค่ากลางจาก ตั้งค่า → สัญญาเช่า</p>

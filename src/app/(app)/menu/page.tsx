@@ -14,7 +14,7 @@ const ITEMS = [
   { href: "/reports", label: "รายงาน", desc: "รายได้ ยอดค้าง อัตราการเช่า ส่งออก CSV", icon: BarChart3, ownerOnly: true },
   { href: "/branches", label: "สาขา", desc: "เพิ่มสาขา จัดการห้องและผังสถานที่", icon: Building2, ownerOnly: true },
   { href: "/users", label: "ผู้ใช้งาน", desc: "เพิ่มบัญชี กำหนดสิทธิ์ ปิดการใช้งาน", icon: UserCog, ownerOnly: true },
-  { href: "/settings", label: "ตั้งค่า", desc: "ข้อมูลกิจการ ราคา ภาษี เอกสาร", icon: Settings, ownerOnly: true },
+  { href: "/settings", label: "ตั้งค่า", desc: "ข้อมูลกิจการ สัญญา เอกสาร ลายน้ำ", icon: Settings, ownerOnly: true },
   { href: "/account", label: "บัญชีของฉัน", desc: "ชื่อที่แสดงและเปลี่ยนรหัสผ่าน", icon: CircleUser },
 ];
 

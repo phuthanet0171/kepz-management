@@ -35,7 +35,7 @@ export function EditUnitButton({ unit, unitTypes }: { unit: UnitView; unitTypes:
           </Field>
           <Field
             label="ราคาเฉพาะห้องนี้ (บาท/เดือน)"
-            hint="เว้นว่างเพื่อใช้ราคาตั้งต้นของประเภท ราคาที่เปลี่ยนจะใช้กับสัญญาใหม่เท่านั้น"
+            hint="เว้นว่างเพื่อใช้ราคาของสาขาตามประเภทห้อง ราคาที่เปลี่ยนจะใช้กับสัญญาใหม่เท่านั้น"
           >
             <input
               name="monthly_price"

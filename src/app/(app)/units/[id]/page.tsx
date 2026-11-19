@@ -17,12 +17,12 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: unitData }, { data: history }, unitTypes] = await Promise.all([
+  const [{ data: unitData }, { data: history }] = await Promise.all([
     supabase.from("v_units").select("*").eq("id", id).maybeSingle(),
     supabase.from("v_contracts").select("*").eq("unit_id", id).order("start_date", { ascending: false }),
-    getUnitTypes(),
   ]);
   if (!unitData) notFound();
+  const unitTypes = await getUnitTypes((unitData as UnitView).branch_id);
   const owner = await isOwner();
   const unit = unitData as UnitView;
   const contracts = (history ?? []) as ContractView[];
@@ -179,11 +179,11 @@ export default async function UnitPage({ params }: PageProps<"/units/[id]">) {
                   { label: "รหัส", value: unit.code },
                   { label: "ประเภท", value: unit.unit_type_name },
                   {
-                    label: "ราคาตั้งต้น",
+                    label: "ราคาเช่า",
                     value: (
                       <>
                         {baht(unit.effective_price)}/เดือน
-                        {unit.monthly_price !== null && <span className="block text-xs text-muted">ราคาเฉพาะห้อง</span>}
+                        <span className="block text-xs text-muted">{unit.monthly_price !== null ? "ราคาเฉพาะห้องนี้" : "ราคาของสาขา"}</span>
                       </>
                     ),
                   },

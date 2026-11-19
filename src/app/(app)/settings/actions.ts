@@ -3,7 +3,7 @@
 import { ownerOnlyError } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { thaiError } from "@/lib/errors";
-import { isMoney, num, reqStr, str } from "@/lib/form";
+import { num, reqStr, str } from "@/lib/form";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 import { readContractTerms } from "@/lib/contract-terms-form";
@@ -56,26 +56,6 @@ export async function saveAlerts(_: ActionState, fd: FormData): Promise<ActionSt
   if (due === null || !Number.isInteger(due) || due < 0 || due > 90) return { error: "จำนวนวันแจ้งออกบิลล่วงหน้าต้องอยู่ระหว่าง 0–90" };
   if (exp === null || !Number.isInteger(exp) || exp < 1 || exp > 180) return { error: "จำนวนวันแจ้งสัญญาใกล้หมดต้องอยู่ระหว่าง 1–180" };
   return saveSettings({ due_soon_days: due, expiring_soon_days: exp });
-}
-
-export async function saveUnitTypes(_: ActionState, fd: FormData): Promise<ActionState> {
-  const denied = await ownerOnlyError();
-  if (denied) return { error: denied };
-  const codes = fd.getAll("code").map(String);
-  const supabase = await createClient();
-  for (const code of codes) {
-    const name = reqStr(fd, `name_${code}`);
-    const price = num(fd, `price_${code}`);
-    if (!name) return { error: `กรุณากรอกชื่อประเภท ${code}` };
-    if (!isMoney(price)) return { error: `ราคาของ ${name} ไม่ถูกต้อง` };
-    const { error } = await supabase
-      .from("unit_types")
-      .update({ name, size_label: str(fd, `size_${code}`), default_monthly_price: price })
-      .eq("code", code);
-    if (error) return { error: thaiError(error, "บันทึกราคาไม่สำเร็จ") };
-  }
-  revalidatePath("/", "layout");
-  return { ok: true, message: "บันทึกราคาแล้ว ใช้กับสัญญาใหม่เท่านั้น สัญญาเดิมยังใช้ราคาเดิม" };
 }
 
 export async function saveContractSettings(_: ActionState, fd: FormData): Promise<ActionState> {

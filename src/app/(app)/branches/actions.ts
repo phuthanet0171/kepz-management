@@ -5,9 +5,38 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { readContractTerms } from "@/lib/contract-terms-form";
 import { thaiError } from "@/lib/errors";
-import { num, reqStr, str } from "@/lib/form";
+import { isMoney, num, reqStr, str } from "@/lib/form";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
+
+type PriceRow = { unit_type_code: string; monthly_price: number; size_label: string | null };
+
+/** อ่านราคาและขนาดของแต่ละประเภทจากฟอร์มสาขา */
+function readBranchPrices(fd: FormData, types: { code: string; name: string }[]): PriceRow[] | { error: string } {
+  const rows: PriceRow[] = [];
+  for (const t of types) {
+    if (!fd.has(`price_${t.code}`)) continue;
+    const price = num(fd, `price_${t.code}`);
+    if (!isMoney(price)) return { error: `ราคา${t.name}ไม่ถูกต้อง` };
+    const size = str(fd, `size_${t.code}`);
+    if (size && size.length > 60) return { error: `ขนาด${t.name}ยาวเกิน 60 ตัวอักษร` };
+    rows.push({ unit_type_code: t.code, monthly_price: price!, size_label: size });
+  }
+  return rows;
+}
+
+async function saveBranchPrices(supabase: Awaited<ReturnType<typeof createClient>>, branchId: string, rows: PriceRow[]) {
+  if (!rows.length) return null;
+  const { error } = await supabase.from("branch_unit_types").upsert(
+    rows.map((r) => ({ branch_id: branchId, ...r })),
+    { onConflict: "branch_id,unit_type_code" },
+  );
+  if (!error) return null;
+  if (error.code === "42P01" || error.code === "PGRST205" || error.message?.includes("schema cache")) {
+    return "ยังตั้งราคาแยกสาขาไม่ได้ กรุณารันไฟล์ 0012_branch_prices.sql ใน Supabase ก่อน";
+  }
+  return thaiError(error, "บันทึกราคาของสาขาไม่สำเร็จ");
+}
 
 export async function createBranch(_: ActionState, fd: FormData): Promise<ActionState> {
   const denied = await ownerOnlyError();
@@ -29,6 +58,8 @@ export async function createBranch(_: ActionState, fd: FormData): Promise<Action
     total += n;
   }
   if (total === 0) return { error: "กรุณาระบุจำนวนห้องหรือที่จอดอย่างน้อย 1 รายการ" };
+  const prices = readBranchPrices(fd, types ?? []);
+  if ("error" in prices) return { error: prices.error };
 
   const { data: id, error } = await supabase.rpc("create_branch", {
     p_name: name,
@@ -38,8 +69,9 @@ export async function createBranch(_: ActionState, fd: FormData): Promise<Action
     p_counts: counts,
   });
   if (error) return { error: thaiError(error, "สร้างสาขาไม่สำเร็จ") };
-
+  const priceError = await saveBranchPrices(supabase, id as string, prices);
   revalidatePath("/", "layout");
+  if (priceError) return { error: `สร้างสาขาแล้ว แต่${priceError}` };
   redirect(`/branches/${id}`);
 }
 
@@ -54,6 +86,9 @@ export async function updateBranch(_: ActionState, fd: FormData): Promise<Action
   if ("error" in terms) return { error: terms.error };
 
   const supabase = await createClient();
+  const { data: types } = await supabase.from("unit_types").select("code, name");
+  const prices = readBranchPrices(fd, types ?? []);
+  if ("error" in prices) return { error: prices.error };
   const { error } = await supabase
     .from("branches")
     .update({
@@ -66,8 +101,9 @@ export async function updateBranch(_: ActionState, fd: FormData): Promise<Action
     })
     .eq("id", id);
   if (error) return { error: thaiError(error, "บันทึกข้อมูลสาขาไม่สำเร็จ") };
-
+  const priceError = await saveBranchPrices(supabase, id, prices);
   revalidatePath("/", "layout");
+  if (priceError) return { error: priceError };
   return { ok: true };
 }
 

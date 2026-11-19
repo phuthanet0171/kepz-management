@@ -37,11 +37,28 @@ export async function getWatermark(): Promise<DocWatermark | null> {
   return data as DocWatermark;
 }
 
-export async function getUnitTypes(): Promise<UnitType[]> {
+/**
+ * ประเภทห้อง ถ้าระบุสาขา ราคา (default_monthly_price) และขนาด (size_label) จะเป็นของสาขานั้น
+ * (ถ้ายังไม่ได้รัน 0012 จะใช้ราคาตั้งต้นของระบบ)
+ */
+export async function getUnitTypes(branchId?: string): Promise<UnitType[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("unit_types").select("*").order("sort_order");
+  const [{ data, error }, branchRows] = await Promise.all([
+    supabase.from("unit_types").select("*").order("sort_order"),
+    branchId
+      ? supabase
+          .from("branch_unit_types")
+          .select("unit_type_code, monthly_price, size_label")
+          .eq("branch_id", branchId)
+          .then(({ data: rows, error: e }) => (e ? [] : (rows ?? [])))
+      : Promise.resolve([] as { unit_type_code: string; monthly_price: number; size_label: string | null }[]),
+  ]);
   if (error) throw new Error("โหลดประเภทห้องไม่สำเร็จ");
-  return (data ?? []) as UnitType[];
+  const byCode = new Map(branchRows.map((r) => [r.unit_type_code, r]));
+  return ((data ?? []) as UnitType[]).map((t) => {
+    const b = byCode.get(t.code);
+    return b ? { ...t, default_monthly_price: Number(b.monthly_price), size_label: b.size_label } : t;
+  });
 }
 
 export async function getBranches({ activeOnly = false } = {}): Promise<Branch[]> {
