@@ -130,7 +130,8 @@ export function FloorPlanViewer({
   const fit = () => {
     const el = wrapRef.current;
     if (!el) return;
-    const z = Math.min(2.5, Math.max(0.3, (el.clientWidth - 2) / (viewCols * BASE_CELL)));
+    // ซูมพอดีจอแต่ไม่เกิน 125% (จอใหญ่ห้องไม่ใหญ่เกินไป)
+    const z = Math.min(1.25, Math.max(0.3, (el.clientWidth - 2) / (viewCols * BASE_CELL)));
     setZoom(Math.round(z * 100) / 100);
   };
 
