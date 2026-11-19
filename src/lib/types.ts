@@ -42,6 +42,9 @@ export interface DocWatermark {
   opacity: number;
   /** ความกว้าง % ของหน้ากระดาษ */
   size: number;
+  /** ตำแหน่งกึ่งกลางรูป % ของหน้ากระดาษ (ไม่มีค่าถ้ายังไม่ได้รัน 0013 = กลางหน้า) */
+  pos_x?: number;
+  pos_y?: number;
 }
 
 export interface UnitType {

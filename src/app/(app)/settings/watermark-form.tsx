@@ -53,19 +53,51 @@ function PagePreview({
   opacity,
   size,
   enabled,
+  pos,
+  onMove,
 }: {
   image: string | null;
   opacity: number;
   size: number;
   enabled: boolean;
+  pos: { x: number; y: number };
+  onMove: (p: { x: number; y: number }) => void;
 }) {
+  const active = !!image && enabled;
+  const [dragging, setDragging] = useState(false);
+  // ลาก/แตะบนหน้ากระดาษ = ย้ายจุดกึ่งกลางลายน้ำไปที่ตำแหน่งนั้น
+  const moveTo = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = Math.round(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)));
+    const y = Math.round(Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100)));
+    onMove({ x, y });
+  };
   return (
-    <div className="relative mx-auto aspect-[210/297] w-full max-w-[15rem] overflow-hidden rounded-md border border-line bg-white shadow-sm">
-      {image && enabled && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt="" className="max-h-[80%] object-contain" style={{ width: `${size}%`, opacity: opacity / 100 }} />
-        </div>
+    <div
+      className={clsx(
+        "relative mx-auto aspect-[210/297] w-full max-w-[15rem] touch-none overflow-hidden rounded-md border bg-white shadow-sm select-none",
+        active ? "cursor-move border-ink/30" : "border-line",
+        dragging && "ring-2 ring-brand",
+      )}
+      onPointerDown={(e) => {
+        if (!active) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setDragging(true);
+        moveTo(e);
+      }}
+      onPointerMove={(e) => dragging && moveTo(e)}
+      onPointerUp={() => setDragging(false)}
+      onPointerCancel={() => setDragging(false)}
+    >
+      {active && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute max-h-[80%] -translate-x-1/2 -translate-y-1/2 object-contain"
+          style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${size}%`, opacity: opacity / 100 }}
+        />
       )}
       {/* เนื้อหาจำลอง */}
       <div className="relative space-y-[5%] p-[9%]">
@@ -136,6 +168,8 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
   const [enabled, setEnabled] = useState(wm?.enabled ?? true);
   const [opacity, setOpacity] = useState(wm?.opacity ?? 8);
   const [size, setSize] = useState(wm?.size ?? 60);
+  const [pos, setPos] = useState({ x: wm?.pos_x ?? 50, y: wm?.pos_y ?? 50 });
+  const sendPos = wm?.pos_x !== undefined || pos.x !== 50 || pos.y !== 50;
   const [busy, setBusy] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
@@ -169,10 +203,16 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
           <input type="hidden" name="image_changed" value={changed ? "1" : "0"} />
           {changed && <input type="hidden" name="image" value={image ?? ""} />}
           <input type="hidden" name="enabled" value={enabled ? "1" : "0"} />
+          {sendPos && (
+            <>
+              <input type="hidden" name="pos_x" value={pos.x} />
+              <input type="hidden" name="pos_y" value={pos.y} />
+            </>
+          )}
 
           <div className="grid gap-5 sm:grid-cols-[15rem_1fr]">
             <div>
-              <PagePreview image={image} opacity={opacity} size={size} enabled={enabled} />
+              <PagePreview image={image} opacity={opacity} size={size} enabled={enabled} pos={pos} onMove={setPos} />
               <p className="mt-1.5 text-center text-xs text-muted">ตัวอย่างหน้ากระดาษ A4</p>
             </div>
 
@@ -242,7 +282,34 @@ export function WatermarkForm({ wm }: { wm: DocWatermark | null }) {
                     right="เต็มหน้า"
                     disabled={!enabled}
                   />
-                  <p className="text-xs text-muted">แนะนำความเข้ม 6–10% ตัวหนังสือยังอ่านง่าย และพิมพ์เครื่องขาวดำก็ไม่เปลืองหมึก</p>
+                  <div className={clsx(!enabled && "opacity-50")}>
+                    <span className="label flex justify-between">
+                      ตำแหน่ง
+                      <span className="text-xs font-normal text-muted">ลากบนหน้ากระดาษตัวอย่าง หรือกดเลือก</span>
+                    </span>
+                    <div className="grid w-fit grid-cols-3 gap-1 rounded-xl bg-line/50 p-1">
+                      {[15, 50, 85].flatMap((y) =>
+                        [20, 50, 80].map((x) => {
+                          const on = pos.x === x && pos.y === y;
+                          return (
+                            <button
+                              key={`${x}-${y}`}
+                              type="button"
+                              disabled={!enabled}
+                              onClick={() => setPos({ x, y })}
+                              aria-label={`วางลายน้ำ ${y === 15 ? "บน" : y === 50 ? "กลาง" : "ล่าง"}${x === 20 ? "ซ้าย" : x === 50 ? "" : "ขวา"}`}
+                              className={clsx(
+                                "grid size-9 place-items-center rounded-lg transition",
+                                on ? "bg-ink" : "bg-surface hover:bg-brand-soft",
+                              )}
+                            >
+                              <span className={clsx("size-2.5 rounded-full", on ? "bg-brand" : "bg-ink/25")} />
+                            </button>
+                          );
+                        }),
+                      )}
+                    </div>
+                  </div>
                 </>
               )}
               {/* ค่าเดิมเมื่อยังไม่มีรูป (slider ไม่แสดง) */}

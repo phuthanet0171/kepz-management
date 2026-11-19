@@ -108,10 +108,21 @@ export async function saveWatermark(_: ActionState, fd: FormData): Promise<Actio
     if (!Number.isInteger(size) || size < 20 || size > 90) return { error: "ขนาดต้องอยู่ระหว่าง 20–90%" };
     patch.size = size;
   }
+  // ตำแหน่ง: ส่งมาเฉพาะเมื่อเลื่อนจากกลางหน้า หรือเคยเลื่อนไว้แล้ว
+  if (fd.has("pos_x") && fd.has("pos_y")) {
+    const px = num(fd, "pos_x");
+    const py = num(fd, "pos_y");
+    if (px === null || py === null || px < 0 || px > 100 || py < 0 || py > 100) return { error: "ตำแหน่งลายน้ำไม่ถูกต้อง" };
+    patch.pos_x = Math.round(px);
+    patch.pos_y = Math.round(py);
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.from("doc_watermark").update(patch).eq("id", 1);
-  if (error) return { error: thaiError(error, "บันทึกลายน้ำไม่สำเร็จ") };
+  if (error) {
+    if (error.message?.includes("pos_")) return { error: "การเลื่อนตำแหน่งลายน้ำต้องรันไฟล์ 0013_watermark_position.sql ใน Supabase ก่อน" };
+    return { error: thaiError(error, "บันทึกลายน้ำไม่สำเร็จ") };
+  }
   revalidatePath("/", "layout");
   return { ok: true, message: patch.image === null ? "ลบลายน้ำแล้ว" : "บันทึกลายน้ำแล้ว เอกสารที่พิมพ์ต่อจากนี้จะมีลายน้ำ" };
 }
