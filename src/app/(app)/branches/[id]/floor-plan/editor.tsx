@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -157,6 +158,7 @@ export function FloorPlanEditor({
   const [pending, setPending] = useState<string | null>(null); // ห้องในระบบจากแถบข้างที่รอแตะตำแหน่งวาง
   const [drag, setDrag] = useState<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
+  const zoomFitted = useRef(false);
   const [message, setMessage] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
   const [saving, startSaving] = useTransition();
   const [resync, setResync] = useState(false);
@@ -167,6 +169,20 @@ export function FloorPlanEditor({
   const canvasRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  // มือถือ/แท็บเล็ต: เปิดมาให้ซูมพอดีส่วนที่มีห้อง (ไม่ต้องเลื่อนหาห้องเล็กๆ ในผังใหญ่)
+  const fitToContent = () => {
+    const el = scrollRef.current;
+    const list = Object.values(docRef.current.items);
+    if (!el || !list.length) return;
+    const maxX = Math.max(...list.map((b) => b.x + b.w)) + 1;
+    setZoom(Math.round(Math.min(1.6, Math.max(0.5, el.clientWidth / (maxX * BASE_CELL))) * 10) / 10);
+  };
+  useLayoutEffect(() => {
+    if (zoomFitted.current || window.innerWidth >= 1024) return;
+    zoomFitted.current = true;
+    fitToContent();
+  }, []);
 
   /** เปลี่ยนผังและเก็บประวัติให้ย้อนกลับได้ */
   const commit = useCallback((fn: (d: Doc) => Doc) => {
@@ -638,7 +654,8 @@ export function FloorPlanEditor({
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr]">
       {/* แผงซ้าย: รายละเอียดรูปที่เลือก หรือ ตั้งค่าผัง */}
-      <aside className="card flex max-h-[75dvh] flex-col overflow-hidden lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]">
+      {/* มือถือ: แถบเครื่องมือ + ผังขึ้นก่อน แผงรายละเอียดอยู่ใต้ผัง */}
+      <aside className="card flex flex-col overflow-hidden max-lg:order-2 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]">
         {sel && selItem ? (
           <>
             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
@@ -870,13 +887,13 @@ export function FloorPlanEditor({
         )}
       </aside>
 
-      <div className="min-w-0 space-y-3">
+      <div className="min-w-0 space-y-3 max-lg:order-1">
         {/* แถบเครื่องมือ */}
-        <div className="card flex flex-wrap items-center gap-2 p-2.5">
-          <button type="button" className="btn btn-primary" onClick={() => addShape("rect")}>
+        <div className="card z-20 flex flex-wrap items-center gap-2 p-2.5 max-lg:sticky max-lg:top-[calc(3.6rem+env(safe-area-inset-top))] max-lg:shadow-md">
+          <button type="button" className="btn btn-primary max-sm:flex-1" onClick={() => addShape("rect")}>
             <Square className="size-4" /> สี่เหลี่ยม
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => addShape("circle")}>
+          <button type="button" className="btn btn-primary max-sm:flex-1" onClick={() => addShape("circle")}>
             <Circle className="size-4" /> วงกลม
           </button>
           <span className="mx-1 hidden h-7 w-px bg-line sm:block" />
@@ -1022,7 +1039,8 @@ export function FloorPlanEditor({
           </div>
         </div>
 
-        <p className="text-xs text-muted">
+        <p className="text-xs text-muted lg:hidden">แตะรูปเพื่อแก้ชื่อ สี และประเภท (แผงอยู่ใต้ผัง) · ลากเพื่อย้าย · ลากมุมขวาล่างเพื่อปรับขนาด</p>
+        <p className="text-xs text-muted max-lg:hidden">
           ลากเพื่อย้าย · ลากมุมขวาล่างเพื่อปรับขนาด · ลูกศรขยับ (Shift = 5 ช่อง) · R หมุน · Ctrl+D ทำซ้ำ · Ctrl+Z ย้อนกลับ · Delete ลบ
         </p>
       </div>

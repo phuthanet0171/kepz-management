@@ -1,6 +1,6 @@
 import { requireOwner } from "@/lib/auth";
 import clsx from "clsx";
-import { Map as MapIcon, MonitorSmartphone } from "lucide-react";
+import { Map as MapIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -78,10 +78,6 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
         </span>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 rounded-xl bg-info-soft px-3.5 py-2.5 text-sm text-info md:hidden">
-        <MonitorSmartphone className="size-4 shrink-0" />
-        การจัดผังเหมาะกับคอมพิวเตอร์หรือแท็บเล็ต บนมือถือแนะนำให้ใช้ “ดูผังเรียลไทม์”
-      </div>
 
       <FloorPlanEditor
         key={plan.id}

@@ -119,10 +119,17 @@ export function FloorPlanViewer({
   const [zoom, setZoom] = useState(1);
   const fitted = useRef<string | null>(null);
 
+  // แสดงเฉพาะส่วนที่มีห้อง/สัญลักษณ์ (ตัดพื้นที่ว่างรอบนอก) เผื่อขอบ 1 ช่อง ห้องจะใหญ่ อ่านง่ายบนมือถือ
+  const boxes = [...placements, ...objects];
+  const offX = boxes.length ? Math.max(0, Math.min(...boxes.map((b) => b.x)) - 1) : 0;
+  const offY = boxes.length ? Math.max(0, Math.min(...boxes.map((b) => b.y)) - 1) : 0;
+  const viewCols = boxes.length ? Math.min(plan.cols, Math.max(...boxes.map((b) => b.x + b.w)) + 1) - offX : plan.cols;
+  const viewRows = boxes.length ? Math.min(plan.rows, Math.max(...boxes.map((b) => b.y + b.h)) + 1) - offY : plan.rows;
+
   const fit = () => {
     const el = wrapRef.current;
     if (!el) return;
-    const z = Math.min(2, Math.max(0.3, (el.clientWidth - 2) / (plan.cols * BASE_CELL)));
+    const z = Math.min(2.5, Math.max(0.3, (el.clientWidth - 2) / (viewCols * BASE_CELL)));
     setZoom(Math.round(z * 100) / 100);
   };
 
@@ -146,7 +153,11 @@ export function FloorPlanViewer({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-xl bg-line/50 p-1" role="tablist" aria-label="แบบการแสดงผัง">
+        <div
+          className="grid grid-cols-2 rounded-xl bg-line/50 p-1 max-sm:w-full sm:inline-grid"
+          role="tablist"
+          aria-label="แบบการแสดงผัง"
+        >
           {(
             [
               ["plan", "สีตามผัง", Palette],
@@ -160,35 +171,36 @@ export function FloorPlanViewer({
               aria-selected={mode === m}
               onClick={() => writeMode(m)}
               className={clsx(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition",
-                mode === m ? "bg-surface shadow-sm" : "text-muted hover:text-ink",
+                "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                mode === m ? "bg-ink text-white shadow-sm" : "text-muted hover:text-ink",
               )}
             >
               <Icon className="size-4" /> {label}
             </button>
           ))}
         </div>
-        <span className="ml-auto" />
-        <button
-          type="button"
-          className="btn btn-outline btn-sm size-9 p-0"
-          aria-label="ย่อ"
-          onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}
-        >
-          <Minus className="size-4" />
-        </button>
-        <span className="tabular w-12 text-center text-xs text-muted">{Math.round(zoom * 100)}%</span>
-        <button
-          type="button"
-          className="btn btn-outline btn-sm size-9 p-0"
-          aria-label="ขยาย"
-          onClick={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))}
-        >
-          <Plus className="size-4" />
-        </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={fit}>
-          <Maximize2 className="size-3.5" /> พอดีจอ
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm size-9 p-0"
+            aria-label="ย่อ"
+            onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}
+          >
+            <Minus className="size-4" />
+          </button>
+          <span className="tabular w-12 text-center text-xs text-muted">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm size-9 p-0"
+            aria-label="ขยาย"
+            onClick={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))}
+          >
+            <Plus className="size-4" />
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={fit}>
+            <Maximize2 className="size-3.5" /> พอดีจอ
+          </button>
+        </div>
       </div>
       <div className="mb-2">
         {mode === "status" ? (
@@ -203,9 +215,9 @@ export function FloorPlanViewer({
         )}
       </div>
       <div ref={wrapRef} className="overflow-auto rounded-xl border border-line bg-surface">
-        <div className="relative" style={{ width: plan.cols * cell, height: plan.rows * cell, ...gridBackground(cell) }}>
+        <div className="relative" style={{ width: viewCols * cell, height: viewRows * cell, ...gridBackground(cell) }}>
           {objects.map((o) => (
-            <PlanObjectBox key={o.id} o={o} cell={cell} />
+            <PlanObjectBox key={o.id} o={{ ...o, x: o.x - offX, y: o.y - offY }} cell={cell} />
           ))}
           {placements.map((p) => {
             const u = units.get(p.unit_id);
@@ -223,8 +235,8 @@ export function FloorPlanViewer({
                   mode === "status" && TILE_CLASS[state],
                 )}
                 style={{
-                  left: p.x * cell + 1,
-                  top: p.y * cell + 1,
+                  left: (p.x - offX) * cell + 1,
+                  top: (p.y - offY) * cell + 1,
                   width: p.w * cell - 2,
                   height: p.h * cell - 2,
                   ...(mode === "plan" ? colorStyle(p.color ?? defaultUnitColor(u.unit_type_code)) : {}),
