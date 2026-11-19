@@ -12,14 +12,6 @@ export function NewPlanFields({ branchId, defaultName }: { branchId: string; def
       <Field label="ชื่อชั้น / โซน" required hint="เช่น ชั้น 1, อาคาร B, ลานจอดรถ">
         <input name="name" required maxLength={50} defaultValue={defaultName} className="input" />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="ความกว้าง (ช่อง)" hint="ปรับภายหลังได้">
-          <input name="cols" type="number" min={10} max={300} defaultValue={48} className="input tabular" />
-        </Field>
-        <Field label="ความยาว (ช่อง)">
-          <input name="rows" type="number" min={10} max={300} defaultValue={32} className="input tabular" />
-        </Field>
-      </div>
     </>
   );
 }
