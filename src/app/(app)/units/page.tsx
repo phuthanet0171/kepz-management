@@ -101,53 +101,69 @@ export default async function UnitsPage({ searchParams }: PageProps<"/units">) {
     <>
       <PageHeader
         title="ห้องและที่จอด"
-        subtitle="แตะที่ห้องเพื่อดูผู้เช่า ค่าเช่า และสถานะการชำระ"
+        subtitle={<span className="max-lg:hidden">แตะที่ห้องเพื่อดูผู้เช่า ค่าเช่า และสถานะการชำระ</span>}
         actions={
           owner && (
-            <Link href={`/branches/${branchId}/floor-plan`} className="btn btn-brand">
+            <Link href={`/branches/${branchId}/floor-plan`} className="btn btn-brand max-lg:hidden">
               <Pencil className="size-4" /> จัดผัง / เพิ่มห้อง
             </Link>
           )
         }
       />
 
-      {branches.length > 1 && (
-        <div className="no-scrollbar -mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <div className="flex gap-2">
-            {branches.map((b) => (
-              <Link
-                key={b.id}
-                href={`/units?branch=${b.id}`}
-                className={clsx(
-                  "rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition",
-                  b.id === branchId ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink-2 hover:border-ink/30",
-                )}
-              >
-                {b.name}
-              </Link>
-            ))}
+      {/* สาขา + แบบการดู (ผัง/รายการ) + ปุ่มจัดผังบนมือถือ รวมเป็นแถวเดียว */}
+      <div className="mb-3 flex items-center gap-2">
+        {branches.length > 1 ? (
+          <div className="no-scrollbar -ml-4 min-w-0 flex-1 overflow-x-auto pl-4 sm:ml-0 sm:pl-0">
+            <div className="flex gap-2">
+              {branches.map((b) => (
+                <Link
+                  key={b.id}
+                  href={`/units?branch=${b.id}`}
+                  className={clsx(
+                    "rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition",
+                    b.id === branchId ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink-2 hover:border-ink/30",
+                  )}
+                >
+                  {b.name}
+                </Link>
+              ))}
+            </div>
           </div>
+        ) : (
+          <span className="flex-1" />
+        )}
+        <div className="inline-flex shrink-0 rounded-xl bg-line/50 p-1">
+          {(
+            [
+              ["plan", "ผังสถานที่", MapIcon],
+              ["list", "รายการ", LayoutGrid],
+            ] as const
+          ).map(([v, label, Icon]) => (
+            <Link
+              key={v}
+              href={`/units?branch=${branchId}&view=${v}`}
+              aria-label={label}
+              title={label}
+              className={clsx(
+                "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition sm:px-3.5",
+                view === v ? "bg-ink text-white shadow-sm" : "text-muted hover:text-ink",
+              )}
+            >
+              <Icon className="size-4" /> <span className="max-sm:hidden">{label}</span>
+            </Link>
+          ))}
         </div>
-      )}
-
-      <div className="mb-3 inline-flex rounded-xl bg-line/50 p-1">
-        {(
-          [
-            ["plan", "ผังสถานที่", MapIcon],
-            ["list", "รายการ", LayoutGrid],
-          ] as const
-        ).map(([v, label, Icon]) => (
+        {owner && (
           <Link
-            key={v}
-            href={`/units?branch=${branchId}&view=${v}`}
-            className={clsx(
-              "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition",
-              view === v ? "bg-ink text-white shadow-sm" : "text-muted hover:text-ink",
-            )}
+            href={`/branches/${branchId}/floor-plan`}
+            className="btn btn-brand size-10 min-h-0 shrink-0 p-0 lg:hidden"
+            aria-label="จัดผัง / เพิ่มห้อง"
+            title="จัดผัง / เพิ่มห้อง"
           >
-            <Icon className="size-4" /> {label}
+            <Pencil className="size-4" />
           </Link>
-        ))}
+        )}
       </div>
 
       {view === "plan" ? (
@@ -242,7 +258,7 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="no-scrollbar mb-3 flex items-center gap-2 max-lg:-mx-4 max-lg:overflow-x-auto max-lg:px-4">
         {plans.map((p) => (
           <Link
             key={p.id}
@@ -255,7 +271,7 @@ async function PlanView({ branchId, planId }: { branchId: string; planId: string
             {p.name}
           </Link>
         ))}
-        <span className="ml-auto">
+        <span className="ml-auto shrink-0">
           <RealtimeRefresh />
         </span>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { BadgeCheck, Maximize2, Minus, Palette, Plus } from "lucide-react";
+import { BadgeCheck, ChevronRight, FileSignature, Maximize2, Minus, Palette, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { FloorPlan, Placement, PlanObject, PlanUnit } from "@/lib/types";
@@ -38,9 +38,9 @@ function subscribeMode(cb: () => void) {
   return () => modeListeners.delete(cb);
 }
 
-export function FloorPlanLegend() {
+export function FloorPlanLegend({ className }: { className?: string }) {
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
+    <div className={clsx("flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted", className)}>
       {TILE_LEGEND.map((l) => (
         <Fragment key={l.state}>
           {/* รอชำระ อยู่ก่อน ค้างชำระเกินกำหนด */}
@@ -143,6 +143,9 @@ export function FloorPlanViewer({
   const mode = useSyncExternalStore(subscribeMode, readMode, () => "plan" as ViewMode);
   const [zoom, setZoom] = useState(1);
   const fitted = useRef<string | null>(null);
+  // มือถือ: แตะห้องแล้วแสดงข้อมูลย่อจากด้านล่าง (ไม่ต้องออกจากผัง)
+  const [picked, setPicked] = useState<string | null>(null);
+  const pickedUnit = picked ? units.get(picked) : undefined;
 
   // แสดงเฉพาะส่วนที่มีห้อง/สัญลักษณ์ (ตัดพื้นที่ว่างรอบนอก) เผื่อขอบ 1 ช่อง ห้องจะใหญ่ อ่านง่ายบนมือถือ
   const boxes = [...placements, ...objects];
@@ -205,7 +208,7 @@ export function FloorPlanViewer({
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1 max-lg:hidden">
           <button
             type="button"
             className="btn btn-outline btn-sm size-9 p-0"
@@ -228,12 +231,12 @@ export function FloorPlanViewer({
           </button>
         </div>
       </div>
-      <div className="mb-2">
+      <div className="no-scrollbar mb-2 max-lg:-mx-2 max-lg:overflow-x-auto max-lg:px-2">
         {mode === "status" ? (
-          <FloorPlanLegend />
+          <FloorPlanLegend className="max-lg:flex-nowrap max-lg:whitespace-nowrap" />
         ) : (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-            <span>แสดงสีตามที่จัดผังไว้ · แตะห้องเพื่อดูรายละเอียด</span>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs whitespace-nowrap text-muted max-lg:flex-nowrap">
+            <span className="max-lg:hidden">แสดงสีตามที่จัดผังไว้ · แตะห้องเพื่อดูรายละเอียด</span>
             <span className="inline-flex items-center gap-1.5">
               <PendingBadge size={14} /> รอชำระ
             </span>
@@ -243,68 +246,163 @@ export function FloorPlanViewer({
           </p>
         )}
       </div>
-      <div ref={wrapRef} className="overflow-auto rounded-xl border border-line bg-surface">
-        <div className="relative" style={{ width: viewCols * cell, height: viewRows * cell, ...gridBackground(cell) }}>
-          {objects.map((o) => (
-            <PlanObjectBox key={o.id} o={{ ...o, x: o.x - offX, y: o.y - offY }} cell={cell} />
-          ))}
-          {placements.map((p) => {
-            const u = units.get(p.unit_id);
-            if (!u) return null;
-            const state = tileState(u);
-            const small = Math.min(p.w, p.h) * cell < 44;
-            return (
-              <Link
-                key={p.unit_id}
-                href={`/units/${u.id}`}
-                title={`${u.code} · ${u.tenant_name ?? TILE_LABEL[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : u.has_unpaid ? " · รอชำระ" : ""}`}
-                className={clsx(
-                  "absolute flex flex-col items-center justify-center border-2 text-center leading-snug transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
-                  p.shape === "circle" ? "rounded-full" : "rounded-md",
-                  mode === "status" && TILE_CLASS[state],
-                  // รอชำระ: กรอบส้มรอบกล่องตามรูปทรง
-                  state !== "overdue" && u.has_unpaid && u.status === "occupied" && "ring-[3px] ring-[#f97316] ring-offset-1",
-                )}
-                style={{
-                  left: (p.x - offX) * cell + 1,
-                  top: (p.y - offY) * cell + 1,
-                  width: p.w * cell - 2,
-                  height: p.h * cell - 2,
-                  ...(mode === "plan" ? colorStyle(p.color ?? defaultUnitColor(u.unit_type_code)) : {}),
-                }}
-              >
-                <span
-                  className="max-w-full px-0.5 font-bold"
-                  style={labelStyle(
-                    Math.max(9, Math.min(16, cell * 0.55)),
-                    p.h * cell - 2,
-                    !small && u.tenant_name ? Math.max(8, Math.min(12, cell * 0.4)) * 1.4 : 0,
+      <div className="relative">
+        <div ref={wrapRef} className="overflow-auto rounded-xl border border-line bg-surface max-lg:max-h-[calc(100dvh-15rem)]">
+          <div className="relative" style={{ width: viewCols * cell, height: viewRows * cell, ...gridBackground(cell) }}>
+            {objects.map((o) => (
+              <PlanObjectBox key={o.id} o={{ ...o, x: o.x - offX, y: o.y - offY }} cell={cell} />
+            ))}
+            {placements.map((p) => {
+              const u = units.get(p.unit_id);
+              if (!u) return null;
+              const state = tileState(u);
+              const small = Math.min(p.w, p.h) * cell < 44;
+              return (
+                <Link
+                  key={p.unit_id}
+                  href={`/units/${u.id}`}
+                  onClick={(e) => {
+                    // มือถือ: แสดงข้อมูลย่อก่อน กดปุ่มในแผงเพื่อไปหน้าห้อง
+                    if (window.innerWidth >= 1024) return;
+                    e.preventDefault();
+                    setPicked(u.id);
+                  }}
+                  title={`${u.code} · ${u.tenant_name ?? TILE_LABEL[state]}${state === "overdue" ? " · ค้างชำระเกินกำหนด" : u.has_unpaid ? " · รอชำระ" : ""}`}
+                  className={clsx(
+                    "absolute flex flex-col items-center justify-center border-2 text-center leading-snug transition hover:z-10 hover:brightness-95 active:scale-[0.97]",
+                    p.shape === "circle" ? "rounded-full" : "rounded-md",
+                    mode === "status" && TILE_CLASS[state],
+                    // รอชำระ: กรอบส้มรอบกล่องตามรูปทรง
+                    state !== "overdue" && u.has_unpaid && u.status === "occupied" && "ring-[3px] ring-[#f97316] ring-offset-1",
                   )}
+                  style={{
+                    left: (p.x - offX) * cell + 1,
+                    top: (p.y - offY) * cell + 1,
+                    width: p.w * cell - 2,
+                    height: p.h * cell - 2,
+                    ...(mode === "plan" ? colorStyle(p.color ?? defaultUnitColor(u.unit_type_code)) : {}),
+                  }}
                 >
-                  {u.code}
-                </span>
-                {!small && u.tenant_name && (
-                  <span className="w-full truncate px-1" style={{ fontSize: Math.max(8, Math.min(12, cell * 0.4)) }}>
-                    {u.tenant_name}
+                  <span
+                    className="max-w-full px-0.5 font-bold"
+                    style={labelStyle(
+                      Math.max(9, Math.min(16, cell * 0.55)),
+                      p.h * cell - 2,
+                      !small && u.tenant_name ? Math.max(8, Math.min(12, cell * 0.4)) * 1.4 : 0,
+                    )}
+                  >
+                    {u.code}
                   </span>
-                )}
-                {state !== "overdue" && u.has_unpaid && u.status === "occupied" && (
-                  <PendingBadge
-                    size={Math.max(14, Math.min(22, cell * 0.8))}
-                    className={clsx("absolute", p.shape === "circle" ? "top-[8%] right-[8%]" : "-top-1.5 -right-1.5")}
-                  />
-                )}
-                {state === "overdue" && (
-                  <OverdueBadge
-                    size={Math.max(14, Math.min(22, cell * 0.8))}
-                    className={clsx("absolute", p.shape === "circle" ? "top-[8%] right-[8%]" : "-top-1.5 -right-1.5")}
-                  />
-                )}
-              </Link>
-            );
-          })}
+                  {!small && u.tenant_name && (
+                    <span className="w-full truncate px-1" style={{ fontSize: Math.max(8, Math.min(12, cell * 0.4)) }}>
+                      {u.tenant_name}
+                    </span>
+                  )}
+                  {state !== "overdue" && u.has_unpaid && u.status === "occupied" && (
+                    <PendingBadge
+                      size={Math.max(14, Math.min(22, cell * 0.8))}
+                      className={clsx("absolute", p.shape === "circle" ? "top-[8%] right-[8%]" : "-top-1.5 -right-1.5")}
+                    />
+                  )}
+                  {state === "overdue" && (
+                    <OverdueBadge
+                      size={Math.max(14, Math.min(22, cell * 0.8))}
+                      className={clsx("absolute", p.shape === "circle" ? "top-[8%] right-[8%]" : "-top-1.5 -right-1.5")}
+                    />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+        {/* มือถือ: ปุ่มซูมลอยมุมผัง */}
+        <div className="absolute top-2 right-2 z-10 flex flex-col overflow-hidden rounded-xl border border-line bg-surface/95 shadow-md lg:hidden">
+          <button
+            type="button"
+            className="grid size-10 place-items-center active:bg-canvas"
+            aria-label="ขยาย"
+            onClick={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))}
+          >
+            <Plus className="size-4" />
+          </button>
+          <button
+            type="button"
+            className="grid size-10 place-items-center border-y border-line active:bg-canvas"
+            aria-label="ย่อ"
+            onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}
+          >
+            <Minus className="size-4" />
+          </button>
+          <button type="button" className="grid size-10 place-items-center active:bg-canvas" aria-label="พอดีจอ" onClick={fit}>
+            <Maximize2 className="size-4" />
+          </button>
         </div>
       </div>
+
+      {pickedUnit && <UnitQuickSheet unit={pickedUnit} onClose={() => setPicked(null)} />}
     </div>
+  );
+}
+
+/** มือถือ: ข้อมูลย่อของห้องที่แตะบนผัง */
+function UnitQuickSheet({ unit: u, onClose }: { unit: PlanUnit; onClose: () => void }) {
+  const state = tileState(u);
+  const pending = state !== "overdue" && u.has_unpaid && u.status === "occupied";
+  return (
+    <>
+      <div aria-hidden className="fixed inset-0 z-50 bg-ink/30 lg:hidden" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-label={`ห้อง ${u.code}`}
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t-2 border-brand bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgb(0_0_0/0.25)] lg:hidden"
+      >
+        <span aria-hidden className="mx-auto mt-2 block h-1 w-10 rounded-full bg-line" />
+        <div className="flex items-start justify-between gap-3 px-5 pt-3">
+          <div className="min-w-0">
+            <div className="text-2xl font-bold tracking-tight">{u.code}</div>
+            <div className="text-sm text-muted">{u.unit_type_name}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-ghost -mr-2 size-10 min-h-0 rounded-full p-0"
+            aria-label="ปิด"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 px-5">
+          <span
+            className={clsx(
+              "inline-flex items-center rounded-full border-2 px-2.5 py-0.5 text-xs font-semibold",
+              TILE_CLASS[state],
+            )}
+          >
+            {TILE_LABEL[state]}
+          </span>
+          {pending && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#ffedd5] px-2.5 py-0.5 text-xs font-semibold text-[#c2410c]">
+              <PendingBadge size={14} /> รอชำระ
+            </span>
+          )}
+        </div>
+        {u.tenant_name && (
+          <div className="mx-5 mt-3 rounded-xl bg-canvas px-3.5 py-2.5">
+            <div className="text-xs text-muted">ผู้เช่า</div>
+            <div className="font-semibold">{u.tenant_name}</div>
+          </div>
+        )}
+        <div className="grid gap-2 p-5">
+          {u.status === "available" && (
+            <Link href={`/contracts/new?unit=${u.id}`} className="btn btn-brand w-full">
+              <FileSignature className="size-4" /> ทำสัญญาเช่าห้องนี้
+            </Link>
+          )}
+          <Link href={`/units/${u.id}`} className={clsx("btn w-full", u.status === "available" ? "btn-outline" : "btn-primary")}>
+            {state === "overdue" || pending ? "ดูห้องและรับชำระ" : "ดูรายละเอียดห้อง"} <ChevronRight className="size-4" />
+          </Link>
+        </div>
+      </div>
+    </>
   );
 }
