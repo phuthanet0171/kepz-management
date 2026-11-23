@@ -97,6 +97,8 @@ export function BottomNav() {
 }
 
 export function BottomNavView({ pathname }: { pathname: string }) {
+  // หน้าจัดผังมีแถบปุ่มของตัวเองด้านล่าง
+  if (pathname.includes("/floor-plan")) return null;
   return (
     <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 bg-ink lg:hidden">
       <div className="mx-auto grid max-w-lg grid-cols-5">

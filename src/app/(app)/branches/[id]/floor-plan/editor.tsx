@@ -3,15 +3,19 @@
 import clsx from "clsx";
 import {
   Ban,
+  Check,
   Circle,
   Copy,
   ExternalLink,
   LayoutGrid,
+  Maximize2,
   Minus,
+  Pencil,
   Plus,
   Redo2,
   RotateCw,
   Save,
+  SlidersHorizontal,
   Square,
   Trash2,
   Undo2,
@@ -156,6 +160,8 @@ export function FloorPlanEditor({
   const [past, setPast] = useState<Doc[]>([]);
   const [future, setFuture] = useState<Doc[]>([]);
   const [sel, setSel] = useState<string | null>(null);
+  // มือถือ: แผงที่เด้งจากด้านล่าง (แก้รูปที่เลือก / ตัวเลือกผัง)
+  const [sheet, setSheet] = useState<null | "item" | "plan">(null);
   const [pending, setPending] = useState<string | null>(null); // ห้องในระบบจากแถบข้างที่รอแตะตำแหน่งวาง
   const [drag, setDrag] = useState<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -177,12 +183,16 @@ export function FloorPlanEditor({
     const list = Object.values(docRef.current.items);
     if (!el || !list.length) return;
     const maxX = Math.max(...list.map((b) => b.x + b.w)) + 1;
-    setZoom(Math.round(Math.min(1.6, Math.max(0.5, el.clientWidth / (maxX * BASE_CELL))) * 10) / 10);
+    setZoom(Math.round(Math.min(1.6, Math.max(0.8, el.clientWidth / (maxX * BASE_CELL))) * 10) / 10);
   };
   useLayoutEffect(() => {
     if (zoomFitted.current || window.innerWidth >= 1024) return;
     zoomFitted.current = true;
     fitToContent();
+    // มือถือ: เลื่อนให้ผังเต็มจอตั้งแต่เปิดหน้า
+    const sc = scrollRef.current;
+    const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 60;
+    if (sc) window.scrollBy({ top: sc.getBoundingClientRect().top - headerBottom - 8 });
   }, []);
 
   /** เปลี่ยนผังและเก็บประวัติให้ย้อนกลับได้ */
@@ -225,30 +235,25 @@ export function FloorPlanEditor({
     nameRef.current?.select();
   }, [focusName]);
 
-  // มือถือ: แผงแก้ไขเด้งจากด้านล่าง เลื่อนจอให้รูปที่เลือกอยู่ระหว่างแถบเครื่องมือกับแผง
+  // มือถือ: เปิดแผงแก้ไขแล้ว เลื่อนผังข้างในให้รูปที่เลือกอยู่เหนือแผง
   useEffect(() => {
-    if (!sel || window.innerWidth >= 1024) return;
+    if (!sel || sheet !== "item" || window.innerWidth >= 1024) return;
     const id = setTimeout(() => {
       const el = document.querySelector<HTMLElement>(`[data-item="${sel}"]`);
       const sc = scrollRef.current;
       if (!el || !sc) return;
-      // แถบเครื่องมือติดด้านบนจอเมื่อเลื่อน: ใช้ตำแหน่งตอนติดแล้ว
-      const tb = document.querySelector<HTMLElement>("[data-plan-toolbar]");
-      const toolbarBottom = tb ? (parseFloat(getComputedStyle(tb).top) || 58) + tb.offsetHeight : 120;
-      const sheetTop = document.querySelector("aside")?.getBoundingClientRect().top ?? window.innerHeight * 0.45;
-      const room = sheetTop - toolbarBottom; // พื้นที่ที่มองเห็นผังได้
-      // เลื่อนผังข้างใน (ถ้าเลื่อนได้) ให้รูปอยู่กลางพื้นที่ที่มองเห็น
-      const er = el.getBoundingClientRect();
       const sr = sc.getBoundingClientRect();
+      const sheetTop = document.querySelector("aside")?.getBoundingClientRect().top ?? window.innerHeight * 0.5;
+      const visibleBottom = Math.min(sr.bottom, sheetTop);
+      const er = el.getBoundingClientRect();
       sc.scrollLeft += er.left + er.width / 2 - (sr.left + sr.width / 2);
-      sc.scrollTop += er.top - sr.top - Math.max(8, (Math.min(room, sr.height) - er.height) / 2);
-      // แล้วเลื่อนทั้งหน้าให้รูปอยู่ใต้แถบเครื่องมือ เหนือแผง
-      const r2 = el.getBoundingClientRect();
-      const target = toolbarBottom + Math.max(12, (room - r2.height) / 2);
-      window.scrollBy({ top: r2.top - target });
+      sc.scrollTop += er.top - (sr.top + Math.max(8, (visibleBottom - sr.top - er.height) / 2));
     }, 60);
     return () => clearTimeout(id);
-  }, [sel]);
+  }, [sel, sheet]);
+
+  // ไม่มีรูปที่เลือก = ปิดแผงแก้ไข
+  if (!sel && sheet === "item") setSheet(null);
 
   const { name, cols, rows, items } = doc;
   const cell = BASE_CELL * zoom;
@@ -396,6 +401,7 @@ export function FloorPlanEditor({
     }));
     setSel(id);
     setPending(null);
+    setSheet("item"); // มือถือ: เปิดแผงให้ตั้งชื่อ สี ประเภททันที
     setFocusName((n) => n + 1);
   }
 
@@ -426,7 +432,10 @@ export function FloorPlanEditor({
       if (drag.kind === "new") {
         const { cx, cy, inside } = cellFromClient(e.clientX, e.clientY);
         if (drag.moved && inside) placeExisting(drag.id, cx, cy);
-        else if (!drag.moved) setPending((p) => (p === drag.id ? null : drag.id));
+        else if (!drag.moved) {
+          setPending((p) => (p === drag.id ? null : drag.id));
+          setSheet(null); // มือถือ: ปิดแผงให้แตะตำแหน่งบนผังได้
+        }
       } else if (drag.moved && canon(drag.before) !== canon(docRef.current)) {
         setPast((p) => [...p.slice(-79), drag.before]);
         setFuture([]);
@@ -685,10 +694,10 @@ export function FloorPlanEditor({
       <aside
         className={clsx(
           "card flex flex-col overflow-hidden max-lg:order-2 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]",
-          // มือถือ: เลือกรูปแล้วแผงนี้กลายเป็นแผงเด้งจากด้านล่างจอ
-          sel &&
-            selItem &&
-            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:max-h-[48dvh] max-lg:rounded-none max-lg:rounded-t-3xl max-lg:border-0 max-lg:border-t-2 max-lg:border-brand max-lg:pb-[env(safe-area-inset-bottom)] max-lg:shadow-[0_-12px_40px_rgb(0_0_0/0.25)]",
+          // มือถือ: ซ่อนไว้ แสดงเป็นแผงเด้งจากด้านล่างเมื่อกด "แก้ไข" หรือ "ตัวเลือก"
+          (sheet === "item" && sel && selItem) || (sheet === "plan" && !sel)
+            ? "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:max-h-[50dvh] max-lg:rounded-none max-lg:rounded-t-3xl max-lg:border-0 max-lg:border-t-2 max-lg:border-brand max-lg:pb-[env(safe-area-inset-bottom)] max-lg:shadow-[0_-12px_40px_rgb(0_0_0/0.25)]"
+            : "max-lg:hidden",
         )}
       >
         {sel && selItem ? (
@@ -707,7 +716,7 @@ export function FloorPlanEditor({
                       : "กด “บันทึกผัง” แล้วพร้อมทำสัญญาทันที"}
                 </div>
               </div>
-              <button type="button" className="btn btn-brand btn-sm shrink-0 lg:hidden" onClick={() => setSel(null)}>
+              <button type="button" className="btn btn-brand btn-sm shrink-0 lg:hidden" onClick={() => setSheet(null)}>
                 เสร็จ
               </button>
               <button
@@ -829,6 +838,30 @@ export function FloorPlanEditor({
           </>
         ) : (
           <>
+            <span aria-hidden className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-line lg:hidden" />
+            <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3 lg:hidden">
+              <div className="font-semibold">ตัวเลือกผัง</div>
+              <button type="button" className="btn btn-brand btn-sm" onClick={() => setSheet(null)}>
+                เสร็จ
+              </button>
+            </div>
+            <div className="flex gap-2 border-b border-line p-4 lg:hidden">
+              <button type="button" className="btn btn-outline flex-1" onClick={redo} disabled={!future.length}>
+                <Redo2 className="size-4" /> ทำซ้ำ
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline flex-1"
+                disabled={!dirty}
+                onClick={() => {
+                  commit(() => initial);
+                  setSheet(null);
+                  setMessage(null);
+                }}
+              >
+                <Undo2 className="size-4" /> ยกเลิกที่แก้
+              </button>
+            </div>
             <div className="space-y-3 border-b border-line p-4">
               <label className="block">
                 <span className="label">ชื่อชั้น / โซน</span>
@@ -925,14 +958,14 @@ export function FloorPlanEditor({
           </>
         )}
       </aside>
-      {/* มือถือ: เว้นที่ด้านล่างให้เลื่อนผังพ้นแผงแก้ไขได้ */}
-      {sel && selItem && <div aria-hidden className="h-[60dvh] max-lg:order-3 lg:hidden" style={{ overflowAnchor: "none" }} />}
+      {/* มือถือ: พื้นหลังมืดเมื่อเปิดแผง แตะเพื่อปิด */}
+      {(sheet === "item" && sel && selItem) || (sheet === "plan" && !sel) ? (
+        <div aria-hidden className="fixed inset-0 z-40 bg-ink/25 lg:hidden" onClick={() => setSheet(null)} />
+      ) : null}
 
       <div className="min-w-0 space-y-3 max-lg:order-1">
         {/* แถบเครื่องมือ */}
-        <div
-          data-plan-toolbar
-          className="card z-20 flex flex-wrap items-center gap-2 p-2.5 max-lg:sticky max-lg:top-[calc(3.6rem+env(safe-area-inset-top))] max-lg:shadow-md">
+        <div className="card z-20 flex flex-wrap items-center gap-2 p-2.5 max-lg:hidden">
           <button type="button" className="btn btn-primary max-sm:flex-1" onClick={() => addShape("rect")}>
             <Square className="size-4" /> สี่เหลี่ยม
           </button>
@@ -1004,7 +1037,7 @@ export function FloorPlanEditor({
           <div
             role="status"
             className={clsx(
-              "flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-sm",
+              "flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-sm max-lg:fixed max-lg:inset-x-3 max-lg:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:shadow-lg",
               message.tone === "ok" ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad",
             )}
           >
@@ -1016,7 +1049,7 @@ export function FloorPlanEditor({
         )}
 
         {pending && (
-          <div className="flex items-center gap-2 rounded-xl bg-brand-soft px-3.5 py-2.5 text-sm">
+          <div className="flex items-center gap-2 rounded-xl bg-brand-soft px-3.5 py-2.5 text-sm max-lg:fixed max-lg:inset-x-3 max-lg:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:shadow-lg">
             แตะตำแหน่งบนผังเพื่อวางห้อง <b>{unitById.get(pending)?.code}</b>
             <button type="button" className="btn btn-ghost btn-sm ml-auto" onClick={() => setPending(null)}>
               ยกเลิก
@@ -1024,70 +1057,145 @@ export function FloorPlanEditor({
           </div>
         )}
 
-        {/* ผัง */}
-        <div
-          ref={scrollRef}
-          className="overflow-auto rounded-xl border border-line bg-surface"
-          style={{ maxHeight: "calc(100dvh - 14rem)" }}
-        >
+        {/* ผัง (มือถือ: เต็มจอระหว่างหัวบนกับแถบปุ่มด้านล่าง) */}
+        <div className="relative">
           <div
-            ref={canvasRef}
-            className={clsx("relative select-none", pending && "cursor-crosshair")}
-            style={{ width: cols * cell, height: rows * cell, ...gridBackground(cell) }}
-            onPointerDown={(e) => {
-              if (e.target !== e.currentTarget) return;
-              if (pending) {
-                const { cx, cy } = cellFromClient(e.clientX, e.clientY);
-                placeExisting(pending, cx, cy);
-              } else setSel(null);
-            }}
+            ref={scrollRef}
+            className="overflow-auto rounded-xl border border-line bg-surface max-lg:h-[calc(100dvh-10.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:max-h-[calc(100dvh-14rem)]"
           >
-            {ordered.map(([id, it]) => {
-              const bad = overlapping.has(id) || outOfBounds.has(id) || (!!it.use && dupCodes.has(norm(it.name)));
-              return (
-                <ItemBox
-                  key={id}
-                  id={id}
-                  item={it}
-                  cell={cell}
-                  selected={sel === id}
-                  bad={bad}
-                  badge={it.use && !isExisting(id) ? "ใหม่" : undefined}
-                  onPointerDown={(e) => {
-                    setSel(id);
-                    setPending(null);
-                    setDrag({
-                      kind: "move",
-                      id,
-                      startX: e.clientX,
-                      startY: e.clientY,
-                      orig: it,
-                      before: docRef.current,
-                      moved: false,
-                    });
-                  }}
-                  onResizeDown={(e) =>
-                    setDrag({
-                      kind: "resize",
-                      id,
-                      startX: e.clientX,
-                      startY: e.clientY,
-                      orig: it,
-                      before: docRef.current,
-                      moved: false,
-                    })
-                  }
-                />
-              );
-            })}
+            <div
+              ref={canvasRef}
+              className={clsx("relative select-none", pending && "cursor-crosshair")}
+              style={{ width: cols * cell, height: rows * cell, ...gridBackground(cell) }}
+              onPointerDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (pending) {
+                  const { cx, cy } = cellFromClient(e.clientX, e.clientY);
+                  placeExisting(pending, cx, cy);
+                } else setSel(null);
+              }}
+            >
+              {ordered.map(([id, it]) => {
+                const bad = overlapping.has(id) || outOfBounds.has(id) || (!!it.use && dupCodes.has(norm(it.name)));
+                return (
+                  <ItemBox
+                    key={id}
+                    id={id}
+                    item={it}
+                    cell={cell}
+                    selected={sel === id}
+                    bad={bad}
+                    badge={it.use && !isExisting(id) ? "ใหม่" : undefined}
+                    onPointerDown={(e) => {
+                      setSel(id);
+                      setPending(null);
+                      setDrag({
+                        kind: "move",
+                        id,
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        orig: it,
+                        before: docRef.current,
+                        moved: false,
+                      });
+                    }}
+                    onResizeDown={(e) =>
+                      setDrag({
+                        kind: "resize",
+                        id,
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        orig: it,
+                        before: docRef.current,
+                        moved: false,
+                      })
+                    }
+                  />
+                );
+              })}
+            </div>
+          </div>
+          {/* มือถือ: ปุ่มซูมลอยมุมผัง */}
+          <div className="absolute top-2 right-2 z-10 flex flex-col overflow-hidden rounded-xl border border-line bg-surface/95 shadow-md lg:hidden">
+            <button
+              type="button"
+              className="grid size-10 place-items-center active:bg-canvas"
+              aria-label="ขยาย"
+              onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
+            >
+              <Plus className="size-4" />
+            </button>
+            <button
+              type="button"
+              className="grid size-10 place-items-center border-y border-line active:bg-canvas"
+              aria-label="ย่อ"
+              onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.2).toFixed(1)))}
+            >
+              <Minus className="size-4" />
+            </button>
+            <button
+              type="button"
+              className="grid size-10 place-items-center active:bg-canvas"
+              aria-label="พอดีจอ"
+              onClick={fitToContent}
+            >
+              <Maximize2 className="size-4" />
+            </button>
           </div>
         </div>
-
-        <p className="text-xs text-muted lg:hidden">แตะรูปเพื่อแก้ชื่อ สี และประเภท (แผงอยู่ใต้ผัง) · ลากเพื่อย้าย · ลากมุมขวาล่างเพื่อปรับขนาด</p>
         <p className="text-xs text-muted max-lg:hidden">
           ลากเพื่อย้าย · ลากมุมขวาล่างเพื่อปรับขนาด · ลูกศรขยับ (Shift = 5 ช่อง) · R หมุน · Ctrl+D ทำซ้ำ · Ctrl+Z ย้อนกลับ · Delete ลบ
         </p>
       </div>
+
+      {/* มือถือ: แถบปุ่มติดด้านล่างจอ (แทนเมนูล่างของเว็บในหน้านี้) */}
+      <nav className="no-print fixed inset-x-0 bottom-0 z-40 border-t-[3px] border-brand bg-ink pb-[env(safe-area-inset-bottom)] text-white lg:hidden">
+        {sel && selItem ? (
+          <div className="flex items-center gap-1 px-2 py-1.5">
+            <span
+              className="mr-1 max-w-[6.5rem] min-w-0 truncate rounded-lg px-2 py-1 text-xs font-bold"
+              style={colorStyle(selItem.color)}
+            >
+              {selItem.name || (selItem.use ? "ห้องใหม่" : "รูป")}
+            </span>
+            <BarButton icon={<Pencil className="size-5" />} label="แก้ไข" onClick={() => setSheet("item")} highlight />
+            <BarButton icon={<Copy className="size-5" />} label="ทำซ้ำ" onClick={duplicateSel} />
+            <BarButton icon={<RotateCw className="size-5" />} label="หมุน" onClick={rotateSel} />
+            <BarButton
+              icon={<Trash2 className="size-5" />}
+              label={isExisting(sel) ? "เอาออก" : "ลบ"}
+              onClick={removeSel}
+              danger
+            />
+            <BarButton icon={<Check className="size-5" />} label="เสร็จ" onClick={() => setSel(null)} />
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 px-2 py-1.5">
+            <BarButton icon={<Square className="size-5" />} label="สี่เหลี่ยม" onClick={() => addShape("rect")} />
+            <BarButton icon={<Circle className="size-5" />} label="วงกลม" onClick={() => addShape("circle")} />
+            <BarButton icon={<Undo2 className="size-5" />} label="ย้อนกลับ" onClick={undo} disabled={!past.length} />
+            <BarButton
+              icon={<SlidersHorizontal className="size-5" />}
+              label="ตัวเลือก"
+              onClick={() => {
+                setSel(null);
+                setSheet("plan");
+              }}
+            />
+            <button
+              type="button"
+              disabled={saving || resync || !dirty}
+              onClick={save}
+              className="ml-1 flex h-12 flex-[1.4] flex-col items-center justify-center rounded-xl bg-brand px-2 text-ink transition active:scale-95 disabled:bg-white/10 disabled:text-white/50"
+            >
+              <Save className="size-5" />
+              <span className="text-[11px] leading-tight font-bold whitespace-nowrap">
+                {saving ? "กำลังบันทึก…" : dirty ? (newCount ? `บันทึก (+${newCount})` : "บันทึก") : "บันทึกแล้ว"}
+              </span>
+            </button>
+          </div>
+        )}
+      </nav>
 
       {ghost && ghostUnit && (
         <div
@@ -1103,6 +1211,37 @@ export function FloorPlanEditor({
         </div>
       )}
     </div>
+  );
+}
+
+function BarButton({
+  icon,
+  label,
+  onClick,
+  disabled,
+  danger,
+  highlight,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={clsx(
+        "flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[10.5px] font-medium transition active:scale-95 disabled:opacity-35",
+        highlight ? "bg-white/10 text-brand" : danger ? "text-red-300" : "text-white/85",
+      )}
+    >
+      {icon}
+      <span className="leading-tight whitespace-nowrap">{label}</span>
+    </button>
   );
 }
 
