@@ -127,7 +127,9 @@ export default async function DashboardPage() {
         <section className="mb-3 overflow-hidden rounded-card bg-ink text-white" aria-label="รายรับ">
           <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-end lg:gap-10">
             <div>
-              <div className="text-sm text-white/60">รายรับเดือน {thMonth(thisMonth)}</div>
+              <div className="text-sm text-white/60">
+                รายรับเดือน {thMonth(thisMonth)} <span className="text-white/40">(ไม่นับเงินประกัน)</span>
+              </div>
               <div className="tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{baht(rentThis)}</div>
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
                 {change !== null && (
@@ -142,9 +144,11 @@ export default async function DashboardPage() {
                     {change.toFixed(0)}% จากเดือนก่อน
                   </span>
                 )}
-                <span className="text-white/50">
-                  {depThis > 0 ? `ไม่รวมเงินประกัน ${baht(depThis)}` : "ไม่รวมเงินประกัน"}
-                </span>
+                {depThis > 0 && (
+                  <span className="text-white/50">
+                    รับเงินประกันเพิ่มอีก <b className="tabular font-semibold text-white/80">{baht(depThis)}</b> (ต้องคืนผู้เช่า)
+                  </span>
+                )}
               </div>
             </div>
             <RevenueChart months={months} revenue={revenue} current={thisMonth} />
