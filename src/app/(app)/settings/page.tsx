@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowRight, Bell, Building2, FileText, Settings as SettingsIcon, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, Building2, FileText, History, Settings as SettingsIcon, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth";
@@ -106,6 +106,19 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             );
           })}
         </div>
+        <Link
+          href="/settings/audit"
+          className="card mt-4 flex items-center gap-3 px-4 py-3.5 transition hover:border-ink/25 hover:shadow-sm sm:px-5"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink text-brand">
+            <History className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">ประวัติการแก้ไข</span>
+            <span className="block text-xs text-muted">ดูว่าใครเพิ่ม แก้ หรือลบข้อมูลอะไร เมื่อไหร่</span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-muted" />
+        </Link>
       </div>
     );
   }

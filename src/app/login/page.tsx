@@ -8,7 +8,16 @@ export const metadata: Metadata = { title: "เข้าสู่ระบบ" }
 async function Form({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
   const sp = await searchParams;
   const next = typeof sp.next === "string" ? sp.next : "/";
-  return <LoginForm next={next} />;
+  return (
+    <>
+      {sp.inactive === "1" && (
+        <p className="mb-4 rounded-xl bg-warn-soft px-3.5 py-2.5 text-sm text-warn">
+          ออกจากระบบแล้ว เพราะบัญชีนี้ถูกปิดการใช้งานหรือไม่มีสิทธิ์เข้าใช้ระบบแล้ว กรุณาติดต่อเจ้าของกิจการ
+        </p>
+      )}
+      <LoginForm next={next} />
+    </>
+  );
 }
 
 export default function LoginPage({ searchParams }: PageProps<"/login">) {

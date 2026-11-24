@@ -113,6 +113,13 @@ export default async function ContractPage({ params, searchParams }: PageProps<"
         </Alert>
       )}
 
+      {active && daysLeft < 0 && (
+        <Alert tone="bad" className="mb-4">
+          สัญญาหมดอายุแล้ว {-daysLeft} วัน (สิ้นสุด {thDate(c.end_date)}) แต่ยังนับว่ามีผู้เช่าอยู่ ถ้าผู้เช่าย้ายออกแล้ว กด
+          “สิ้นสุดสัญญา” · ถ้ายังเช่าต่อ กด “ต่อสัญญา”
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Card>

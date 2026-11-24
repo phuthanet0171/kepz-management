@@ -100,6 +100,9 @@ export default async function DashboardPage() {
     .reduce((a, p) => a + Number(p.amount), 0);
   const change = revLastToDate > 0 ? ((revThis - revLastToDate) / revLastToDate) * 100 : null;
   const rev6 = [...revenue.values()].reduce((a, v) => a + v, 0);
+  // เฉลี่ยเฉพาะเดือนตั้งแต่เริ่มมีรายรับ (เพิ่งเริ่มใช้ระบบจะไม่ถูกหารด้วยเดือนที่ยังไม่มีข้อมูล)
+  const firstRev = months.findIndex((m) => (revenue.get(m) ?? 0) > 0);
+  const revMonths = firstRev < 0 ? 1 : months.length - firstRev;
   const monthlyRent = activeRents.reduce((a, c) => a + Number(c.monthly_rent), 0);
 
   const mix = countMix(units);
@@ -144,9 +147,9 @@ export default async function DashboardPage() {
                   <dd className="text-xs text-white/50">จาก {activeRents.length} สัญญาที่ใช้งาน</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-white/50">รวม 6 เดือนล่าสุด</dt>
+                  <dt className="text-xs text-white/50">{revMonths < 6 ? `รวม ${revMonths} เดือนที่มีข้อมูล` : "รวม 6 เดือนล่าสุด"}</dt>
                   <dd className="tabular mt-0.5 text-lg font-semibold">{baht(rev6)}</dd>
-                  <dd className="text-xs text-white/50">เฉลี่ย {baht(rev6 / 6)} / เดือน</dd>
+                  <dd className="text-xs text-white/50">เฉลี่ย {baht(rev6 / revMonths)} / เดือน</dd>
                 </div>
               </dl>
             </div>
@@ -243,7 +246,7 @@ export default async function DashboardPage() {
               code: c.unit_code,
               title: c.tenant_name,
               sub: `สิ้นสุด ${thDate(c.end_date)}`,
-              pill: d >= 0 ? `อีก ${d} วัน` : `เลย ${-d} วัน`,
+              pill: d >= 0 ? `อีก ${d} วัน` : `หมดแล้ว ${-d} วัน`,
               tone: d < 0 ? "bad" : "warn",
             };
           })}

@@ -1,5 +1,6 @@
 import { LogOut } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { signOut } from "@/app/actions";
 import { Logo } from "@/components/shell/logo";
@@ -24,6 +25,13 @@ async function MobileAccount() {
       </span>
     </Link>
   );
+}
+
+/** บัญชีถูกปิดการใช้งาน/ถูกลบสิทธิ์ระหว่างที่ยังล็อกอินค้างอยู่ → ออกจากระบบทันที แทนที่จะเห็นหน้าว่าง */
+async function MemberGate() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth/signout");
+  return null;
 }
 
 async function SidebarMenu() {
@@ -88,6 +96,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       </Suspense>
       <Suspense fallback={null}>
         <QuickActions />
+      </Suspense>
+      <Suspense fallback={null}>
+        <MemberGate />
       </Suspense>
     </div>
   );
