@@ -139,7 +139,7 @@ export function FloorPlanViewer({
   units: Map<string, PlanUnit>;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  // แบบที่เลือกล่าสุดถูกจำไว้ในเครื่องนี้ (ครั้งแรก = สีตามผัง)
+  // แบบที่เลือกล่าสุดถูกจำไว้ในเครื่องนี้ (ครั้งแรก = ผังปกติ)
   const mode = useSyncExternalStore(subscribeMode, readMode, () => "plan" as ViewMode);
   const [zoom, setZoom] = useState(1);
   const fitted = useRef<string | null>(null);
@@ -189,8 +189,8 @@ export function FloorPlanViewer({
         >
           {(
             [
-              ["plan", "สีตามผัง", Palette],
-              ["status", "สถานะห้อง", BadgeCheck],
+              ["plan", "ผังปกติ", Palette],
+              ["status", "ดูสถานะเช่า", BadgeCheck],
             ] as const
           ).map(([m, label, Icon]) => (
             <button
