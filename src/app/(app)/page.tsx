@@ -42,8 +42,14 @@ export default async function DashboardPage() {
       supabase.from("v_billing_due").select("*").eq("is_due", true).order("period_start").order("contract_id").range(from, to),
     ),
     owner
-      ? fetchAll<{ paid_on: string; amount: number }>((from, to) =>
-          supabase.from("payments").select("paid_on, amount").eq("is_void", false).gte("paid_on", sixMonthsAgo).order("id").range(from, to),
+      ? fetchAll<Pay>((from, to) =>
+          supabase
+            .from("payments")
+            .select("id, invoice_id, paid_on, amount, created_at")
+            .eq("is_void", false)
+            .gte("paid_on", sixMonthsAgo)
+            .order("id")
+            .range(from, to),
         )
       : Promise.resolve([]),
     owner
@@ -84,22 +90,28 @@ export default async function DashboardPage() {
     );
   }
 
-  // รายได้รายเดือน (ตามวันที่รับชำระ)
+  // รายได้รายเดือน (ตามวันที่รับชำระ) แยกส่วนที่เป็นเงินประกันออก (เงินประกันต้องคืนผู้เช่า ไม่ใช่รายได้)
   const months = Array.from({ length: 6 }, (_, i) => addMonths(`${thisMonth}-01`, i - 5).slice(0, 7));
+  const depShare = owner ? await depositShares(supabase, payments) : new Map<string, number>();
   const revenue = new Map(months.map((m) => [m, 0]));
+  const deposits = new Map(months.map((m) => [m, 0]));
   for (const p of payments) {
     const m = p.paid_on.slice(0, 7);
-    if (revenue.has(m)) revenue.set(m, revenue.get(m)! + Number(p.amount));
+    if (!revenue.has(m)) continue;
+    revenue.set(m, revenue.get(m)! + Number(p.amount));
+    deposits.set(m, deposits.get(m)! + (depShare.get(p.id) ?? 0));
   }
   const revThis = revenue.get(thisMonth) ?? 0;
-  // เทียบกับช่วงเดียวกันของเดือนก่อน (วันที่ 1 ถึงวันนี้) จะได้ไม่ดูว่าลดลงทุกต้นเดือน
+  const depThis = deposits.get(thisMonth) ?? 0;
+  const rentThis = revThis - depThis;
+  // เทียบ (ไม่รวมเงินประกัน) กับช่วงเดียวกันของเดือนก่อน (วันที่ 1 ถึงวันนี้) จะได้ไม่ดูว่าลดลงทุกต้นเดือน
   const lastMonth = months[4];
   const sameDayLast = `${lastMonth}-${today.slice(8, 10)}`;
   const revLastToDate = payments
     .filter((p) => p.paid_on.startsWith(lastMonth) && p.paid_on <= sameDayLast)
-    .reduce((a, p) => a + Number(p.amount), 0);
-  const change = revLastToDate > 0 ? ((revThis - revLastToDate) / revLastToDate) * 100 : null;
-  const rev6 = [...revenue.values()].reduce((a, v) => a + v, 0);
+    .reduce((a, p) => a + Number(p.amount) - (depShare.get(p.id) ?? 0), 0);
+  const change = revLastToDate > 0 ? ((rentThis - revLastToDate) / revLastToDate) * 100 : null;
+  const rent6 = months.reduce((a, m) => a + (revenue.get(m) ?? 0) - (deposits.get(m) ?? 0), 0);
   // เฉลี่ยเฉพาะเดือนตั้งแต่เริ่มมีรายรับ (เพิ่งเริ่มใช้ระบบจะไม่ถูกหารด้วยเดือนที่ยังไม่มีข้อมูล)
   const firstRev = months.findIndex((m) => (revenue.get(m) ?? 0) > 0);
   const revMonths = firstRev < 0 ? 1 : months.length - firstRev;
@@ -128,6 +140,16 @@ export default async function DashboardPage() {
             <div className="flex flex-col">
               <div className="text-sm text-white/60">รายรับเดือน {thMonth(thisMonth)}</div>
               <div className="tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{baht(revThis)}</div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:max-w-sm">
+                <div className="rounded-xl bg-white/10 px-3 py-2">
+                  <div className="text-[11px] text-white/60">ไม่รวมเงินประกัน</div>
+                  <div className="tabular text-lg font-bold">{baht(rentThis)}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 px-3 py-2">
+                  <div className="text-[11px] text-white/60">เงินประกัน</div>
+                  <div className="tabular text-lg font-semibold text-white/80">{baht(depThis)}</div>
+                </div>
+              </div>
               {change !== null && (
                 <div
                   className={clsx(
@@ -147,13 +169,15 @@ export default async function DashboardPage() {
                   <dd className="text-xs text-white/50">จาก {activeRents.length} สัญญาที่ใช้งาน</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-white/50">{revMonths < 6 ? `รวม ${revMonths} เดือนที่มีข้อมูล` : "รวม 6 เดือนล่าสุด"}</dt>
-                  <dd className="tabular mt-0.5 text-lg font-semibold">{baht(rev6)}</dd>
-                  <dd className="text-xs text-white/50">เฉลี่ย {baht(rev6 / revMonths)} / เดือน</dd>
+                  <dt className="text-xs text-white/50">
+                    {revMonths < 6 ? `รวม ${revMonths} เดือนที่มีข้อมูล` : "รวม 6 เดือนล่าสุด"} · ไม่รวมเงินประกัน
+                  </dt>
+                  <dd className="tabular mt-0.5 text-lg font-semibold">{baht(rent6)}</dd>
+                  <dd className="text-xs text-white/50">เฉลี่ย {baht(rent6 / revMonths)} / เดือน</dd>
                 </div>
               </dl>
             </div>
-            <RevenueChart months={months} revenue={revenue} current={thisMonth} />
+            <RevenueChart months={months} revenue={revenue} deposits={deposits} current={thisMonth} />
           </div>
         </section>
       )}
@@ -280,6 +304,57 @@ export default async function DashboardPage() {
   );
 }
 
+type Pay = { id: string; invoice_id: string; paid_on: string; amount: number; created_at: string };
+
+function chunks<T>(xs: T[], n = 150) {
+  return Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
+}
+
+/**
+ * ส่วนที่เป็นเงินประกันของแต่ละใบเสร็จ: บิลที่มีเงินประกัน ยอดที่ชำระนับเป็นเงินประกันก่อน
+ * (ตรงกับที่ฐานข้อมูลบันทึกรับเงินประกัน) ไล่ตามลำดับการชำระทั้งหมดของบิลนั้น
+ */
+async function depositShares(supabase: Awaited<ReturnType<typeof createClient>>, pays: Pay[]) {
+  const share = new Map<string, number>();
+  const invIds = [...new Set(pays.map((p) => p.invoice_id))];
+  const depByInv = new Map<string, number>();
+  for (const ids of chunks(invIds)) {
+    const items = await fetchAll<{ invoice_id: string; amount: number }>((from, to) =>
+      supabase
+        .from("invoice_items")
+        .select("invoice_id, amount")
+        .eq("item_type", "deposit")
+        .in("invoice_id", ids)
+        .order("id")
+        .range(from, to),
+    );
+    for (const it of items) depByInv.set(it.invoice_id, (depByInv.get(it.invoice_id) ?? 0) + Number(it.amount));
+  }
+  for (const ids of chunks([...depByInv.keys()])) {
+    // ใบเสร็จทั้งหมดของบิลเหล่านี้ (รวมที่จ่ายก่อนช่วง 6 เดือน) เพื่อรู้ว่าเงินประกันถูกจ่ายไปแล้วเท่าไร
+    const all = await fetchAll<Pay>((from, to) =>
+      supabase
+        .from("payments")
+        .select("id, invoice_id, paid_on, amount, created_at")
+        .eq("is_void", false)
+        .in("invoice_id", ids)
+        .order("id")
+        .range(from, to),
+    );
+    all.sort((a, b) => a.paid_on.localeCompare(b.paid_on) || a.created_at.localeCompare(b.created_at));
+    const left = new Map(ids.map((id) => [id, depByInv.get(id) ?? 0]));
+    for (const p of all) {
+      const rest = left.get(p.invoice_id) ?? 0;
+      const part = Math.min(Number(p.amount), rest);
+      if (part > 0) {
+        share.set(p.id, part);
+        left.set(p.invoice_id, rest - part);
+      }
+    }
+  }
+  return share;
+}
+
 type Mix = { total: number; occupied: number; available: number; maintenance: number };
 
 function countMix(units: Pick<UnitView, "status">[]): Mix {
@@ -339,16 +414,35 @@ function short(n: number) {
   return `${k >= 100 ? Math.round(k) : +k.toFixed(1)}k`;
 }
 
-function RevenueChart({ months, revenue, current }: { months: string[]; revenue: Map<string, number>; current: string }) {
+const DEPOSIT_STRIPES = "bg-[image:repeating-linear-gradient(135deg,rgb(0_0_0/0.4)_0_3px,transparent_3px_6px)]";
+
+function RevenueChart({
+  months,
+  revenue,
+  deposits,
+  current,
+}: {
+  months: string[];
+  revenue: Map<string, number>;
+  deposits: Map<string, number>;
+  current: string;
+}) {
   const max = Math.max(1, ...revenue.values());
+  const anyDeposit = months.some((m) => (deposits.get(m) ?? 0) > 0);
   return (
+    <div className="flex flex-col gap-2">
     <div className="grid h-28 grid-cols-6 gap-2 sm:h-44 sm:gap-3" role="img" aria-label="รายรับย้อนหลัง 6 เดือน">
       {months.map((m) => {
         const v = revenue.get(m) ?? 0;
+        const d = deposits.get(m) ?? 0;
         const pct = v > 0 ? Math.max(6, (v / max) * 82) : 0;
         const cur = m === current;
         return (
-          <div key={m} className="flex min-w-0 flex-col items-center gap-2" title={`${thMonth(m)}: ${money(v)} บาท`}>
+          <div
+            key={m}
+            className="flex min-w-0 flex-col items-center gap-2"
+            title={`${thMonth(m)}: ${money(v)} บาท${d > 0 ? ` (เงินประกัน ${money(d)})` : ""}`}
+          >
             <div className="relative w-full flex-1">
               <span
                 className={clsx(
@@ -360,9 +454,15 @@ function RevenueChart({ months, revenue, current }: { months: string[]; revenue:
                 {v > 0 ? short(v) : "–"}
               </span>
               <div
-                className={clsx("absolute inset-x-0 bottom-0 rounded-t-md sm:inset-x-1", cur ? "bg-brand" : "bg-white/20")}
+                className={clsx(
+                  "absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-md sm:inset-x-1",
+                  cur ? "bg-brand" : "bg-white/20",
+                )}
                 style={{ height: pct ? `${pct}%` : "2px" }}
-              />
+              >
+                {/* ส่วนบนลายทาง = เงินประกัน */}
+                {d > 0 && <span className={clsx("block shrink-0", DEPOSIT_STRIPES)} style={{ height: `${(d / v) * 100}%` }} />}
+              </div>
             </div>
             <span className={clsx("text-[11px] whitespace-nowrap", cur ? "font-semibold text-white" : "text-white/50")}>
               {thMonth(m)}
@@ -370,6 +470,12 @@ function RevenueChart({ months, revenue, current }: { months: string[]; revenue:
           </div>
         );
       })}
+    </div>
+      {anyDeposit && (
+        <p className="flex items-center justify-end gap-1.5 text-[11px] text-white/50">
+          <span className={clsx("size-3 rounded-sm bg-white/30", DEPOSIT_STRIPES)} /> ส่วนลายทาง = เงินประกัน
+        </p>
+      )}
     </div>
   );
 }
