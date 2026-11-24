@@ -3,6 +3,7 @@ import {
   Building2,
   ChevronRight,
   Download,
+  FileDown,
   FileSpreadsheet,
   FileText,
   Hourglass,
@@ -14,7 +15,6 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { SavePdfButton } from "@/components/save-pdf-button";
 import { Card, PageHeader } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import { fetchAll, getBranches } from "@/lib/data";
@@ -134,10 +134,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
 
   return (
     <div className="print-report">
-      <PageHeader
-        title="รายงาน"
-        actions={<SavePdfButton fileName={`รายงาน Kepz ปี ${be}`} className="btn btn-primary no-print" />}
-      />
+      <PageHeader title="รายงาน" />
       <p className="mb-4 hidden text-sm text-muted print:block">
         ปี พ.ศ. {be} · พิมพ์เมื่อ {thDate(today)}
       </p>
@@ -246,7 +243,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
       <Section
         icon={<LayoutGrid className="size-4" />}
         title="รายรับรายเดือน"
-        action={<CsvLink href={`/api/export/payments?year=${year}`} />}
+        action={<ExportLinks kind="payments" year={year} />}
       >
         <div className="table-wrap">
           <table className="table">
@@ -299,7 +296,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
         <Section
           icon={<Hourglass className="size-4" />}
           title="ยอดค้างชำระตามอายุหนี้"
-          action={<CsvLink href="/api/export/outstanding" />}
+          action={<ExportLinks kind="outstanding" />}
           className="mb-0"
         >
           <ul className="divide-y divide-line">
@@ -351,7 +348,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
       <Section
         icon={<Warehouse className="size-4" />}
         title="อัตราการเช่าตามประเภทห้อง (ตอนนี้)"
-        action={<CsvLink href="/api/export/units" />}
+        action={<ExportLinks kind="units" />}
       >
         <div className="border-b border-line px-4 py-3 text-sm sm:px-5">
           ค่าเช่าตามสัญญาตอนนี้ <b className="tabular">{baht(rentNow)}</b> / เดือน จากเต็มศักยภาพ{" "}
@@ -386,24 +383,26 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
       </Section>
 
       {/* ส่งออก */}
-      <Section icon={<FileSpreadsheet className="size-4" />} title="ส่งออกข้อมูล (เปิดด้วย Excel ได้)" className="no-print">
+      <Section icon={<FileSpreadsheet className="size-4" />} title="ดาวน์โหลดเอกสาร (PDF / Excel)" className="no-print">
         <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
           <ExportTile
-            href={`/api/export/payments?year=${year}`}
+            kind="payments"
+            year={year}
             icon={<ReceiptText className="size-4" />}
             title={`ใบเสร็จ ปี ${be}`}
             desc="แยกค่าเช่า / เงินประกัน ทุกใบ"
           />
           <ExportTile
-            href={`/api/export/invoices?year=${year}`}
+            kind="invoices"
+            year={year}
             icon={<FileText className="size-4" />}
             title={`ใบวางบิล ปี ${be}`}
             desc="ยอดบิล ภาษี และเงินประกันในบิล"
           />
-          <ExportTile href="/api/export/outstanding" icon={<Hourglass className="size-4" />} title="ยอดค้างชำระ" desc="ทุกบิลที่ยังไม่ได้รับเงิน" />
-          <ExportTile href="/api/export/contracts" icon={<FileText className="size-4" />} title="สัญญาเช่า" desc="ทุกสัญญา พร้อมเงินประกันคงเหลือ" />
-          <ExportTile href="/api/export/tenants" icon={<Users className="size-4" />} title="ผู้เช่า" desc="รายชื่อและข้อมูลติดต่อ" />
-          <ExportTile href="/api/export/units" icon={<Warehouse className="size-4" />} title="ห้องและที่จอด" desc="สถานะและราคาทุกห้อง" />
+          <ExportTile kind="outstanding" icon={<Hourglass className="size-4" />} title="ยอดค้างชำระ" desc="ทุกบิลที่ยังไม่ได้รับเงิน" />
+          <ExportTile kind="contracts" icon={<FileText className="size-4" />} title="สัญญาเช่า" desc="ทุกสัญญา พร้อมเงินประกันคงเหลือ" />
+          <ExportTile kind="tenants" icon={<Users className="size-4" />} title="ผู้เช่า" desc="รายชื่อและข้อมูลติดต่อ" />
+          <ExportTile kind="units" icon={<Warehouse className="size-4" />} title="ห้องและที่จอด" desc="สถานะและราคาทุกห้อง" />
         </div>
       </Section>
     </div>
@@ -464,27 +463,38 @@ function Section({
   );
 }
 
-function CsvLink({ href }: { href: string }) {
+/** ลิงก์เอกสาร: PDF = หน้าเอกสาร A4 (เปิดหน้าต่างบันทึก PDF ให้ทันที) · CSV = ไฟล์เปิดด้วย Excel */
+function exportHrefs(kind: string, year?: number) {
+  const q = year ? `year=${year}` : "";
+  return { pdf: `/print/report/${kind}?${q ? `${q}&` : ""}print=1`, csv: `/api/export/${kind}${q ? `?${q}` : ""}` };
+}
+
+function ExportLinks({ kind, year, full }: { kind: string; year?: number; full?: boolean }) {
+  const h = exportHrefs(kind, year);
+  const btn = clsx("btn btn-outline btn-sm", full && "w-full");
   return (
-    <Link href={href} className="no-print btn btn-outline btn-sm shrink-0" prefetch={false}>
-      <Download className="size-3.5" /> CSV
-    </Link>
+    <div className={clsx("no-print shrink-0 gap-1.5", full ? "mt-2.5 grid grid-cols-2" : "flex")}>
+      <Link href={h.pdf} className={btn} prefetch={false}>
+        <FileDown className="size-3.5" /> PDF
+      </Link>
+      <Link href={h.csv} className={btn} prefetch={false}>
+        <Download className="size-3.5" /> {full ? "Excel (CSV)" : "CSV"}
+      </Link>
+    </div>
   );
 }
 
-function ExportTile({ href, icon, title, desc }: { href: string; icon: ReactNode; title: string; desc: string }) {
+function ExportTile({ kind, year, icon, title, desc }: { kind: string; year?: number; icon: ReactNode; title: string; desc: string }) {
   return (
-    <Link
-      href={href}
-      prefetch={false}
-      className="group flex items-center gap-3 rounded-xl border border-line p-3 transition hover:border-ink/25 hover:bg-canvas/50"
-    >
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-canvas text-ink-2">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold">{title}</span>
-        <span className="block truncate text-xs text-muted">{desc}</span>
-      </span>
-      <Download className="size-4 shrink-0 text-muted transition group-hover:text-ink" />
-    </Link>
+    <div className="rounded-xl border border-line p-3">
+      <div className="flex items-center gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-canvas text-ink-2">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">{title}</span>
+          <span className="block truncate text-xs text-muted">{desc}</span>
+        </span>
+      </div>
+      <ExportLinks kind={kind} year={year} full />
+    </div>
   );
 }
