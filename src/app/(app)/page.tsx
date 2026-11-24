@@ -127,31 +127,32 @@ export default async function DashboardPage() {
         <section className="mb-3 overflow-hidden rounded-card bg-ink text-white" aria-label="รายรับ">
           <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-end lg:gap-10">
             <div>
-              <div className="text-sm text-white/60">
-                รายรับเดือน {thMonth(thisMonth)} <span className="text-white/40">(ไม่นับเงินประกัน)</span>
-              </div>
-              <div className="tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{baht(rentThis)}</div>
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-                {change !== null && (
-                  <span
-                    className={clsx(
-                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium",
-                      change >= 0 ? "bg-ok/25 text-green-300" : "bg-bad/25 text-red-300",
-                    )}
-                  >
-                    {change >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-                    {change >= 0 ? "+" : ""}
-                    {change.toFixed(0)}% จากเดือนก่อน
-                  </span>
-                )}
-                {depThis > 0 && (
-                  <span className="text-white/50">
-                    รับเงินประกันเพิ่มอีก <b className="tabular font-semibold text-white/80">{baht(depThis)}</b> (ต้องคืนผู้เช่า)
-                  </span>
-                )}
+              <div className="text-sm text-white/60">รายรับเดือน {thMonth(thisMonth)}</div>
+              <div className="tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{baht(rentThis + depThis)}</div>
+              {/* แยกที่มาของเงิน: ค่าเช่า (รายได้จริง) กับ เงินประกัน (ต้องคืนผู้เช่า) */}
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:max-w-md">
+                <div className="rounded-xl bg-brand px-3.5 py-2.5 text-ink">
+                  <div className="text-xs font-medium text-ink/70">ค่าเช่า</div>
+                  <div className="tabular text-xl font-bold">{baht(rentThis)}</div>
+                  {change !== null && (
+                    <div className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-ink/70">
+                      {change >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+                      {change >= 0 ? "+" : ""}
+                      {change.toFixed(0)}% จากเดือนก่อน
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-xl bg-white/10 px-3.5 py-2.5">
+                  <div className="text-xs font-medium text-white/60">เงินประกัน</div>
+                  <div className="tabular text-xl font-bold">{baht(depThis)}</div>
+                  <div className="mt-0.5 text-[11px] text-white/50">ต้องคืนผู้เช่า</div>
+                </div>
               </div>
             </div>
-            <RevenueChart months={months} revenue={revenue} current={thisMonth} />
+            <div>
+              <div className="mb-2 text-xs text-white/40">ค่าเช่า 6 เดือนล่าสุด</div>
+              <RevenueChart months={months} revenue={revenue} current={thisMonth} />
+            </div>
           </div>
         </section>
       )}
