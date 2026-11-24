@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  Building2,
   CalendarClock,
   CheckCircle2,
   ChevronRight,
@@ -249,27 +250,41 @@ export default async function DashboardPage() {
       </div>
 
       {branchStats.length > 1 && (
-        <Card className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-4 py-3.5 sm:px-5">
-            <h2 className="font-semibold">อัตราการเช่าแต่ละสาขา</h2>
-            <MixLegend />
-          </div>
-          <ul className="grid gap-x-8 gap-y-5 p-4 sm:p-5 md:grid-cols-2">
-            {branchStats.map((b) => (
-              <li key={b.id}>
-                <Link href={`/units?branch=${b.id}`} className="group block">
-                  <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
-                    <span className="truncate font-medium group-hover:underline">{b.name}</span>
-                    <span className="tabular shrink-0 text-muted">
-                      {b.occupied}/{b.total} · <b className="text-ink">{b.rate}%</b>
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card className="overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink text-brand">
+                <Building2 className="size-4" />
+              </span>
+              <h3 className="min-w-0 flex-1 truncate font-semibold">อัตราการเช่าแต่ละสาขา</h3>
+              <MixLegend className="max-sm:hidden" />
+            </div>
+            <ul className="divide-y divide-line">
+              {branchStats.map((b) => (
+                <li key={b.id}>
+                  <Link
+                    href={`/units?branch=${b.id}`}
+                    className="flex items-center gap-3 px-4 py-3 transition hover:bg-canvas/60 sm:px-5"
+                  >
+                    <span className="tabular grid h-10 w-[4.75rem] shrink-0 place-items-center rounded-xl bg-canvas text-sm font-bold">
+                      {b.rate}%
                     </span>
-                  </div>
-                  <MixBar mix={b} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                        <span className="truncate text-sm font-semibold">{b.name}</span>
+                        <span className="tabular shrink-0 text-xs text-muted">
+                          {b.occupied}/{b.total} ห้อง
+                        </span>
+                      </div>
+                      <MixBar mix={b} />
+                    </div>
+                    <ChevronRight className="size-4 shrink-0 text-muted" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
       )}
     </>
   );
@@ -354,9 +369,9 @@ function MixBar({ mix, className }: { mix: Mix; className?: string }) {
   );
 }
 
-function MixLegend() {
+function MixLegend({ className }: { className?: string }) {
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+    <div className={clsx("flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted", className)}>
       {(
         [
           ["bg-ink", "มีผู้เช่า"],
