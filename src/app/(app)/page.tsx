@@ -4,6 +4,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarClock,
+  CheckCircle2,
   ChevronRight,
   DoorOpen,
   FilePlus2,
@@ -11,7 +12,8 @@ import {
   Warehouse,
 } from "lucide-react";
 import Link from "next/link";
-import { Card, CardHeader, EmptyState, StatCard } from "@/components/ui";
+import type { ReactNode } from "react";
+import { Card, EmptyState } from "@/components/ui";
 import { isOwner } from "@/lib/auth";
 import { fetchAll, getBranches } from "@/lib/data";
 import { addMonths, baht, daysBetween, money, thDate, thMonth, todayTH } from "@/lib/format";
@@ -25,7 +27,7 @@ export default async function DashboardPage() {
   const thisMonth = today.slice(0, 7);
   const sixMonthsAgo = addMonths(`${thisMonth}-01`, -5);
 
-  const [branches, units, unpaid, expiring, due, payments] = await Promise.all([
+  const [branches, units, unpaid, expiring, due, payments, activeRents] = await Promise.all([
     getBranches(),
     fetchAll<Pick<UnitView, "branch_id" | "status" | "is_expiring">>((from, to) =>
       supabase.from("v_units").select("branch_id, status, is_expiring").neq("status", "inactive").order("id").range(from, to),
@@ -44,6 +46,11 @@ export default async function DashboardPage() {
           supabase.from("payments").select("paid_on, amount").eq("is_void", false).gte("paid_on", sixMonthsAgo).order("id").range(from, to),
         )
       : Promise.resolve([]),
+    owner
+      ? fetchAll<{ monthly_rent: number }>((from, to) =>
+          supabase.from("v_contracts").select("monthly_rent").eq("status", "active").order("id").range(from, to),
+        )
+      : Promise.resolve([]),
   ]);
 
   if (branches.length === 0) {
@@ -60,15 +67,16 @@ export default async function DashboardPage() {
                 : "ยังไม่มีสาขาในระบบ กรุณาติดต่อเจ้าของกิจการ"
             }
             action={
-              owner &&
-              <div className="flex flex-wrap justify-center gap-2">
-                <Link href="/branches/new" className="btn btn-primary">
-                  เพิ่มสาขาแรก
-                </Link>
-                <Link href="/settings?section=business" className="btn btn-outline">
-                  ตั้งค่ากิจการ
-                </Link>
-              </div>
+              owner && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Link href="/branches/new" className="btn btn-primary">
+                    เพิ่มสาขาแรก
+                  </Link>
+                  <Link href="/settings?section=business" className="btn btn-outline">
+                    ตั้งค่ากิจการ
+                  </Link>
+                </div>
+              )
             }
           />
         </Card>
@@ -84,22 +92,27 @@ export default async function DashboardPage() {
     if (revenue.has(m)) revenue.set(m, revenue.get(m)! + Number(p.amount));
   }
   const revThis = revenue.get(thisMonth) ?? 0;
-  const revLast = revenue.get(months[4]) ?? 0;
-  const change = revLast > 0 ? ((revThis - revLast) / revLast) * 100 : null;
-  const maxRev = Math.max(1, ...revenue.values());
+  // เทียบกับช่วงเดียวกันของเดือนก่อน (วันที่ 1 ถึงวันนี้) จะได้ไม่ดูว่าลดลงทุกต้นเดือน
+  const lastMonth = months[4];
+  const sameDayLast = `${lastMonth}-${today.slice(8, 10)}`;
+  const revLastToDate = payments
+    .filter((p) => p.paid_on.startsWith(lastMonth) && p.paid_on <= sameDayLast)
+    .reduce((a, p) => a + Number(p.amount), 0);
+  const change = revLastToDate > 0 ? ((revThis - revLastToDate) / revLastToDate) * 100 : null;
+  const rev6 = [...revenue.values()].reduce((a, v) => a + v, 0);
+  const monthlyRent = activeRents.reduce((a, c) => a + Number(c.monthly_rent), 0);
 
-  const occupied = units.filter((u) => u.status === "occupied").length;
-  const available = units.filter((u) => u.status === "available").length;
-  const occRate = units.length ? Math.round((occupied / units.length) * 100) : 0;
+  const mix = countMix(units);
+  const occRate = mix.total ? Math.round((mix.occupied / mix.total) * 100) : 0;
   const outstanding = unpaid.reduce((a, i) => a + Number(i.outstanding), 0);
-  const overdue = unpaid.filter((i) => i.is_overdue);
+  const overdue = unpaid.filter((i) => i.is_overdue).sort((a, b) => b.days_overdue - a.days_overdue);
+  const overdueSum = overdue.reduce((a, i) => a + Number(i.outstanding), 0);
 
   const branchStats = branches
     .filter((b) => b.is_active)
     .map((b) => {
-      const us = units.filter((u) => u.branch_id === b.id);
-      const occ = us.filter((u) => u.status === "occupied").length;
-      return { ...b, total: us.length, occ, rate: us.length ? Math.round((occ / us.length) * 100) : 0 };
+      const m = countMix(units.filter((u) => u.branch_id === b.id));
+      return { ...b, ...m, rate: m.total ? Math.round((m.occupied / m.total) * 100) : 0 };
     });
 
   return (
@@ -107,192 +120,372 @@ export default async function DashboardPage() {
       <Greeting today={today} />
 
       {owner && (
-      <Card className="mb-3 overflow-hidden border-ink bg-ink text-white">
-        <div className="grid gap-5 p-5 sm:grid-cols-[1fr_1.2fr] sm:p-6">
-          <div>
-            <div className="text-sm text-white/60">รายรับเดือน {thMonth(thisMonth)}</div>
-            <div className="tabular mt-1 text-4xl font-bold tracking-tight">{baht(revThis)}</div>
-            {change !== null && (
-              <div
-                className={clsx(
-                  "mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                  change >= 0 ? "bg-ok/25 text-green-300" : "bg-bad/25 text-red-300",
-                )}
-              >
-                {change >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-                {change >= 0 ? "+" : ""}
-                {change.toFixed(1)}% จากเดือนก่อน
-              </div>
-            )}
-          </div>
-          <div className="flex h-28 items-end gap-2" aria-label="รายรับย้อนหลัง 6 เดือน">
-            {months.map((m) => {
-              const v = revenue.get(m) ?? 0;
-              return (
-                <div key={m} className="flex flex-1 flex-col items-center gap-1.5">
-                  <div className="flex w-full flex-1 items-end">
-                    <div
-                      title={`${thMonth(m)}: ${money(v)} บาท`}
-                      className={clsx("w-full rounded-t-md", m === thisMonth ? "bg-brand" : "bg-white/20")}
-                      style={{ height: `${Math.max(4, (v / maxRev) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-white/50">{thMonth(m)}</span>
+        <section className="mb-3 overflow-hidden rounded-card bg-ink text-white" aria-label="รายรับ">
+          <div className="grid gap-5 p-5 sm:gap-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:gap-10">
+            <div className="flex flex-col">
+              <div className="text-sm text-white/60">รายรับเดือน {thMonth(thisMonth)}</div>
+              <div className="tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{baht(revThis)}</div>
+              {change !== null && (
+                <div
+                  className={clsx(
+                    "mt-2 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                    change >= 0 ? "bg-ok/25 text-green-300" : "bg-bad/25 text-red-300",
+                  )}
+                >
+                  {change >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+                  {change >= 0 ? "+" : ""}
+                  {change.toFixed(0)}% จากช่วงเดียวกันเดือนก่อน
                 </div>
-              );
-            })}
+              )}
+              <dl className="mt-auto grid grid-cols-2 gap-4 border-t border-white/10 pt-4 max-lg:mt-5">
+                <div>
+                  <dt className="text-xs text-white/50">ค่าเช่าประจำต่อเดือน</dt>
+                  <dd className="tabular mt-0.5 text-lg font-semibold">{baht(monthlyRent)}</dd>
+                  <dd className="text-xs text-white/50">จาก {activeRents.length} สัญญาที่ใช้งาน</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-white/50">รวม 6 เดือนล่าสุด</dt>
+                  <dd className="tabular mt-0.5 text-lg font-semibold">{baht(rev6)}</dd>
+                  <dd className="text-xs text-white/50">เฉลี่ย {baht(rev6 / 6)} / เดือน</dd>
+                </div>
+              </dl>
+            </div>
+            <RevenueChart months={months} revenue={revenue} current={thisMonth} />
           </div>
-        </div>
-      </Card>
+        </section>
       )}
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="อัตราการเช่า"
-          value={`${occRate}%`}
-          hint={`มีผู้เช่า ${occupied} / ${units.length}`}
-          icon={<Warehouse className="size-4" />}
-          href="/units"
-        />
-        <StatCard
-          label="ห้องว่าง"
-          value={available}
-          hint="พร้อมให้เช่า"
-          icon={<DoorOpen className="size-4" />}
-          tone="ok"
-          href="/units?status=available"
-        />
-        <StatCard
-          label="รอชำระ"
-          value={baht(outstanding)}
-          hint={`${unpaid.length} ใบ · เกินกำหนด ${overdue.length}`}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="อัตราการเช่า" icon={<Warehouse className="size-4" />} href="/units" value={`${occRate}%`}>
+          <MixBar mix={mix} className="mt-2.5" />
+          <p className="mt-1.5 text-xs text-muted">
+            มีผู้เช่า {mix.occupied} จาก {mix.total} ห้อง
+          </p>
+        </Kpi>
+        <Kpi label="ห้องว่าง" icon={<DoorOpen className="size-4" />} tone="ok" href="/units" value={mix.available}>
+          <p className="mt-1 text-xs text-muted">
+            พร้อมให้เช่า{mix.maintenance > 0 && ` · ปิดปรับปรุง ${mix.maintenance}`}
+          </p>
+        </Kpi>
+        <Kpi
+          label="ยอดรอรับชำระ"
           icon={<ReceiptText className="size-4" />}
-          tone={overdue.length ? "bad" : "warn"}
+          tone={overdue.length ? "bad" : unpaid.length ? "warn" : "neutral"}
           href="/invoices?tab=unpaid"
-        />
-        <StatCard
+          value={baht(outstanding)}
+        >
+          <p className="mt-1 text-xs text-muted">{unpaid.length} ใบที่ยังไม่ได้รับเงิน</p>
+          {overdue.length > 0 && (
+            <p className="mt-0.5 text-xs font-semibold text-bad">เกินกำหนด {baht(overdueSum)}</p>
+          )}
+        </Kpi>
+        <Kpi
           label="สัญญาใกล้หมด"
-          value={expiring.length}
-          hint="ภายในเวลาที่ตั้งไว้"
           icon={<CalendarClock className="size-4" />}
           tone={expiring.length ? "warn" : "neutral"}
           href="/contracts?tab=expiring"
+          value={expiring.length}
+        >
+          <p className="mt-1 text-xs text-muted">{expiring.length ? "ควรติดต่อต่อสัญญา" : "ภายในเวลาที่ตั้งไว้"}</p>
+        </Kpi>
+      </div>
+
+      <h2 className="mb-3 text-lg font-bold tracking-tight">งานที่ต้องจัดการ</h2>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        <TaskCard
+          title="ค้างชำระเกินกำหนด"
+          icon={<AlertTriangle className="size-4" />}
+          tone="bad"
+          count={overdue.length}
+          href="/invoices?tab=unpaid"
+          empty="ไม่มียอดค้างเกินกำหนด"
+          rows={overdue.slice(0, 5).map((i) => ({
+            key: i.id,
+            href: `/invoices/${i.id}`,
+            code: i.unit_code,
+            title: i.tenant_name,
+            sub: i.invoice_no,
+            amount: money(i.outstanding),
+            pill: `เกิน ${i.days_overdue} วัน`,
+            tone: "bad",
+          }))}
+        />
+        <TaskCard
+          title="ถึงรอบออกบิล"
+          icon={<FilePlus2 className="size-4" />}
+          tone="brand"
+          count={due.length}
+          href="/invoices?tab=due"
+          empty="ไม่มีสัญญาที่ถึงรอบออกบิล"
+          rows={due.slice(0, 5).map((d) => ({
+            key: d.contract_id,
+            href: `/invoices/new?contract=${d.contract_id}`,
+            code: d.unit_code,
+            title: d.tenant_name,
+            sub: `รอบ ${periodText(d.period_start, d.period_end)}`,
+            amount: money(Number(d.monthly_rent) * d.months),
+            pill: "ออกบิล",
+            tone: "brand",
+          }))}
+        />
+        <TaskCard
+          title="สัญญาใกล้หมด"
+          icon={<CalendarClock className="size-4" />}
+          tone="warn"
+          count={expiring.length}
+          href="/contracts?tab=expiring"
+          empty="ไม่มีสัญญาใกล้หมด"
+          rows={expiring.slice(0, 5).map((c) => {
+            const d = daysBetween(today, c.end_date);
+            return {
+              key: c.id,
+              href: `/contracts/${c.id}`,
+              code: c.unit_code,
+              title: c.tenant_name,
+              sub: `สิ้นสุด ${thDate(c.end_date)}`,
+              pill: d >= 0 ? `อีก ${d} วัน` : `เลย ${-d} วัน`,
+              tone: d < 0 ? "bad" : "warn",
+            };
+          })}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <FilePlus2 className="size-4" /> ถึงรอบออกบิล
-              </span>
-            }
-            action={
-              due.length > 0 && (
-                <Link href="/invoices?tab=due" className="btn btn-outline btn-sm">
-                  ดูทั้งหมด {due.length}
-                </Link>
-              )
-            }
-          />
-          <List
-            empty="ไม่มีสัญญาที่ถึงรอบออกบิล"
-            rows={due.slice(0, 5).map((d) => ({
-              key: d.contract_id,
-              href: `/invoices/new?contract=${d.contract_id}`,
-              title: `${d.unit_code} · ${d.tenant_name}`,
-              sub: `รอบ ${thDate(d.period_start)} – ${thDate(d.period_end)}`,
-              right: money(Number(d.monthly_rent) * d.months),
-              tone: d.period_start < today ? "bad" : undefined,
-            }))}
-          />
-        </Card>
-
-        <Card>
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <AlertTriangle className="size-4" /> ค้างชำระเกินกำหนด
-              </span>
-            }
-            action={
-              overdue.length > 0 && (
-                <Link href="/invoices?tab=unpaid" className="btn btn-outline btn-sm">
-                  ดูทั้งหมด {overdue.length}
-                </Link>
-              )
-            }
-          />
-          <List
-            empty="ไม่มียอดค้างเกินกำหนด"
-            rows={overdue
-              .sort((a, b) => b.days_overdue - a.days_overdue)
-              .slice(0, 5)
-              .map((i) => ({
-                key: i.id,
-                href: `/invoices/${i.id}`,
-                title: `${i.unit_code} · ${i.tenant_name}`,
-                sub: `${i.invoice_no} · เกินกำหนด ${i.days_overdue} วัน`,
-                right: money(i.outstanding),
-                tone: "bad" as const,
-              }))}
-          />
-        </Card>
-
-        <Card>
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <CalendarClock className="size-4" /> สัญญาใกล้หมด
-              </span>
-            }
-            action={
-              expiring.length > 0 && (
-                <Link href="/contracts?tab=expiring" className="btn btn-outline btn-sm">
-                  ดูทั้งหมด {expiring.length}
-                </Link>
-              )
-            }
-          />
-          <List
-            empty="ไม่มีสัญญาใกล้หมด"
-            rows={expiring.slice(0, 5).map((c) => {
-              const d = daysBetween(today, c.end_date);
-              return {
-                key: c.id,
-                href: `/contracts/${c.id}`,
-                title: `${c.unit_code} · ${c.tenant_name}`,
-                sub: `สิ้นสุด ${thDate(c.end_date)}`,
-                right: d >= 0 ? `อีก ${d} วัน` : `เลย ${-d} วัน`,
-                tone: d < 0 ? "bad" : "warn",
-              };
-            })}
-          />
-        </Card>
-
-        <Card>
-          <CardHeader title="อัตราการเช่าแต่ละสาขา" />
-          <ul className="space-y-4 p-4 sm:p-5">
+      {branchStats.length > 1 && (
+        <Card className="mt-6">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-4 py-3.5 sm:px-5">
+            <h2 className="font-semibold">อัตราการเช่าแต่ละสาขา</h2>
+            <MixLegend />
+          </div>
+          <ul className="grid gap-x-8 gap-y-5 p-4 sm:p-5 md:grid-cols-2">
             {branchStats.map((b) => (
               <li key={b.id}>
-                <Link href={`/units?branch=${b.id}`} className="block">
-                  <div className="mb-1.5 flex justify-between text-sm">
-                    <span className="font-medium">{b.name}</span>
-                    <span className="tabular text-muted">
-                      {b.occ}/{b.total} · <b className="text-ink">{b.rate}%</b>
+                <Link href={`/units?branch=${b.id}`} className="group block">
+                  <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                    <span className="truncate font-medium group-hover:underline">{b.name}</span>
+                    <span className="tabular shrink-0 text-muted">
+                      {b.occupied}/{b.total} · <b className="text-ink">{b.rate}%</b>
                     </span>
                   </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-line">
-                    <div className="h-full rounded-full bg-brand" style={{ width: `${b.rate}%` }} />
-                  </div>
+                  <MixBar mix={b} />
                 </Link>
               </li>
             ))}
           </ul>
         </Card>
-      </div>
+      )}
     </>
+  );
+}
+
+type Mix = { total: number; occupied: number; available: number; maintenance: number };
+
+function countMix(units: Pick<UnitView, "status">[]): Mix {
+  const m = { total: units.length, occupied: 0, available: 0, maintenance: 0 };
+  for (const u of units) {
+    if (u.status === "occupied") m.occupied++;
+    else if (u.status === "available") m.available++;
+    else if (u.status === "maintenance") m.maintenance++;
+  }
+  return m;
+}
+
+/** แถบสัดส่วนห้อง: มีผู้เช่า (ดำ) · ว่าง (เขียว) · ปิดปรับปรุง (เทา) สีเดียวกับผังสถานที่ */
+function MixBar({ mix, className }: { mix: Mix; className?: string }) {
+  const seg = (n: number) => (mix.total ? `${(n / mix.total) * 100}%` : "0%");
+  return (
+    <div
+      className={clsx("flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-line", className)}
+      role="img"
+      aria-label={`มีผู้เช่า ${mix.occupied} ว่าง ${mix.available} ปิดปรับปรุง ${mix.maintenance}`}
+    >
+      {mix.occupied > 0 && <span className="bg-ink" style={{ width: seg(mix.occupied) }} />}
+      {mix.available > 0 && <span className="bg-ok/70" style={{ width: seg(mix.available) }} />}
+      {mix.maintenance > 0 && <span className="bg-muted/40" style={{ width: seg(mix.maintenance) }} />}
+    </div>
+  );
+}
+
+function MixLegend() {
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+      {(
+        [
+          ["bg-ink", "มีผู้เช่า"],
+          ["bg-ok/70", "ว่าง"],
+          ["bg-muted/40", "ปิดปรับปรุง"],
+        ] as const
+      ).map(([c, l]) => (
+        <span key={l} className="inline-flex items-center gap-1.5">
+          <span className={clsx("size-2.5 rounded-full", c)} /> {l}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** รอบบิลแบบสั้น: 1 ธ.ค. – 31 ธ.ค. 2569 (ปีเดียวกันแสดงปีครั้งเดียว) */
+function periodText(start: string, end: string) {
+  const a = thDate(start);
+  return `${start.slice(0, 4) === end.slice(0, 4) ? a.replace(/\s\d{4}$/, "") : a} – ${thDate(end)}`;
+}
+
+/** ตัวเลขย่อบนกราฟ เช่น 2,700 → 2.7k */
+function short(n: number) {
+  if (n < 1000) return Math.round(n).toLocaleString("th-TH");
+  const k = n / 1000;
+  return `${k >= 100 ? Math.round(k) : +k.toFixed(1)}k`;
+}
+
+function RevenueChart({ months, revenue, current }: { months: string[]; revenue: Map<string, number>; current: string }) {
+  const max = Math.max(1, ...revenue.values());
+  return (
+    <div className="grid h-28 grid-cols-6 gap-2 sm:h-44 sm:gap-3" role="img" aria-label="รายรับย้อนหลัง 6 เดือน">
+      {months.map((m) => {
+        const v = revenue.get(m) ?? 0;
+        const pct = v > 0 ? Math.max(6, (v / max) * 82) : 0;
+        const cur = m === current;
+        return (
+          <div key={m} className="flex min-w-0 flex-col items-center gap-2" title={`${thMonth(m)}: ${money(v)} บาท`}>
+            <div className="relative w-full flex-1">
+              <span
+                className={clsx(
+                  "tabular absolute inset-x-0 text-center text-[11px] font-semibold",
+                  cur ? "text-brand" : "text-white/60",
+                )}
+                style={{ bottom: `calc(${pct}% + 4px)` }}
+              >
+                {v > 0 ? short(v) : "–"}
+              </span>
+              <div
+                className={clsx("absolute inset-x-0 bottom-0 rounded-t-md sm:inset-x-1", cur ? "bg-brand" : "bg-white/20")}
+                style={{ height: pct ? `${pct}%` : "2px" }}
+              />
+            </div>
+            <span className={clsx("text-[11px] whitespace-nowrap", cur ? "font-semibold text-white" : "text-white/50")}>
+              {thMonth(m)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type Tone = "neutral" | "ok" | "warn" | "bad" | "brand";
+
+const ICON_TONE: Record<Tone, string> = {
+  neutral: "bg-canvas text-ink-2",
+  ok: "bg-ok-soft text-ok",
+  warn: "bg-warn-soft text-warn",
+  bad: "bg-bad-soft text-bad",
+  brand: "bg-brand text-ink",
+};
+
+function Kpi({
+  label,
+  icon,
+  tone = "neutral",
+  href,
+  value,
+  children,
+}: {
+  label: string;
+  icon: ReactNode;
+  tone?: Tone;
+  href: string;
+  value: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <Link href={href} className="card group flex flex-col p-4 transition hover:border-ink/25 hover:shadow-sm sm:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted sm:text-sm">{label}</span>
+        <span className={clsx("grid size-8 shrink-0 place-items-center rounded-lg", ICON_TONE[tone])}>{icon}</span>
+      </div>
+      <div className="tabular mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{value}</div>
+      {children}
+    </Link>
+  );
+}
+
+type TaskRow = {
+  key: string;
+  href: string;
+  code: string;
+  title: string;
+  sub: string;
+  amount?: string;
+  pill: string;
+  tone: "bad" | "warn" | "brand";
+};
+
+const PILL_TONE: Record<TaskRow["tone"], string> = {
+  bad: "bg-bad-soft text-bad",
+  warn: "bg-warn-soft text-warn",
+  brand: "bg-brand text-ink",
+};
+
+function TaskCard({
+  title,
+  icon,
+  tone,
+  count,
+  href,
+  empty,
+  rows,
+}: {
+  title: string;
+  icon: ReactNode;
+  tone: Tone;
+  count: number;
+  href: string;
+  empty: string;
+  rows: TaskRow[];
+}) {
+  return (
+    <Card className="flex flex-col overflow-hidden">
+      <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
+        <span className={clsx("grid size-9 shrink-0 place-items-center rounded-xl", count ? ICON_TONE[tone] : ICON_TONE.neutral)}>
+          {icon}
+        </span>
+        <h3 className="min-w-0 flex-1 truncate font-semibold">{title}</h3>
+        {count > 0 && (
+          <Link href={href} className="btn btn-outline btn-sm shrink-0">
+            ดูทั้งหมด {count}
+          </Link>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <p className="flex flex-1 items-center justify-center gap-2 px-5 py-8 text-sm text-muted">
+          <CheckCircle2 className="size-4 text-ok" /> {empty}
+        </p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {rows.map((r) => (
+            <li key={r.key}>
+              <Link href={r.href} className="flex items-center gap-3 px-4 py-3 transition hover:bg-canvas/60 sm:px-5">
+                <span className="grid h-10 w-[4.75rem] shrink-0 place-items-center rounded-xl bg-canvas px-1.5 text-xs font-bold">
+                  <span className="truncate">{r.code}</span>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{r.title}</div>
+                  <div className="truncate text-xs text-muted">{r.sub}</div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {r.amount && (
+                    <span className={clsx("tabular text-sm font-semibold", r.tone === "bad" && "text-bad")}>{r.amount}</span>
+                  )}
+                  <span className={clsx("rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap", PILL_TONE[r.tone])}>
+                    {r.pill}
+                  </span>
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-muted" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -302,39 +495,5 @@ function Greeting({ today }: { today: string }) {
       <p className="text-sm text-muted">{thDate(today)}</p>
       <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">ภาพรวมธุรกิจ</h1>
     </header>
-  );
-}
-
-function List({
-  rows,
-  empty,
-}: {
-  rows: { key: string; href: string; title: string; sub: string; right: string; tone?: "bad" | "warn" }[];
-  empty: string;
-}) {
-  if (rows.length === 0) return <p className="px-5 py-8 text-center text-sm text-muted">{empty}</p>;
-  return (
-    <ul className="divide-y divide-line">
-      {rows.map((r) => (
-        <li key={r.key}>
-          <Link href={r.href} className="flex items-center gap-3 px-4 py-3 transition hover:bg-canvas/50 sm:px-5">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{r.title}</div>
-              <div className="truncate text-xs text-muted">{r.sub}</div>
-            </div>
-            <span
-              className={clsx(
-                "tabular shrink-0 text-sm font-semibold",
-                r.tone === "bad" && "text-bad",
-                r.tone === "warn" && "text-warn",
-              )}
-            >
-              {r.right}
-            </span>
-            <ChevronRight className="size-4 shrink-0 text-muted" />
-          </Link>
-        </li>
-      ))}
-    </ul>
   );
 }
