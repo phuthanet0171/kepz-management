@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import { thDateTime } from "@/lib/format";
@@ -124,7 +125,19 @@ function changes(l: Log) {
     .map((k) => ({ key: k, label: FIELD_LABEL[k] ?? k, from: show(o[k]), to: show(n[k]) }));
 }
 
-export default async function AuditPage({ searchParams }: PageProps<"/settings/audit">) {
+export default function AuditPage({ searchParams }: PageProps<"/settings/audit">) {
+  return (
+    <div className="mx-auto max-w-4xl">
+      <PageHeader title="ประวัติการแก้ไข" back={{ href: "/settings", label: "ตั้งค่า" }} />
+      {/* ข้อมูลโหลดใน Suspense ให้หัวหน้าแสดงทันทีตอนเปลี่ยนหน้า */}
+      <Suspense fallback={<div className="card h-64 animate-pulse" />}>
+        <AuditContent searchParams={searchParams} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function AuditContent({ searchParams }: { searchParams: PageProps<"/settings/audit">["searchParams"] }) {
   await requireOwner();
   const sp = await searchParams;
   const group = GROUPS.find((g) => g.key === sp.type) ?? GROUPS[0];
@@ -156,12 +169,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/settings/a
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <PageHeader
-        title="ประวัติการแก้ไข"
-        back={{ href: "/settings", label: "ตั้งค่า" }}
-      />
-
+    <>
       <div className="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
         {GROUPS.map((g) => (
           <Link
@@ -239,6 +247,6 @@ export default async function AuditPage({ searchParams }: PageProps<"/settings/a
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }
