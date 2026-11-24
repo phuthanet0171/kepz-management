@@ -102,6 +102,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
             </Card>
           )}
           <InvoiceForm
+            key={`${c.id}|${next?.period_start ?? ""}`}
             rentDueDay={dueDay}
             contractId={c.id}
             unitCode={c.unit_code}

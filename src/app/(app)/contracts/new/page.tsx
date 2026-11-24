@@ -59,7 +59,9 @@ export default async function NewContractPage({ searchParams }: PageProps<"/cont
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="ทำสัญญาเช่า" back={back} />
+      {/* key: Next 16 เก็บ state หน้าเดิมไว้ เมื่อมาจากห้อง/ผู้เช่าอื่นต้องเริ่มฟอร์มใหม่ ไม่งั้นค้างห้องเดิม */}
       <ContractForm
+        key={`${sp.unit ?? ""}|${sp.tenant ?? ""}`}
         units={availableUnits}
         tenants={tenants}
         branches={branches.map((b) => ({ id: b.id, name: b.name }))}
