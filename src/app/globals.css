@@ -150,4 +150,23 @@ dialog::backdrop {
   .no-print {
     display: none !important;
   }
+
+  /* หน้ารายงาน → PDF: ขอบกระดาษ คงสีพื้น/แถบกราฟ ไม่ตัดการ์ดกลางหน้า */
+  .print-report {
+    padding: 12mm;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-report .card,
+  .print-report section {
+    break-inside: avoid;
+  }
+  /* คอลัมน์ที่ซ่อนบนจอเล็ก ให้แสดงใน PDF ครบ */
+  .print-report .print-show {
+    display: table-cell !important;
+  }
+  main:has(.print-report) {
+    padding: 0 !important;
+    max-width: none !important;
+  }
 }

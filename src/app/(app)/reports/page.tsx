@@ -14,10 +14,11 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SavePdfButton } from "@/components/save-pdf-button";
 import { Card, PageHeader } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import { fetchAll, getBranches } from "@/lib/data";
-import { baht, money, thMonth, todayTH } from "@/lib/format";
+import { baht, money, thDate, thMonth, todayTH } from "@/lib/format";
 import {
   AGING_BUCKETS,
   agingBucket,
@@ -132,11 +133,17 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
   const be = year + 543;
 
   return (
-    <>
-      <PageHeader title="รายงาน" />
+    <div className="print-report">
+      <PageHeader
+        title="รายงาน"
+        actions={<SavePdfButton fileName={`รายงาน Kepz ปี ${be}`} className="btn btn-primary no-print" />}
+      />
+      <p className="mb-4 hidden text-sm text-muted print:block">
+        ปี พ.ศ. {be} · พิมพ์เมื่อ {thDate(today)}
+      </p>
 
       {/* เลือกปี: แตะแล้วเปลี่ยนทันที ไม่ต้องกดปุ่มแสดง */}
-      <div className="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <div className="no-print no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         {years.map((y) => (
           <Link
             key={y}
@@ -249,9 +256,9 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
                 <th className="text-right">ค่าเช่า</th>
                 <th className="text-right">เงินประกัน</th>
                 <th className="text-right">รับชำระรวม</th>
-                <th className="text-right max-md:hidden">โอน/พร้อมเพย์</th>
-                <th className="text-right max-md:hidden">บัตรเครดิต</th>
-                <th className="text-right max-md:hidden">ออกบิล</th>
+                <th className="text-right max-md:hidden print-show">โอน/พร้อมเพย์</th>
+                <th className="text-right max-md:hidden print-show">บัตรเครดิต</th>
+                <th className="text-right max-md:hidden print-show">ออกบิล</th>
               </tr>
             </thead>
             <tbody>
@@ -268,9 +275,9 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
                   <td className="tabular text-right font-semibold">{money(m.rent)}</td>
                   <td className="tabular text-right">{money(m.deposit)}</td>
                   <td className="tabular text-right">{money(m.received)}</td>
-                  <td className="tabular text-right text-muted max-md:hidden">{money(m.transfer)}</td>
-                  <td className="tabular text-right text-muted max-md:hidden">{money(m.card)}</td>
-                  <td className="tabular text-right text-muted max-md:hidden">{money(m.invoiced)}</td>
+                  <td className="tabular text-right text-muted max-md:hidden print-show">{money(m.transfer)}</td>
+                  <td className="tabular text-right text-muted max-md:hidden print-show">{money(m.card)}</td>
+                  <td className="tabular text-right text-muted max-md:hidden print-show">{money(m.invoiced)}</td>
                 </tr>
               ))}
               <tr className="bg-canvas font-bold">
@@ -278,9 +285,9 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
                 <td className="tabular text-right">{money(sum("rent"))}</td>
                 <td className="tabular text-right">{money(sum("deposit"))}</td>
                 <td className="tabular text-right">{money(sum("received"))}</td>
-                <td className="tabular text-right max-md:hidden">{money(sum("transfer"))}</td>
-                <td className="tabular text-right max-md:hidden">{money(sum("card"))}</td>
-                <td className="tabular text-right max-md:hidden">{money(sum("invoiced"))}</td>
+                <td className="tabular text-right max-md:hidden print-show">{money(sum("transfer"))}</td>
+                <td className="tabular text-right max-md:hidden print-show">{money(sum("card"))}</td>
+                <td className="tabular text-right max-md:hidden print-show">{money(sum("invoiced"))}</td>
               </tr>
             </tbody>
           </table>
@@ -332,7 +339,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
                       {b.outstanding > 0 ? `ค้าง ${money(b.outstanding)}` : "ไม่มีค้าง"}
                     </div>
                   </div>
-                  <ChevronRight className="size-4 shrink-0 text-muted" />
+                  <ChevronRight className="no-print size-4 shrink-0 text-muted" />
                 </Link>
               </li>
             ))}
@@ -379,7 +386,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
       </Section>
 
       {/* ส่งออก */}
-      <Section icon={<FileSpreadsheet className="size-4" />} title="ส่งออกข้อมูล (เปิดด้วย Excel ได้)">
+      <Section icon={<FileSpreadsheet className="size-4" />} title="ส่งออกข้อมูล (เปิดด้วย Excel ได้)" className="no-print">
         <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
           <ExportTile
             href={`/api/export/payments?year=${year}`}
@@ -399,7 +406,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
           <ExportTile href="/api/export/units" icon={<Warehouse className="size-4" />} title="ห้องและที่จอด" desc="สถานะและราคาทุกห้อง" />
         </div>
       </Section>
-    </>
+    </div>
   );
 }
 
@@ -459,7 +466,7 @@ function Section({
 
 function CsvLink({ href }: { href: string }) {
   return (
-    <Link href={href} className="btn btn-outline btn-sm shrink-0" prefetch={false}>
+    <Link href={href} className="no-print btn btn-outline btn-sm shrink-0" prefetch={false}>
       <Download className="size-3.5" /> CSV
     </Link>
   );
