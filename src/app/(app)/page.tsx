@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   const thisMonth = today.slice(0, 7);
   const sixMonthsAgo = addMonths(`${thisMonth}-01`, -5);
 
-  const [branches, units, unpaid, expiring, due, payments, activeRents] = await Promise.all([
+  const [branches, units, unpaid, expiring, due, payments] = await Promise.all([
     getBranches(),
     fetchAll<Pick<UnitView, "branch_id" | "status" | "is_expiring">>((from, to) =>
       supabase.from("v_units").select("branch_id, status, is_expiring").neq("status", "inactive").order("id").range(from, to),
@@ -50,11 +50,6 @@ export default async function DashboardPage() {
             .gte("paid_on", sixMonthsAgo)
             .order("id")
             .range(from, to),
-        )
-      : Promise.resolve([]),
-    owner
-      ? fetchAll<{ monthly_rent: number }>((from, to) =>
-          supabase.from("v_contracts").select("monthly_rent").eq("status", "active").order("id").range(from, to),
         )
       : Promise.resolve([]),
   ]);
@@ -93,17 +88,16 @@ export default async function DashboardPage() {
   // รายได้รายเดือน (ตามวันที่รับชำระ) แยกส่วนที่เป็นเงินประกันออก (เงินประกันต้องคืนผู้เช่า ไม่ใช่รายได้)
   const months = Array.from({ length: 6 }, (_, i) => addMonths(`${thisMonth}-01`, i - 5).slice(0, 7));
   const depShare = owner ? await depositShares(supabase, payments) : new Map<string, number>();
-  const revenue = new Map(months.map((m) => [m, 0]));
-  const deposits = new Map(months.map((m) => [m, 0]));
+  const revenue = new Map(months.map((m) => [m, 0])); // ไม่รวมเงินประกัน
+  let depThis = 0;
   for (const p of payments) {
     const m = p.paid_on.slice(0, 7);
     if (!revenue.has(m)) continue;
-    revenue.set(m, revenue.get(m)! + Number(p.amount));
-    deposits.set(m, deposits.get(m)! + (depShare.get(p.id) ?? 0));
+    const dep = depShare.get(p.id) ?? 0;
+    revenue.set(m, revenue.get(m)! + Number(p.amount) - dep);
+    if (m === thisMonth) depThis += dep;
   }
-  const revThis = revenue.get(thisMonth) ?? 0;
-  const depThis = deposits.get(thisMonth) ?? 0;
-  const rentThis = revThis - depThis;
+  const rentThis = revenue.get(thisMonth) ?? 0;
   // เทียบ (ไม่รวมเงินประกัน) กับช่วงเดียวกันของเดือนก่อน (วันที่ 1 ถึงวันนี้) จะได้ไม่ดูว่าลดลงทุกต้นเดือน
   const lastMonth = months[4];
   const sameDayLast = `${lastMonth}-${today.slice(8, 10)}`;
@@ -111,11 +105,6 @@ export default async function DashboardPage() {
     .filter((p) => p.paid_on.startsWith(lastMonth) && p.paid_on <= sameDayLast)
     .reduce((a, p) => a + Number(p.amount) - (depShare.get(p.id) ?? 0), 0);
   const change = revLastToDate > 0 ? ((rentThis - revLastToDate) / revLastToDate) * 100 : null;
-  const rent6 = months.reduce((a, m) => a + (revenue.get(m) ?? 0) - (deposits.get(m) ?? 0), 0);
-  // เฉลี่ยเฉพาะเดือนตั้งแต่เริ่มมีรายรับ (เพิ่งเริ่มใช้ระบบจะไม่ถูกหารด้วยเดือนที่ยังไม่มีข้อมูล)
-  const firstRev = months.findIndex((m) => (revenue.get(m) ?? 0) > 0);
-  const revMonths = firstRev < 0 ? 1 : months.length - firstRev;
-  const monthlyRent = activeRents.reduce((a, c) => a + Number(c.monthly_rent), 0);
 
   const mix = countMix(units);
   const occRate = mix.total ? Math.round((mix.occupied / mix.total) * 100) : 0;
@@ -136,54 +125,41 @@ export default async function DashboardPage() {
 
       {owner && (
         <section className="mb-3 overflow-hidden rounded-card bg-ink text-white" aria-label="รายรับ">
-          <div className="grid gap-5 p-5 sm:gap-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:gap-10">
-            <div className="flex flex-col">
+          <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-end lg:gap-10">
+            <div>
               <div className="text-sm text-white/60">รายรับเดือน {thMonth(thisMonth)}</div>
-              <div className="tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{baht(revThis)}</div>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:max-w-sm">
-                <div className="rounded-xl bg-white/10 px-3 py-2">
-                  <div className="text-[11px] text-white/60">ไม่รวมเงินประกัน</div>
-                  <div className="tabular text-lg font-bold">{baht(rentThis)}</div>
-                </div>
-                <div className="rounded-xl border border-white/10 px-3 py-2">
-                  <div className="text-[11px] text-white/60">เงินประกัน</div>
-                  <div className="tabular text-lg font-semibold text-white/80">{baht(depThis)}</div>
-                </div>
+              <div className="tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{baht(rentThis)}</div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                {change !== null && (
+                  <span
+                    className={clsx(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium",
+                      change >= 0 ? "bg-ok/25 text-green-300" : "bg-bad/25 text-red-300",
+                    )}
+                  >
+                    {change >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+                    {change >= 0 ? "+" : ""}
+                    {change.toFixed(0)}% จากเดือนก่อน
+                  </span>
+                )}
+                <span className="text-white/50">
+                  {depThis > 0 ? `ไม่รวมเงินประกัน ${baht(depThis)}` : "ไม่รวมเงินประกัน"}
+                </span>
               </div>
-              {change !== null && (
-                <div
-                  className={clsx(
-                    "mt-2 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                    change >= 0 ? "bg-ok/25 text-green-300" : "bg-bad/25 text-red-300",
-                  )}
-                >
-                  {change >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-                  {change >= 0 ? "+" : ""}
-                  {change.toFixed(0)}% จากช่วงเดียวกันเดือนก่อน
-                </div>
-              )}
-              <dl className="mt-auto grid grid-cols-2 gap-4 border-t border-white/10 pt-4 max-lg:mt-5">
-                <div>
-                  <dt className="text-xs text-white/50">ค่าเช่าประจำต่อเดือน</dt>
-                  <dd className="tabular mt-0.5 text-lg font-semibold">{baht(monthlyRent)}</dd>
-                  <dd className="text-xs text-white/50">จาก {activeRents.length} สัญญาที่ใช้งาน</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-white/50">
-                    {revMonths < 6 ? `รวม ${revMonths} เดือนที่มีข้อมูล` : "รวม 6 เดือนล่าสุด"} · ไม่รวมเงินประกัน
-                  </dt>
-                  <dd className="tabular mt-0.5 text-lg font-semibold">{baht(rent6)}</dd>
-                  <dd className="text-xs text-white/50">เฉลี่ย {baht(rent6 / revMonths)} / เดือน</dd>
-                </div>
-              </dl>
             </div>
-            <RevenueChart months={months} revenue={revenue} deposits={deposits} current={thisMonth} />
+            <RevenueChart months={months} revenue={revenue} current={thisMonth} />
           </div>
         </section>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="อัตราการเช่า" icon={<Warehouse className="size-4" />} href="/units" value={`${occRate}%`}>
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Kpi
+          label="อัตราการเช่า"
+          icon={<Warehouse className="size-4" />}
+          href="/units"
+          value={`${occRate}%`}
+          className="col-span-2 lg:col-span-1"
+        >
           <MixBar mix={mix} className="mt-2.5" />
           <p className="mt-1.5 text-xs text-muted">
             มีผู้เช่า {mix.occupied} จาก {mix.total} ห้อง
@@ -201,19 +177,10 @@ export default async function DashboardPage() {
           href="/invoices?tab=unpaid"
           value={baht(outstanding)}
         >
-          <p className="mt-1 text-xs text-muted">{unpaid.length} ใบที่ยังไม่ได้รับเงิน</p>
+          <p className="mt-1 text-xs text-muted">{unpaid.length ? `${unpaid.length} ใบที่ยังไม่ได้รับเงิน` : "ไม่มียอดค้าง"}</p>
           {overdue.length > 0 && (
             <p className="mt-0.5 text-xs font-semibold text-bad">เกินกำหนด {baht(overdueSum)}</p>
           )}
-        </Kpi>
-        <Kpi
-          label="สัญญาใกล้หมด"
-          icon={<CalendarClock className="size-4" />}
-          tone={expiring.length ? "warn" : "neutral"}
-          href="/contracts?tab=expiring"
-          value={expiring.length}
-        >
-          <p className="mt-1 text-xs text-muted">{expiring.length ? "ควรติดต่อต่อสัญญา" : "ภายในเวลาที่ตั้งไว้"}</p>
         </Kpi>
       </div>
 
@@ -414,35 +381,17 @@ function short(n: number) {
   return `${k >= 100 ? Math.round(k) : +k.toFixed(1)}k`;
 }
 
-const DEPOSIT_STRIPES = "bg-[image:repeating-linear-gradient(135deg,rgb(0_0_0/0.4)_0_3px,transparent_3px_6px)]";
-
-function RevenueChart({
-  months,
-  revenue,
-  deposits,
-  current,
-}: {
-  months: string[];
-  revenue: Map<string, number>;
-  deposits: Map<string, number>;
-  current: string;
-}) {
+/** กราฟรายรับ 6 เดือน (ไม่รวมเงินประกัน) */
+function RevenueChart({ months, revenue, current }: { months: string[]; revenue: Map<string, number>; current: string }) {
   const max = Math.max(1, ...revenue.values());
-  const anyDeposit = months.some((m) => (deposits.get(m) ?? 0) > 0);
   return (
-    <div className="flex flex-col gap-2">
-    <div className="grid h-28 grid-cols-6 gap-2 sm:h-44 sm:gap-3" role="img" aria-label="รายรับย้อนหลัง 6 เดือน">
+    <div className="grid h-24 grid-cols-6 gap-2 sm:h-32 sm:gap-3" role="img" aria-label="รายรับย้อนหลัง 6 เดือน">
       {months.map((m) => {
         const v = revenue.get(m) ?? 0;
-        const d = deposits.get(m) ?? 0;
-        const pct = v > 0 ? Math.max(6, (v / max) * 82) : 0;
+        const pct = v > 0 ? Math.max(6, (v / max) * 78) : 0;
         const cur = m === current;
         return (
-          <div
-            key={m}
-            className="flex min-w-0 flex-col items-center gap-2"
-            title={`${thMonth(m)}: ${money(v)} บาท${d > 0 ? ` (เงินประกัน ${money(d)})` : ""}`}
-          >
+          <div key={m} className="flex min-w-0 flex-col items-center gap-1.5" title={`${thMonth(m)}: ${money(v)} บาท`}>
             <div className="relative w-full flex-1">
               <span
                 className={clsx(
@@ -454,15 +403,9 @@ function RevenueChart({
                 {v > 0 ? short(v) : "–"}
               </span>
               <div
-                className={clsx(
-                  "absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-md sm:inset-x-1",
-                  cur ? "bg-brand" : "bg-white/20",
-                )}
+                className={clsx("absolute inset-x-0 bottom-0 rounded-t-md sm:inset-x-1", cur ? "bg-brand" : "bg-white/15")}
                 style={{ height: pct ? `${pct}%` : "2px" }}
-              >
-                {/* ส่วนบนลายทาง = เงินประกัน */}
-                {d > 0 && <span className={clsx("block shrink-0", DEPOSIT_STRIPES)} style={{ height: `${(d / v) * 100}%` }} />}
-              </div>
+              />
             </div>
             <span className={clsx("text-[11px] whitespace-nowrap", cur ? "font-semibold text-white" : "text-white/50")}>
               {thMonth(m)}
@@ -470,12 +413,6 @@ function RevenueChart({
           </div>
         );
       })}
-    </div>
-      {anyDeposit && (
-        <p className="flex items-center justify-end gap-1.5 text-[11px] text-white/50">
-          <span className={clsx("size-3 rounded-sm bg-white/30", DEPOSIT_STRIPES)} /> ส่วนลายทาง = เงินประกัน
-        </p>
-      )}
     </div>
   );
 }
@@ -497,6 +434,7 @@ function Kpi({
   href,
   value,
   children,
+  className,
 }: {
   label: string;
   icon: ReactNode;
@@ -504,9 +442,13 @@ function Kpi({
   href: string;
   value: ReactNode;
   children?: ReactNode;
+  className?: string;
 }) {
   return (
-    <Link href={href} className="card group flex flex-col p-4 transition hover:border-ink/25 hover:shadow-sm sm:p-5">
+    <Link
+      href={href}
+      className={clsx("card group flex flex-col p-4 transition hover:border-ink/25 hover:shadow-sm sm:p-5", className)}
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted sm:text-sm">{label}</span>
         <span className={clsx("grid size-8 shrink-0 place-items-center rounded-lg", ICON_TONE[tone])}>{icon}</span>
@@ -551,25 +493,28 @@ function TaskCard({
   empty: string;
   rows: TaskRow[];
 }) {
+  // ไม่มีงาน: ย่อเหลือแถวเดียวและไปอยู่ท้ายสุด ให้งานที่ต้องทำจริงเด่นขึ้น
+  if (rows.length === 0) {
+    return (
+      <Card className="order-last flex items-center gap-3 self-start px-4 py-3 sm:px-5" title={empty}>
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-canvas text-muted">{icon}</span>
+        <h3 className="min-w-0 flex-1 truncate font-semibold text-ink-2">{title}</h3>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ok">
+          <CheckCircle2 className="size-4" /> ไม่มี
+        </span>
+      </Card>
+    );
+  }
   return (
     <Card className="flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
-        <span className={clsx("grid size-9 shrink-0 place-items-center rounded-xl", count ? ICON_TONE[tone] : ICON_TONE.neutral)}>
-          {icon}
-        </span>
+        <span className={clsx("grid size-9 shrink-0 place-items-center rounded-xl", ICON_TONE[tone])}>{icon}</span>
         <h3 className="min-w-0 flex-1 truncate font-semibold">{title}</h3>
-        {count > 0 && (
-          <Link href={href} className="btn btn-outline btn-sm shrink-0">
-            ดูทั้งหมด {count}
-          </Link>
-        )}
+        <Link href={href} className="btn btn-outline btn-sm shrink-0">
+          ดูทั้งหมด {count}
+        </Link>
       </div>
-      {rows.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center gap-2 px-5 py-8 text-sm text-muted">
-          <CheckCircle2 className="size-4 text-ok" /> {empty}
-        </p>
-      ) : (
-        <ul className="divide-y divide-line">
+      <ul className="divide-y divide-line">
           {rows.map((r) => (
             <li key={r.key}>
               <Link href={r.href} className="flex items-center gap-3 px-4 py-3 transition hover:bg-canvas/60 sm:px-5">
@@ -592,8 +537,7 @@ function TaskCard({
               </Link>
             </li>
           ))}
-        </ul>
-      )}
+      </ul>
     </Card>
   );
 }
