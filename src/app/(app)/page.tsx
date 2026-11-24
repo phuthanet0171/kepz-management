@@ -120,6 +120,68 @@ export default async function DashboardPage() {
       return { ...b, ...m, rate: m.total ? Math.round((m.occupied / m.total) * 100) : 0 };
     });
 
+  // งานที่ต้องจัดการ เรียงตามความเร่ง: งานที่มีรายการแสดงเป็นกรอบ งานที่ไม่มีย่อเป็นป้าย "✓ ไม่มี…"
+  const tasks: TaskProps[] = [
+    {
+      title: "ค้างชำระเกินกำหนด",
+      icon: <AlertTriangle className="size-4" />,
+      tone: "bad",
+      count: overdue.length,
+      href: "/invoices?tab=unpaid",
+      empty: "ไม่มียอดค้างเกินกำหนด",
+      rows: overdue.slice(0, 5).map((i) => ({
+        key: i.id,
+        href: `/invoices/${i.id}`,
+        code: i.unit_code,
+        title: i.tenant_name,
+        sub: i.invoice_no,
+        amount: money(i.outstanding),
+        pill: `เกิน ${i.days_overdue} วัน`,
+        tone: "bad",
+      })),
+    },
+    {
+      title: "ถึงรอบออกบิล",
+      icon: <FilePlus2 className="size-4" />,
+      tone: "brand",
+      count: due.length,
+      href: "/invoices?tab=due",
+      empty: "ไม่มีบิลที่ต้องออก",
+      rows: due.slice(0, 5).map((d) => ({
+        key: d.contract_id,
+        href: `/invoices/new?contract=${d.contract_id}`,
+        code: d.unit_code,
+        title: d.tenant_name,
+        sub: `รอบ ${periodText(d.period_start, d.period_end)}`,
+        amount: money(Number(d.monthly_rent) * d.months),
+        pill: "ออกบิล",
+        tone: "brand",
+      })),
+    },
+    {
+      title: "สัญญาใกล้หมด",
+      icon: <CalendarClock className="size-4" />,
+      tone: "warn",
+      count: expiring.length,
+      href: "/contracts?tab=expiring",
+      empty: "ไม่มีสัญญาใกล้หมด",
+      rows: expiring.slice(0, 5).map((c) => {
+        const d = daysBetween(today, c.end_date);
+        return {
+          key: c.id,
+          href: `/contracts/${c.id}`,
+          code: c.unit_code,
+          title: c.tenant_name,
+          sub: `สิ้นสุด ${thDate(c.end_date)}`,
+          pill: d >= 0 ? `อีก ${d} วัน` : `หมดแล้ว ${-d} วัน`,
+          tone: d < 0 ? "bad" : "warn",
+        };
+      }),
+    },
+  ];
+  const openTasks = tasks.filter((t) => t.rows.length > 0);
+  const doneTasks = tasks.filter((t) => t.rows.length === 0);
+
   return (
     <>
       <Greeting today={today} />
@@ -189,101 +251,71 @@ export default async function DashboardPage() {
         </Kpi>
       </div>
 
-      <h2 className="mb-3 text-lg font-bold tracking-tight">งานที่ต้องจัดการ</h2>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-        <TaskCard
-          title="ค้างชำระเกินกำหนด"
-          icon={<AlertTriangle className="size-4" />}
-          tone="bad"
-          count={overdue.length}
-          href="/invoices?tab=unpaid"
-          empty="ไม่มียอดค้างเกินกำหนด"
-          rows={overdue.slice(0, 5).map((i) => ({
-            key: i.id,
-            href: `/invoices/${i.id}`,
-            code: i.unit_code,
-            title: i.tenant_name,
-            sub: i.invoice_no,
-            amount: money(i.outstanding),
-            pill: `เกิน ${i.days_overdue} วัน`,
-            tone: "bad",
-          }))}
-        />
-        <TaskCard
-          title="ถึงรอบออกบิล"
-          icon={<FilePlus2 className="size-4" />}
-          tone="brand"
-          count={due.length}
-          href="/invoices?tab=due"
-          empty="ไม่มีสัญญาที่ถึงรอบออกบิล"
-          rows={due.slice(0, 5).map((d) => ({
-            key: d.contract_id,
-            href: `/invoices/new?contract=${d.contract_id}`,
-            code: d.unit_code,
-            title: d.tenant_name,
-            sub: `รอบ ${periodText(d.period_start, d.period_end)}`,
-            amount: money(Number(d.monthly_rent) * d.months),
-            pill: "ออกบิล",
-            tone: "brand",
-          }))}
-        />
-        <TaskCard
-          title="สัญญาใกล้หมด"
-          icon={<CalendarClock className="size-4" />}
-          tone="warn"
-          count={expiring.length}
-          href="/contracts?tab=expiring"
-          empty="ไม่มีสัญญาใกล้หมด"
-          rows={expiring.slice(0, 5).map((c) => {
-            const d = daysBetween(today, c.end_date);
-            return {
-              key: c.id,
-              href: `/contracts/${c.id}`,
-              code: c.unit_code,
-              title: c.tenant_name,
-              sub: `สิ้นสุด ${thDate(c.end_date)}`,
-              pill: d >= 0 ? `อีก ${d} วัน` : `หมดแล้ว ${-d} วัน`,
-              tone: d < 0 ? "bad" : "warn",
-            };
-          })}
-        />
-      </div>
-
       {branchStats.length > 1 && (
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink text-brand">
-                <Building2 className="size-4" />
-              </span>
-              <h3 className="min-w-0 flex-1 truncate font-semibold">อัตราการเช่าแต่ละสาขา</h3>
-              <MixLegend className="max-sm:hidden" />
-            </div>
-            <ul className="divide-y divide-line">
-              {branchStats.map((b) => (
-                <li key={b.id}>
-                  <Link
-                    href={`/units?branch=${b.id}`}
-                    className="flex items-center gap-3 px-4 py-3 transition hover:bg-canvas/60 sm:px-5"
-                  >
-                    <span className="tabular grid h-10 w-[4.75rem] shrink-0 place-items-center rounded-xl bg-canvas text-sm font-bold">
-                      {b.rate}%
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                        <span className="truncate text-sm font-semibold">{b.name}</span>
-                        <span className="tabular shrink-0 text-xs text-muted">
-                          {b.occupied}/{b.total} ห้อง
-                        </span>
+        <Card className="mb-6 overflow-hidden">
+          <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink text-brand">
+              <Building2 className="size-4" />
+            </span>
+            <h2 className="min-w-0 flex-1 truncate font-semibold">อัตราการเช่าแต่ละสาขา</h2>
+            <MixLegend className="max-sm:hidden" />
+          </div>
+          <ul
+            className={clsx(
+              "grid gap-3 p-3 sm:grid-cols-2 sm:p-4",
+              // 2 หรือ 4 สาขา = 2 คอลัมน์พอดี ไม่เหลือช่องว่าง
+              branchStats.length !== 2 && branchStats.length !== 4 && "xl:grid-cols-3",
+            )}
+          >
+            {branchStats.map((b) => (
+              <li key={b.id}>
+                <Link
+                  href={`/units?branch=${b.id}`}
+                  className="group block rounded-xl border border-line p-3.5 transition hover:border-ink/25 hover:bg-canvas/50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold">{b.name}</div>
+                      <div className="tabular text-xs text-muted">
+                        มีผู้เช่า {b.occupied}/{b.total} ห้อง{b.available > 0 && ` · ว่าง ${b.available}`}
                       </div>
-                      <MixBar mix={b} />
                     </div>
-                    <ChevronRight className="size-4 shrink-0 text-muted" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Card>
+                    <span className="tabular shrink-0 text-2xl leading-none font-bold">
+                      {b.rate}
+                      <span className="text-sm font-semibold text-muted">%</span>
+                    </span>
+                  </div>
+                  <MixBar mix={b} className="mt-3" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <h2 className="mb-3 text-lg font-bold tracking-tight">งานที่ต้องจัดการ</h2>
+      {doneTasks.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {doneTasks.map((t) => (
+            <span
+              key={t.title}
+              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink-2"
+            >
+              <CheckCircle2 className="size-4 text-ok" /> {t.empty}
+            </span>
+          ))}
+        </div>
+      )}
+      {openTasks.length > 0 && (
+        <div className={clsx("grid grid-cols-1 gap-4", openTasks.length > 1 && "lg:grid-cols-2")}>
+          {openTasks.map((t, i) => (
+            <TaskCard
+              key={t.title}
+              {...t}
+              // งานคี่ใบสุดท้ายกว้างเต็มแถว ไม่ให้เหลือช่องว่างข้างๆ
+              className={openTasks.length % 2 === 1 && i === openTasks.length - 1 && openTasks.length > 1 ? "lg:col-span-2" : undefined}
+            />
+          ))}
         </div>
       )}
     </>
@@ -495,15 +527,7 @@ const PILL_TONE: Record<TaskRow["tone"], string> = {
   brand: "bg-brand text-ink",
 };
 
-function TaskCard({
-  title,
-  icon,
-  tone,
-  count,
-  href,
-  empty,
-  rows,
-}: {
+type TaskProps = {
   title: string;
   icon: ReactNode;
   tone: Tone;
@@ -511,21 +535,11 @@ function TaskCard({
   href: string;
   empty: string;
   rows: TaskRow[];
-}) {
-  // ไม่มีงาน: ย่อเหลือแถวเดียวและไปอยู่ท้ายสุด ให้งานที่ต้องทำจริงเด่นขึ้น
-  if (rows.length === 0) {
-    return (
-      <Card className="order-last flex items-center gap-3 self-start px-4 py-3 sm:px-5" title={empty}>
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-canvas text-muted">{icon}</span>
-        <h3 className="min-w-0 flex-1 truncate font-semibold text-ink-2">{title}</h3>
-        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ok">
-          <CheckCircle2 className="size-4" /> ไม่มี
-        </span>
-      </Card>
-    );
-  }
+};
+
+function TaskCard({ title, icon, tone, count, href, rows, className }: TaskProps & { className?: string }) {
   return (
-    <Card className="flex flex-col overflow-hidden">
+    <Card className={clsx("flex flex-col overflow-hidden", className)}>
       <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
         <span className={clsx("grid size-9 shrink-0 place-items-center rounded-xl", ICON_TONE[tone])}>{icon}</span>
         <h3 className="min-w-0 flex-1 truncate font-semibold">{title}</h3>
