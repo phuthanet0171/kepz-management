@@ -145,7 +145,6 @@ export default async function DashboardPage() {
                 <div className="rounded-xl bg-white/10 px-3.5 py-2.5">
                   <div className="text-xs font-medium text-white/60">เงินประกัน</div>
                   <div className="tabular text-xl font-bold">{baht(depThis)}</div>
-                  <div className="mt-0.5 text-[11px] text-white/50">ต้องคืนผู้เช่า</div>
                 </div>
               </div>
             </div>
