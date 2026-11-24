@@ -9,7 +9,7 @@ import {
   todayTH,
   UNIT_STATUS_LABEL,
 } from "@/lib/format";
-import { agingBucket, getInvoicesInRange, getOutstanding, getPaymentsInRange } from "@/lib/reports";
+import { agingBucket, depositByInvoice, depositShares, getInvoicesInRange, getOutstanding, getPaymentsInRange } from "@/lib/reports";
 import { createClient } from "@/lib/supabase/server";
 import type { ContractView, Tenant, UnitView } from "@/lib/types";
 
@@ -48,9 +48,25 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind
       case "payments": {
         const { year, from, to } = yearRange(req);
         const ps = await getPaymentsInRange(from, to);
+        // แยกเงินประกัน (ต้องคืนผู้เช่า) ออกจากค่าเช่าและรายการอื่น ให้นำไปลงบัญชีได้ตรง
+        const share = await depositShares(ps.filter((p) => !p.is_void));
         filename = `kepz-receipts-${year + 543}.csv`;
         rows = [
-          ["เลขที่ใบเสร็จ", "วันที่ชำระ", "เลขที่ใบวางบิล", "เลขที่สัญญา", "สาขา", "ห้อง", "ผู้เช่า", "ช่องทาง", "เลขอ้างอิง", "จำนวนเงิน", "สถานะ"],
+          [
+            "เลขที่ใบเสร็จ",
+            "วันที่ชำระ",
+            "เลขที่ใบวางบิล",
+            "เลขที่สัญญา",
+            "สาขา",
+            "ห้อง",
+            "ผู้เช่า",
+            "ช่องทาง",
+            "เลขอ้างอิง",
+            "จำนวนเงิน",
+            "ค่าเช่าและรายการอื่น",
+            "เงินประกัน",
+            "สถานะ",
+          ],
           ...ps.map((p) => [
             p.receipt_no,
             p.paid_on,
@@ -62,6 +78,8 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind
             PAYMENT_METHOD_LABEL[p.method],
             p.reference,
             Number(p.amount).toFixed(2),
+            p.is_void ? "0.00" : (Number(p.amount) - (share.get(p.id) ?? 0)).toFixed(2),
+            p.is_void ? "0.00" : (share.get(p.id) ?? 0).toFixed(2),
             p.is_void ? "ยกเลิก" : "ปกติ",
           ]),
         ];
@@ -70,9 +88,27 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind
       case "invoices": {
         const { year, from, to } = yearRange(req);
         const inv = await getInvoicesInRange(from, to);
+        const depInv = await depositByInvoice(inv.map((i) => i.id));
         filename = `kepz-invoices-${year + 543}.csv`;
         rows = [
-          ["เลขที่", "วันที่ออก", "ครบกำหนด", "รอบเริ่ม", "รอบสิ้นสุด", "สาขา", "ห้อง", "ผู้เช่า", "มูลค่าก่อนภาษี", "VAT", "หัก ณ ที่จ่าย", "ยอดชำระสุทธิ", "ชำระแล้ว", "คงค้าง", "สถานะ"],
+          [
+            "เลขที่",
+            "วันที่ออก",
+            "ครบกำหนด",
+            "รอบเริ่ม",
+            "รอบสิ้นสุด",
+            "สาขา",
+            "ห้อง",
+            "ผู้เช่า",
+            "มูลค่าก่อนภาษี",
+            "VAT",
+            "หัก ณ ที่จ่าย",
+            "ยอดชำระสุทธิ",
+            "เงินประกันในบิล",
+            "ชำระแล้ว",
+            "คงค้าง",
+            "สถานะ",
+          ],
           ...inv.map((i) => [
             i.invoice_no,
             i.issue_date,
@@ -86,6 +122,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/export/[kind
             Number(i.vat_amount).toFixed(2),
             Number(i.wht_amount ?? 0).toFixed(2),
             Number(i.total).toFixed(2),
+            (depInv.get(i.id) ?? 0).toFixed(2),
             Number(i.paid_amount).toFixed(2),
             i.status === "void" ? "0.00" : Number(i.outstanding).toFixed(2),
             INVOICE_STATUS_LABEL[i.status],

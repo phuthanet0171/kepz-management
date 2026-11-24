@@ -18,6 +18,7 @@ import { Card, EmptyState } from "@/components/ui";
 import { isOwner } from "@/lib/auth";
 import { fetchAll, getBranches } from "@/lib/data";
 import { addMonths, baht, daysBetween, money, thDate, thMonth, todayTH } from "@/lib/format";
+import { depositShares } from "@/lib/reports";
 import { createClient } from "@/lib/supabase/server";
 import type { BillingDue, ContractView, InvoiceView, UnitView } from "@/lib/types";
 
@@ -88,7 +89,7 @@ export default async function DashboardPage() {
 
   // รายได้รายเดือน (ตามวันที่รับชำระ) แยกส่วนที่เป็นเงินประกันออก (เงินประกันต้องคืนผู้เช่า ไม่ใช่รายได้)
   const months = Array.from({ length: 6 }, (_, i) => addMonths(`${thisMonth}-01`, i - 5).slice(0, 7));
-  const depShare = owner ? await depositShares(supabase, payments) : new Map<string, number>();
+  const depShare = owner ? await depositShares(payments) : new Map<string, number>();
   const revenue = new Map(months.map((m) => [m, 0])); // ไม่รวมเงินประกัน
   let depThis = 0;
   for (const p of payments) {
@@ -323,55 +324,6 @@ export default async function DashboardPage() {
 }
 
 type Pay = { id: string; invoice_id: string; paid_on: string; amount: number; created_at: string };
-
-function chunks<T>(xs: T[], n = 150) {
-  return Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
-}
-
-/**
- * ส่วนที่เป็นเงินประกันของแต่ละใบเสร็จ: บิลที่มีเงินประกัน ยอดที่ชำระนับเป็นเงินประกันก่อน
- * (ตรงกับที่ฐานข้อมูลบันทึกรับเงินประกัน) ไล่ตามลำดับการชำระทั้งหมดของบิลนั้น
- */
-async function depositShares(supabase: Awaited<ReturnType<typeof createClient>>, pays: Pay[]) {
-  const share = new Map<string, number>();
-  const invIds = [...new Set(pays.map((p) => p.invoice_id))];
-  const depByInv = new Map<string, number>();
-  for (const ids of chunks(invIds)) {
-    const items = await fetchAll<{ invoice_id: string; amount: number }>((from, to) =>
-      supabase
-        .from("invoice_items")
-        .select("invoice_id, amount")
-        .eq("item_type", "deposit")
-        .in("invoice_id", ids)
-        .order("id")
-        .range(from, to),
-    );
-    for (const it of items) depByInv.set(it.invoice_id, (depByInv.get(it.invoice_id) ?? 0) + Number(it.amount));
-  }
-  for (const ids of chunks([...depByInv.keys()])) {
-    // ใบเสร็จทั้งหมดของบิลเหล่านี้ (รวมที่จ่ายก่อนช่วง 6 เดือน) เพื่อรู้ว่าเงินประกันถูกจ่ายไปแล้วเท่าไร
-    const all = await fetchAll<Pay>((from, to) =>
-      supabase
-        .from("payments")
-        .select("id, invoice_id, paid_on, amount, created_at")
-        .eq("is_void", false)
-        .in("invoice_id", ids)
-        .order("id")
-        .range(from, to),
-    );
-    all.sort((a, b) => a.paid_on.localeCompare(b.paid_on) || a.created_at.localeCompare(b.created_at));
-    const left = new Map(ids.map((id) => [id, depByInv.get(id) ?? 0]));
-    for (const p of all) {
-      const rest = left.get(p.invoice_id) ?? 0;
-      const part = Math.min(Number(p.amount), rest);
-      if (part > 0) {
-        share.set(p.id, part);
-        left.set(p.invoice_id, rest - part);
-      }
-    }
-  }
-  return share;
-}
 
 type Mix = { total: number; occupied: number; available: number; maintenance: number };
 
