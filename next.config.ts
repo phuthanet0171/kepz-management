@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // อัปโหลดรูปลายน้ำเอกสาร (ย่อแล้วไม่เกิน ~1.5 MB) ผ่าน Server Action
     serverActions: { bodySizeLimit: "3mb" },
+    // คำแนะนำ "Instant" ของ Next (เฉพาะตอน dev) ตรวจเฉพาะหน้าที่ระบุ instant เอง
+    // ทุกหน้ามี loading.tsx แสดงโครงหน้าระหว่างโหลดอยู่แล้ว จึงไม่ต้องให้เตือนทุกหน้า
+    instantInsights: { validationLevel: "manual-warning" },
   },
   partialPrefetching: true,
   turbopack: {
