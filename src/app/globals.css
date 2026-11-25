@@ -137,6 +137,37 @@ dialog::backdrop {
   backdrop-filter: blur(2px);
 }
 
+/* ตัวโหลด Kepz (B1): จุดเหลืองเด้ง · ค่อยๆ ปรากฏหลังรอสักครู่ ไม่กะพริบตอนโหลดเร็ว */
+@keyframes kepz-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.3em);
+  }
+}
+@keyframes kepz-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.kepz-dot {
+  display: inline-block;
+  animation: kepz-bounce 0.9s ease-in-out infinite;
+}
+.kepz-delayed {
+  animation: kepz-fade-in 0.2s ease-out 0.3s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kepz-dot {
+    animation: none;
+  }
+}
+
 @media print {
   /* ขอบ 0 = เบราว์เซอร์ไม่มีที่พิมพ์วันที่/ชื่อหน้า/ลิงก์ ระยะขอบจริงทำใน Paper (print/doc.tsx) */
   @page {

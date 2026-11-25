@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { signOut } from "@/app/actions";
 import { Logo } from "@/components/shell/logo";
 import { BottomNav, BottomNavView, SidebarNav, SidebarNavView } from "@/components/shell/nav";
+import { NavPending } from "@/components/shell/nav-pending";
 import { QuickActions } from "@/components/shell/quick-actions";
 import { getCurrentUser, ROLE_LABEL } from "@/lib/auth";
 
@@ -99,6 +100,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       </Suspense>
       <Suspense fallback={null}>
         <MemberGate />
+      </Suspense>
+      <Suspense fallback={null}>
+        <NavPending />
       </Suspense>
     </div>
   );

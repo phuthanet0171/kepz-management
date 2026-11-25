@@ -1059,7 +1059,7 @@ export function FloorPlanEditor({
               </button>
             )}
             <button type="button" className="btn btn-brand" disabled={saving || resync || !dirty} onClick={save}>
-              <Save className="size-4" />
+              {saving ? <span className="size-4 animate-spin rounded-full border-2 border-current/25 border-t-current" /> : <Save className="size-4" />}
               {saving ? "กำลังบันทึก…" : dirty ? (newCount ? `บันทึกผัง (+${newCount} ห้องใหม่)` : "บันทึกผัง") : "บันทึกแล้ว"}
             </button>
           </div>
@@ -1207,7 +1207,7 @@ export function FloorPlanEditor({
               onClick={save}
               className="ml-1 flex h-12 flex-[1.4] flex-col items-center justify-center rounded-xl bg-brand px-2 text-ink transition active:scale-95 disabled:bg-white/10 disabled:text-white/50"
             >
-              <Save className="size-5" />
+              {saving ? <span className="size-5 animate-spin rounded-full border-2 border-ink/25 border-t-ink" /> : <Save className="size-5" />}
               <span className="text-[11px] leading-tight font-bold whitespace-nowrap">
                 {saving ? "กำลังบันทึก…" : dirty ? (newCount ? `บันทึก (+${newCount})` : "บันทึก") : "บันทึกแล้ว"}
               </span>

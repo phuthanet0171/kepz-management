@@ -1,6 +1,7 @@
 "use client";
 
 import { Ban, Camera, CheckCircle2, Loader2, Wallet, X } from "lucide-react";
+import { signalNavigation } from "@/components/shell/nav-pending";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Field } from "@/components/ui";
@@ -128,7 +129,10 @@ export function RecordPaymentButton({
           onSuccess={(s) => {
             close();
             // เปิดหน้าใบเสร็จ พร้อมเด้งหน้าต่างพิมพ์/บันทึก PDF ให้อัตโนมัติ
-            if (s.id) router.push(`/print/receipt/${s.id}?print=1`);
+            if (s.id) {
+              signalNavigation();
+              router.push(`/print/receipt/${s.id}?print=1`);
+            }
           }}
         >
           <input type="hidden" name="invoice_id" value={invoiceId} />

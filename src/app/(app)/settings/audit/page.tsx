@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { PageLoader } from "@/components/brand-loader";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import { thDateTime } from "@/lib/format";
@@ -130,7 +131,7 @@ export default function AuditPage({ searchParams }: PageProps<"/settings/audit">
     <div className="mx-auto max-w-4xl">
       <PageHeader title="ประวัติการแก้ไข" back={{ href: "/settings", label: "ตั้งค่า" }} />
       {/* ข้อมูลโหลดใน Suspense ให้หัวหน้าแสดงทันทีตอนเปลี่ยนหน้า */}
-      <Suspense fallback={<div className="card h-64 animate-pulse" />}>
+      <Suspense fallback={<PageLoader />}>
         <AuditContent searchParams={searchParams} />
       </Suspense>
     </div>

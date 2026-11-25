@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from "clsx";
+import { signalNavigation } from "@/components/shell/nav-pending";
 import { X } from "lucide-react";
 import {
   createContext,
@@ -43,7 +44,7 @@ export function SubmitButton({
     <button type="submit" className={className} disabled={pending || disabled} name={name} value={value} formNoValidate={formNoValidate}>
       {pending ? (
         <>
-          <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span className="size-4 animate-spin rounded-full border-2 border-current/25 border-t-current in-[.btn-primary]:border-t-brand" />
           {pendingText}
         </>
       ) : (
@@ -269,7 +270,10 @@ export function RowLink({ href, children, className }: { href: string; children:
         if ((e.target as HTMLElement).closest("a, button, input, select, textarea, label")) return;
         if (window.getSelection()?.toString()) return; // กำลังลากเลือกข้อความ
         if (e.metaKey || e.ctrlKey) window.open(href, "_blank");
-        else router.push(href);
+        else {
+          signalNavigation();
+          router.push(href);
+        }
       }}
       onMouseEnter={() => router.prefetch(href)}
     >
