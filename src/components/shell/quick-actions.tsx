@@ -12,7 +12,8 @@ const ACTIONS = [
 ];
 
 /** หน้าที่ไม่ต้องแสดงปุ่ม + (กำลังกรอกฟอร์มหรือจัดผังอยู่) */
-const HIDDEN = [/^\/contracts\/new/, /^\/tenants\/new/, /^\/invoices\/new/, /\/floor-plan/, /^\/menu/];
+// /units = ผังห้อง ปุ่มลอยจะบังห้อง (ทำสัญญาได้จากแผงข้อมูลห้องอยู่แล้ว)
+const HIDDEN = [/^\/contracts\/new/, /^\/tenants\/new/, /^\/invoices\/new/, /\/floor-plan/, /^\/menu/, /^\/units$/];
 
 /** ปุ่ม + ลอยมุมขวาล่างบนมือถือ/แท็บเล็ต สำหรับงานที่ทำบ่อย */
 export function QuickActions() {

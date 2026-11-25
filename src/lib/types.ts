@@ -308,4 +308,7 @@ export interface PlanUnit {
   has_overdue: boolean;
   /** มีบิลที่ยังไม่ชำระครบ (รวมที่ยังไม่ถึงกำหนด) */
   has_unpaid?: boolean;
+  /** ค่าเช่าและวันสิ้นสุดของสัญญาที่ใช้งานอยู่ (แสดงในแผงข้อมูลห้องบนผัง) */
+  contract_rent?: number | null;
+  contract_end_date?: string | null;
 }

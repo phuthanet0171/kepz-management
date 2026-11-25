@@ -51,6 +51,8 @@ export async function getBranchPlanData(branchId: string) {
     tenant_name: u.tenant_name,
     has_overdue: overdueUnits.has(u.id),
     has_unpaid: unpaidUnits.has(u.id),
+    contract_rent: u.contract_rent,
+    contract_end_date: u.contract_end_date,
   }));
 
   return { plans, placements, objects, units: planUnits };

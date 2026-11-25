@@ -8,7 +8,6 @@ import {
   Copy,
   ExternalLink,
   LayoutGrid,
-  Maximize2,
   Minus,
   Pencil,
   Plus,
@@ -49,6 +48,7 @@ import {
   type Rect,
 } from "@/components/floor-plan/shared";
 import type { FloorPlan, Placement, PlanColor, PlanObject, PlanShape, PlanUnit, UnitType } from "@/lib/types";
+import { usePinchZoom, ZoomBar } from "@/components/floor-plan/zoom-controls";
 import { saveFloorPlan } from "./actions";
 
 /**
@@ -189,10 +189,23 @@ export function FloorPlanEditor({
     if (zoomFitted.current || window.innerWidth >= 1024) return;
     zoomFitted.current = true;
     fitToContent();
-    // มือถือ: เลื่อนให้ผังเต็มจอตั้งแต่เปิดหน้า
-    const sc = scrollRef.current;
-    const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 60;
-    if (sc) window.scrollBy({ top: sc.getBoundingClientRect().top - headerBottom - 8 });
+  }, []);
+
+  // มือถือ: ผังสูงพอดีพื้นที่ที่เหลือระหว่างหัวหน้ากับแถบซูม + แถบปุ่มล่าง (ไม่ต้องเลื่อนทั้งหน้า)
+  const zoomBarRef = useRef<HTMLDivElement>(null);
+  const [mobileH, setMobileH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const calc = () => {
+      const sc = scrollRef.current;
+      if (window.innerWidth >= 1024 || !sc) return setMobileH(null);
+      const top = sc.getBoundingClientRect().top + window.scrollY;
+      const bar = document.querySelector("[data-editor-bar]")?.getBoundingClientRect().height ?? 64;
+      const zb = (zoomBarRef.current?.offsetHeight ?? 36) + 8;
+      setMobileH(Math.max(240, Math.round(window.innerHeight - top - bar - zb - 8)));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
   }, []);
 
   /** เปลี่ยนผังและเก็บประวัติให้ย้อนกลับได้ */
@@ -254,6 +267,25 @@ export function FloorPlanEditor({
 
   // ไม่มีรูปที่เลือก = ปิดแผงแก้ไข
   if (!sel && sheet === "item") setSheet(null);
+
+  // ใช้สองนิ้วซูม: ถ้าเริ่มบีบระหว่างลากห้อง ให้ยกเลิกการลากนั้น (ห้องกลับที่เดิม)
+  const dragRef = useRef<Drag | null>(null);
+  useEffect(() => {
+    dragRef.current = drag;
+  }, [drag]);
+  usePinchZoom(scrollRef, zoom, setZoom, {
+    min: 0.4,
+    max: 2.5,
+    onPinchStart: () => {
+      const d = dragRef.current;
+      if (!d) return;
+      if (d.kind !== "new") {
+        docRef.current = d.before;
+        setDocState(d.before);
+      }
+      setDrag(null);
+    },
+  });
 
   const { name, cols, rows, items } = doc;
   const cell = BASE_CELL * zoom;
@@ -1061,7 +1093,8 @@ export function FloorPlanEditor({
         <div className="relative">
           <div
             ref={scrollRef}
-            className="overflow-auto rounded-xl border border-line bg-surface max-lg:h-[calc(100dvh-10.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:max-h-[calc(100dvh-14rem)]"
+            className="overflow-auto rounded-xl border border-line bg-surface max-lg:h-[calc(100dvh-15rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:max-h-[calc(100dvh-14rem)]"
+            style={{ touchAction: "pan-x pan-y", ...(mobileH ? { height: mobileH } : {}) }}
           >
             <div
               ref={canvasRef}
@@ -1115,33 +1148,16 @@ export function FloorPlanEditor({
               })}
             </div>
           </div>
-          {/* มือถือ: ปุ่มซูมลอยมุมผัง */}
-          <div className="absolute top-2 right-2 z-10 flex flex-col overflow-hidden rounded-xl border border-line bg-surface/95 shadow-md lg:hidden">
-            <button
-              type="button"
-              className="grid size-10 place-items-center active:bg-canvas"
-              aria-label="ขยาย"
-              onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
-            >
-              <Plus className="size-4" />
-            </button>
-            <button
-              type="button"
-              className="grid size-10 place-items-center border-y border-line active:bg-canvas"
-              aria-label="ย่อ"
-              onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.2).toFixed(1)))}
-            >
-              <Minus className="size-4" />
-            </button>
-            <button
-              type="button"
-              className="grid size-10 place-items-center active:bg-canvas"
-              aria-label="พอดีจอ"
-              onClick={fitToContent}
-            >
-              <Maximize2 className="size-4" />
-            </button>
-          </div>
+        </div>
+        {/* มือถือ: ซูมอยู่ใต้ผัง ไม่ลอยทับห้อง · ใช้สองนิ้วซูมได้ */}
+        <div ref={zoomBarRef} className="lg:hidden">
+          <ZoomBar
+            zoom={zoom}
+            hint={pending ? "แตะบนผังตรงที่จะวางห้อง" : sel ? "ลากย้าย · ลากมุมปรับขนาด" : "แตะห้องเพื่อเลือก · 2 นิ้วซูม"}
+            onIn={() => setZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
+            onOut={() => setZoom((z) => Math.max(0.4, +(z - 0.2).toFixed(1)))}
+            onFit={fitToContent}
+          />
         </div>
         <p className="text-xs text-muted max-lg:hidden">
           ลากเพื่อย้าย · ลากมุมขวาล่างเพื่อปรับขนาด · ลูกศรขยับ (Shift = 5 ช่อง) · R หมุน · Ctrl+D ทำซ้ำ · Ctrl+Z ย้อนกลับ · Delete ลบ
@@ -1149,7 +1165,10 @@ export function FloorPlanEditor({
       </div>
 
       {/* มือถือ: แถบปุ่มติดด้านล่างจอ (แทนเมนูล่างของเว็บในหน้านี้) */}
-      <nav className="no-print fixed inset-x-0 bottom-0 z-40 border-t-[3px] border-brand bg-ink pb-[env(safe-area-inset-bottom)] text-white lg:hidden">
+      <nav
+        data-editor-bar
+        className="no-print fixed inset-x-0 bottom-0 z-40 border-t-[3px] border-brand bg-ink pb-[env(safe-area-inset-bottom)] text-white lg:hidden"
+      >
         {sel && selItem ? (
           <div className="flex items-center gap-1 px-2 py-1.5">
             <span

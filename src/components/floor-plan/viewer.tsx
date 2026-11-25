@@ -4,7 +4,9 @@ import clsx from "clsx";
 import { BadgeCheck, ChevronRight, FileSignature, Maximize2, Minus, Palette, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { baht, thDate } from "@/lib/format";
 import type { FloorPlan, Placement, PlanObject, PlanUnit } from "@/lib/types";
+import { usePinchZoom, ZoomBar } from "./zoom-controls";
 import {
   BASE_CELL,
   colorStyle,
@@ -177,6 +179,8 @@ export function FloorPlanViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan.cols]);
 
+  usePinchZoom(wrapRef, zoom, setZoom, { min: 0.3, max: 3 });
+
   const cell = BASE_CELL * zoom;
 
   return (
@@ -247,7 +251,11 @@ export function FloorPlanViewer({
         )}
       </div>
       <div className="relative">
-        <div ref={wrapRef} className="overflow-auto rounded-xl border border-line bg-surface max-lg:max-h-[calc(100dvh-15rem)]">
+        <div
+          ref={wrapRef}
+          className="overflow-auto rounded-xl border border-line bg-surface max-lg:max-h-[calc(100dvh-17rem)]"
+          style={{ touchAction: "pan-x pan-y" }}
+        >
           <div className="relative" style={{ width: viewCols * cell, height: viewRows * cell, ...gridBackground(cell) }}>
             {objects.map((o) => (
               <PlanObjectBox key={o.id} o={{ ...o, x: o.x - offX, y: o.y - offY }} cell={cell} />
@@ -315,29 +323,16 @@ export function FloorPlanViewer({
             })}
           </div>
         </div>
-        {/* มือถือ: ปุ่มซูมลอยมุมผัง */}
-        <div className="absolute top-2 right-2 z-10 flex flex-col overflow-hidden rounded-xl border border-line bg-surface/95 shadow-md lg:hidden">
-          <button
-            type="button"
-            className="grid size-10 place-items-center active:bg-canvas"
-            aria-label="ขยาย"
-            onClick={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))}
-          >
-            <Plus className="size-4" />
-          </button>
-          <button
-            type="button"
-            className="grid size-10 place-items-center border-y border-line active:bg-canvas"
-            aria-label="ย่อ"
-            onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}
-          >
-            <Minus className="size-4" />
-          </button>
-          <button type="button" className="grid size-10 place-items-center active:bg-canvas" aria-label="พอดีจอ" onClick={fit}>
-            <Maximize2 className="size-4" />
-          </button>
-        </div>
       </div>
+      {/* มือถือ: ซูมอยู่ใต้ผัง ไม่ลอยทับห้อง · ใช้สองนิ้วซูมได้ */}
+      <ZoomBar
+        className="mt-2 lg:hidden"
+        zoom={zoom}
+        hint="แตะห้องดูข้อมูล · 2 นิ้วซูม"
+        onIn={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))}
+        onOut={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}
+        onFit={fit}
+      />
 
       {pickedUnit && <UnitQuickSheet unit={pickedUnit} onClose={() => setPicked(null)} />}
     </div>
@@ -387,10 +382,24 @@ function UnitQuickSheet({ unit: u, onClose }: { unit: PlanUnit; onClose: () => v
           )}
         </div>
         {u.tenant_name && (
-          <div className="mx-5 mt-3 rounded-xl bg-canvas px-3.5 py-2.5">
-            <div className="text-xs text-muted">ผู้เช่า</div>
-            <div className="font-semibold">{u.tenant_name}</div>
-          </div>
+          <dl className="mx-5 mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-xl bg-canvas px-3.5 py-3">
+            <div className="col-span-2">
+              <dt className="text-xs text-muted">ผู้เช่า</dt>
+              <dd className="font-semibold">{u.tenant_name}</dd>
+            </div>
+            {u.contract_rent != null && (
+              <div>
+                <dt className="text-xs text-muted">ค่าเช่า/เดือน</dt>
+                <dd className="tabular font-semibold">{baht(u.contract_rent)}</dd>
+              </div>
+            )}
+            {u.contract_end_date && (
+              <div>
+                <dt className="text-xs text-muted">สัญญาสิ้นสุด</dt>
+                <dd className={clsx("font-semibold", u.is_expiring && "text-warn")}>{thDate(u.contract_end_date)}</dd>
+              </div>
+            )}
+          </dl>
         )}
         <div className="grid gap-2 p-5">
           {u.status === "available" && (

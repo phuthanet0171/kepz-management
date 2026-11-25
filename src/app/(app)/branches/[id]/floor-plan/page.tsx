@@ -1,6 +1,6 @@
 import { requireOwner } from "@/lib/auth";
 import clsx from "clsx";
-import { Map as MapIcon } from "lucide-react";
+import { ChevronLeft, Map as MapIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,7 +9,7 @@ import { getUnitTypes } from "@/lib/data";
 import { getBranchPlanData } from "@/lib/floor-plans";
 import { createClient } from "@/lib/supabase/server";
 import { FloorPlanEditor } from "./editor";
-import { AddPlanButton, DeletePlanButton, FirstPlanForm } from "./plan-actions";
+import { AddPlanButton, DeletePlanButton, FirstPlanForm, PlanMenuButton } from "./plan-actions";
 
 export const metadata: Metadata = { title: "จัดผังสถานที่" };
 
@@ -54,9 +54,35 @@ export default async function FloorPlanEditPage({ params, searchParams }: PagePr
 
   return (
     <>
-      {header}
+      <div className="max-lg:hidden">{header}</div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      {/* มือถือ: หัวแถวเดียว (ย้อนกลับ · ชั้น/โซน · ⋯) ให้ผังได้พื้นที่มากที่สุด */}
+      <div className="-mt-2 mb-2 flex items-center gap-2 lg:hidden">
+        <Link
+          href={`/units?branch=${id}`}
+          aria-label={`กลับไปห้องและที่จอด · ${branch.name}`}
+          className="grid size-9 shrink-0 place-items-center rounded-full border border-line bg-surface active:bg-canvas"
+        >
+          <ChevronLeft className="size-5" />
+        </Link>
+        <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+          {plans.map((p) => (
+            <Link
+              key={p.id}
+              href={`/branches/${id}/floor-plan?plan=${p.id}`}
+              className={clsx(
+                "shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium whitespace-nowrap",
+                p.id === plan.id ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink-2",
+              )}
+            >
+              {p.name}
+            </Link>
+          ))}
+        </div>
+        <PlanMenuButton branchId={id} planId={plan.id} planName={plan.name} nextIndex={plans.length + 1} />
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 max-lg:hidden">
         {plans.map((p) => (
           <Link
             key={p.id}
