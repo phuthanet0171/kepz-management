@@ -6,7 +6,7 @@ export default function PrintLayout({ children }: { children: ReactNode }) {
     <Suspense
       fallback={
         <div className="kepz-delayed grid min-h-dvh place-items-center bg-canvas">
-          <BrandLoader label="กำลังเตรียมเอกสาร…" />
+          <BrandLoader size="lg" />
         </div>
       }
     >

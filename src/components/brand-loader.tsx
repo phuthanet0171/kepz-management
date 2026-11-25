@@ -6,7 +6,7 @@ import clsx from "clsx";
  * ไม่มี JS (เป็น CSS ล้วน) จึงแสดงได้ทันทีตั้งแต่ HTML แรก
  */
 export function BrandLoader({
-  label = "กำลังโหลด…",
+  label = null,
   size = "md",
   className,
 }: {
@@ -30,11 +30,13 @@ export function BrandLoader({
   );
 }
 
-/** พื้นที่เนื้อหาระหว่างรอ: ตัวโหลดอยู่กลาง ค่อยๆ ปรากฏหลัง 0.3 วิ (โหลดเร็วจะไม่เห็นกะพริบ) */
-export function PageLoader({ label }: { label?: string | null }) {
+/** ระหว่างรอ: ตัวโหลดอยู่กลางจอ (บนคอมกลางพื้นที่ข้างเมนู) ค่อยๆ ปรากฏหลัง 0.3 วิ ไม่กะพริบตอนโหลดเร็ว */
+export function PageLoader() {
   return (
-    <div className="kepz-delayed grid min-h-[60dvh] place-items-center">
-      <BrandLoader label={label} />
+    <div className="min-h-[60dvh]">
+      <div className="kepz-delayed pointer-events-none fixed inset-0 z-20 grid place-items-center lg:pl-64">
+        <BrandLoader size="lg" />
+      </div>
     </div>
   );
 }

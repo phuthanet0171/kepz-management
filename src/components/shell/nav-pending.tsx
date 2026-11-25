@@ -66,8 +66,8 @@ export function NavPending() {
   if (!show) return null;
   return (
     <div className="no-print pointer-events-none fixed inset-0 z-[35] grid place-items-center lg:pl-64">
-      <div className="kepz-delayed rounded-3xl bg-surface/95 px-10 py-7 shadow-lg ring-1 ring-line">
-        <BrandLoader />
+      <div className="kepz-delayed rounded-3xl bg-surface/95 px-8 py-6 shadow-lg ring-1 ring-line">
+        <BrandLoader size="lg" />
       </div>
     </div>
   );
